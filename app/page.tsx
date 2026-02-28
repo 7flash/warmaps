@@ -1,0 +1,126 @@
+import { Head } from 'melina/web';
+
+export default function Page() {
+    const now = new Date().toUTCString();
+
+    return (
+        <>
+            <Head>
+                <title>STARWAR — Global Conflict Monitor</title>
+            </Head>
+
+            {/* ─── Top Bar ─────────────────────────────── */}
+            <header id="top-bar">
+                <div class="top-bar-left">
+                    <span class="logo">◆ STARWAR</span>
+                    <span class="separator">│</span>
+                    <span class="tagline">GLOBAL CONFLICT MONITOR</span>
+                </div>
+                <div class="top-bar-right">
+                    <span class="status-indicator">
+                        <span class="pulse-dot"></span>
+                        LIVE
+                    </span>
+                    <span class="separator">│</span>
+                    <span id="clock" class="clock">{now}</span>
+                </div>
+            </header>
+
+            {/* ─── Main Dashboard Grid ─────────────────── */}
+            <div id="dashboard">
+
+                {/* Left Panel: News Feed */}
+                <aside id="news-panel">
+                    <div class="panel-header">
+                        <h2>INTEL FEED</h2>
+                        <div class="feed-filters" id="feed-filters">
+                            <button class="filter-btn active" data-source="all">ALL</button>
+                            <button class="filter-btn" data-source="reuters">REUTERS</button>
+                            <button class="filter-btn" data-source="bbc">BBC</button>
+                            <button class="filter-btn" data-source="aljazeera">AL JAZEERA</button>
+                        </div>
+                    </div>
+                    <div id="news-feed" class="feed-list">
+                        <div class="loading-state">
+                            <span class="spinner"></span>
+                            <span>Establishing secure feed...</span>
+                        </div>
+                    </div>
+                </aside>
+
+                {/* Center: Map */}
+                <main id="map-container">
+                    <div id="map" class="map-view"></div>
+                    <div id="map-overlay" class="map-overlay">
+                        <div class="map-stats" id="map-stats">
+                            <span>Events: <strong id="event-count">—</strong></span>
+                            <span class="separator">│</span>
+                            <span>Fires: <strong id="fire-count">—</strong></span>
+                            <span class="separator">│</span>
+                            <span>Sources: <strong id="source-count">—</strong></span>
+                        </div>
+                    </div>
+
+                    {/* Bottom Ticker */}
+                    <div id="ticker" class="ticker">
+                        <div class="ticker-label">▶ BREAKING</div>
+                        <div class="ticker-content" id="ticker-content">
+                            Initializing global monitoring systems...
+                        </div>
+                    </div>
+                </main>
+
+                {/* Right Panel: Live TV + GDELT Events */}
+                <aside id="intel-panel">
+                    <div class="panel-section">
+                        <div class="panel-header">
+                            <h2>LIVE NEWS TV</h2>
+                        </div>
+                        <div id="tv-channels" class="tv-channels">
+                            <button class="channel-btn active" data-channel="UCIRYBXDze5krPDzAEOxFGVA">AL JAZEERA</button>
+                            <button class="channel-btn" data-channel="UCQfwfsi5VrQ8yKZ-UWmAEFg">FRANCE24</button>
+                            <button class="channel-btn" data-channel="UC_gUM8rL-Lrg6O3adPW9K1g">SKY NEWS</button>
+                            <button class="channel-btn" data-channel="UCUMZ7gohGI9HcU9VNsr2FJQ">BLOOMBERG</button>
+                            <button class="channel-btn" data-channel="UCknLrEdhRCp1aegoMqRaCZg">DW</button>
+                            <button class="channel-btn" data-channel="UCupvZG-5ko_eiXAupbDfxWw">CNN</button>
+                        </div>
+                        <div id="tv-player" class="tv-player">
+                            <iframe
+                                id="tv-iframe"
+                                src="https://www.youtube.com/embed/live_stream?channel=UCIRYBXDze5krPDzAEOxFGVA&autoplay=1&mute=1"
+                                allow="autoplay; encrypted-media"
+                                allowFullScreen={true}
+                            ></iframe>
+                        </div>
+                    </div>
+
+                    <div class="panel-section">
+                        <div class="panel-header">
+                            <h2>GDELT EVENTS</h2>
+                            <span class="badge" id="gdelt-count">0</span>
+                        </div>
+                        <div id="gdelt-feed" class="feed-list feed-list--short">
+                            <div class="loading-state">
+                                <span class="spinner"></span>
+                                <span>Querying GDELT...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-section">
+                        <div class="panel-header">
+                            <h2>🔥 SATELLITE FIRES</h2>
+                            <span class="badge" id="firms-count">0</span>
+                        </div>
+                        <div id="firms-feed" class="feed-list feed-list--short">
+                            <div class="loading-state">
+                                <span class="spinner"></span>
+                                <span>Scanning NASA FIRMS...</span>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </>
+    );
+}

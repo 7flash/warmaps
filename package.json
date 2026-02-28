@@ -1,0 +1,15 @@
+{
+  "name": "starwar",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "melina": "^2.3.1"
+  }
+}
