@@ -119,6 +119,25 @@ export default function Page() {
                             </div>
                         </div>
                     </div>
+
+                    <div class="panel-section panel-section--chat">
+                        <div class="panel-header">
+                            <h2>GLOBAL CHAT</h2>
+                            <span class="badge" id="chat-online">0</span>
+                        </div>
+                        <div id="chat-messages" class="chat-messages"></div>
+                        <div class="chat-input-row">
+                            <input
+                                type="text"
+                                id="chat-input"
+                                class="chat-input"
+                                placeholder="Type message..."
+                                maxLength={500}
+                                autoComplete="off"
+                            />
+                            <button id="chat-send" class="chat-send-btn">SEND</button>
+                        </div>
+                    </div>
                 </aside>
             </div>
         </>

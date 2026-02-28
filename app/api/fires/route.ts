@@ -20,7 +20,7 @@ interface FirePoint {
 }
 
 // NASA FIRMS open data endpoint (no key needed for recent CSV)
-const FIRMS_URL = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv/d8b2202916a4b6ed34dbad7f3c7a968e/VIIRS_SNPP_NRT/world/1';
+const FIRMS_URL = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv/383a6d23c713336073aa623b0ef5e200/VIIRS_SNPP_NRT/world/1';
 
 async function fetchFires(): Promise<FirePoint[]> {
     try {
