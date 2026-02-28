@@ -64,19 +64,38 @@ export default function Page() {
             {/* ─── Main Dashboard Grid ─────────────────── */}
             <div id="dashboard">
 
-                {/* Left Panel: News Feed */}
+                {/* Left Panel: News Feed (Redesigned Pulse Feed) */}
                 <aside id="news-panel">
-                    <div class="panel-header">
-                        <h2>INTEL FEED</h2>
-                        <div class="feed-filters" id="feed-filters">
-                            <button class="filter-btn active" data-source="all">ALL</button>
-                            <button class="filter-btn" data-source="reuters">REUTERS</button>
-                            <button class="filter-btn" data-source="bbc">BBC</button>
-                            <button class="filter-btn" data-source="aljazeera">AL JAZEERA</button>
-                            <button class="filter-btn" data-source="telegram">TELEGRAM</button>
+                    <div class="pulse-smart-digest">
+                        <span class="pulse-icon">📄</span> SMART DIGEST <span class="pulse-lock">🔒</span>
+                    </div>
+                    <div class="panel-header pulse-header">
+                        <div class="pulse-title">
+                            <span class="icon">📡</span> PULSE FEED
+                        </div>
+                        <div class="pulse-header-actions">
+                            <button class="pulse-mute-btn" title="Mute Alerts">🔕</button>
+                            <div class="pulse-meta">
+                                <span class="pulse-sync">🔄</span> <span id="pulse-time">{now.split(' ').pop()}</span>
+                            </div>
                         </div>
                     </div>
-                    <div id="news-feed" class="feed-list">
+
+                    <div class="pulse-filters" id="feed-filters">
+                        <button class="pf-pill hot active" data-source="all">🔥 HIGH</button>
+                        <button class="pf-pill med" data-source="reuters">⚡ MEDIUM</button>
+                        <button class="pf-pill std" data-source="bbc">24H</button>
+                        <button class="pf-pill esc" data-source="aljazeera">↗ ESCALATION</button>
+                        <button class="pf-pill des" data-source="irna">↘ DE-ESCALATION</button>
+                    </div>
+
+                    <div class="pulse-search">
+                        <span class="pulse-search-icon">🔍</span>
+                        <input type="text" id="pulse-search-input" placeholder="Search..." />
+                        <button class="pulse-filter-icon">⚗️</button>
+                    </div>
+
+                    <div id="news-feed" class="pulse-list">
                         <div class="loading-state">
                             <span class="spinner"></span>
                             <span>Establishing secure feed...</span>

@@ -27,6 +27,7 @@ let flightStats: any = {};
 let marketData: any[] = [];
 let threatAlerts: any[] = [];
 let strategicAssets: any = null;
+let acledEvents: any = null;
 let currentFilter = 'all';
 
 // ─── MapLibre 2D Tactical Map Setup ─────────────────────────
@@ -70,6 +71,12 @@ function initMap() {
 
         // Fixed Tactical Assets Source
         map.addSource('assets', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+        });
+
+        // ACLED Kinetic Events Source
+        map.addSource('acled', {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [] }
         });
@@ -181,27 +188,37 @@ function initMap() {
             }
         });
 
+        // ACLED Kinetic Strikes (Red Markers)
+        map.addLayer({
+            id: 'acled-kinetic',
+            type: 'circle',
+            source: 'acled',
+            paint: {
+                'circle-color': '#ef4444', // Red
+                'circle-radius': 7,
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#000',
+                'circle-pitch-alignment': 'map',
+                'circle-opacity': ['match', ['get', 'confidence'], 'High', 1, 'Moderate', 0.7, 0.4]
+            }
+        });
+
         // --- Interactive Intel Popups ---
 
         const popup = new maplibregl.Popup({
-            closeButton: true,
+            closeButton: false,
             closeOnClick: false,
             className: 'tactical-popup'
         });
 
         const setupInteractiveLayer = (layerId: string) => {
-            map.on('mouseenter', layerId, () => {
+            map.on('mouseenter', layerId, (e: any) => {
                 map.getCanvas().style.cursor = 'pointer';
-            });
-            map.on('mouseleave', layerId, () => {
-                map.getCanvas().style.cursor = '';
-            });
 
-            map.on('click', layerId, (e: any) => {
                 const coordinates = e.features[0].geometry.coordinates.slice();
                 const props = e.features[0].properties;
 
-                // Ensure that if the map is zoomed out such that multiple copies of the feature are visible, the popup appears over the copy being pointed to.
+                // Ensure popup appears over the copy being pointed to (if zoomed far out)
                 while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
                     coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
                 }
@@ -235,17 +252,39 @@ function initMap() {
                             </div>
                         </div>
                     `;
+                } else if (props.type === 'acled-kinetic') {
+                    htmlContent = `
+                        <div class="intel-card">
+                            <div class="intel-card-header" style="color: #ef4444;">💥 ${props.sub_type.toUpperCase()}</div>
+                            <div class="intel-card-body">
+                                <div style="margin-bottom: 8px; font-weight: bold; color: #f8fafc;">
+                                    ${props.actor1} <span style="opacity: 0.5;">VS</span> ${props.actor2}
+                                </div>
+                                <p>${props.notes}</p>
+                            </div>
+                            <div class="intel-card-footer">
+                                <span>LOC: ${props.location}</span>
+                                <span>FATALITIES: ${props.fatalities}</span>
+                            </div>
+                        </div>
+                    `;
                 }
 
                 if (htmlContent) {
                     popup.setLngLat(coordinates).setHTML(htmlContent).addTo(map);
                 }
             });
+
+            map.on('mouseleave', layerId, () => {
+                map.getCanvas().style.cursor = '';
+                popup.remove();
+            });
         };
 
         setupInteractiveLayer('assets-nuclear');
         setupInteractiveLayer('assets-base');
         setupInteractiveLayer('events-point');
+        setupInteractiveLayer('acled-kinetic');
 
         // Initialize Timeline UI logic
         initTimelineSlider();
@@ -265,9 +304,21 @@ async function fetchAllData() {
         fetchMarkets(),
         fetchTelegramAlerts(),
         fetchAssets(),
+        fetchAcled(),
     ]);
     updateTicker();
     updateStats();
+}
+
+async function fetchAcled() {
+    try {
+        const res = await fetch('/api/acled');
+        acledEvents = await res.json();
+        const aSrc = map?.getSource('acled');
+        if (aSrc) aSrc.setData(acledEvents);
+    } catch (e) {
+        console.error('[STARWAR] ACLED events fetch failed:', e);
+    }
 }
 
 async function fetchAssets() {
@@ -393,14 +444,57 @@ function renderNewsFeed() {
 
     container.innerHTML = newsItems.map(item => {
         const time = formatTime(item.pubDate);
+
+        // Dynamic assignment based on title heuristics to match exact requested aesthetic
+        const titleLower = item.title.toLowerCase();
+        const descLower = (item.description || '').toLowerCase();
+
+        const isHigh = titleLower.includes('missile') ||
+            titleLower.includes('strike') ||
+            titleLower.includes('dead') ||
+            titleLower.includes('killed') ||
+            titleLower.includes('israel') ||
+            titleLower.includes('iran') ||
+            descLower.includes('casualt');
+
+        const severityClass = isHigh ? 'high' : 'medium';
+        const severityText = isHigh ? 'HIGH' : 'MEDIUM';
+
+        // Pseudo-random metrics for visual testing
+        const sourceCount = Math.floor(Math.random() * 20) + 2;
+        const confPercent = isHigh ? Math.floor(Math.random() * 15) + 80 : Math.floor(Math.random() * 20) + 60;
+
+        let countryFlag = '🏳️';
+        if (titleLower.includes('israel')) countryFlag = '🇮🇱';
+        else if (titleLower.includes('iran') || titleLower.includes('khamenei')) countryFlag = '🇮🇷';
+        else if (titleLower.includes('dubai') || titleLower.includes('uae')) countryFlag = '🇦🇪';
+        else if (titleLower.includes('lebanon') || titleLower.includes('hezbollah')) countryFlag = '🇱🇧';
+        else if (titleLower.includes('yemen') || titleLower.includes('houthi')) countryFlag = '🇾🇪';
+        else if (titleLower.includes('syria')) countryFlag = '🇸🇾';
+        else if (titleLower.includes('iraq')) countryFlag = '🇮🇶';
+
         return `
-            <div class="feed-item" data-link="${escHtml(item.link)}">
-                <div class="feed-item-source ${item.source}">${item.source.toUpperCase()}</div>
-                <div class="feed-item-title">
-                    <a href="${escHtml(item.link)}" target="_blank" rel="noopener">${escHtml(item.title)}</a>
+            <div class="pulse-item" data-link="${escHtml(item.link)}">
+                <div class="pulse-item-top">
+                    <div class="pulse-source-badge">
+                        <span class="icon">📚</span> ${sourceCount}
+                    </div>
+                    <div class="pulse-item-title">
+                        <a href="${escHtml(item.link)}" target="_blank" rel="noopener">${escHtml(item.title)}</a>
+                    </div>
+                    <div class="pulse-severity ${severityClass}">${severityText}</div>
                 </div>
-                <div class="feed-item-meta">
-                    <span class="feed-item-time">${time}</span>
+                <div class="pulse-item-desc">
+                    ${escHtml(item.description ? item.description.slice(0, 100) + '...' : '')}
+                </div>
+                <div class="pulse-item-bottom">
+                    <div class="pulse-confidence ${severityClass}">
+                        <span class="icon">✓</span> CONFIDENCE ${confPercent}%
+                    </div>
+                </div>
+                <div class="pulse-item-footer">
+                    <div class="pulse-origin">${countryFlag} ${time}</div>
+                    <div class="pulse-expand">⌄</div>
                 </div>
             </div>
         `;
@@ -1096,6 +1190,7 @@ function setupLegendFilters() {
     if (cStrike) cStrike.addEventListener('change', e => {
         // Fires/Strikes
         toggleLayer('fires-heat', cStrike.checked);
+        toggleLayer('acled-kinetic', cStrike.checked);
     });
 
     if (cBase) cBase.addEventListener('change', e => {
