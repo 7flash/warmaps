@@ -16,6 +16,9 @@ export const OSINT_CHANNELS = [
     { id: 'faraborsnews', title: 'Fars News Agency', category: 'state' },
     { id: 'TasnimNewsEN', title: 'Tasnim News (IRGC-linked)', category: 'state' },
     { id: 'IranIntlEn', title: 'Iran International', category: 'state' },
+    { id: 'TehranTimes', title: 'Tehran Times', category: 'state' },
+    { id: 'SepahNews', title: 'Sepah News (IRGC)', category: 'state' },
+    { id: 'PressTV', title: 'Press TV', category: 'state' },
 
     // ─ Conflict Media & Aggregators ─
     { id: 'Middle_East_Spectator', title: 'Middle East Spectator', category: 'conflict' },
@@ -25,9 +28,17 @@ export const OSINT_CHANNELS = [
     { id: 'CIG_telegram', title: 'Caliber Intelligence Group', category: 'conflict' },
     { id: 'IntelRepublic', title: 'Intelligence Republic', category: 'conflict' },
     { id: 'RedAlertsIsrael', title: 'Red Alert Israel', category: 'conflict' },
+    { id: 'OSINTdefender', title: 'OSINT Defender', category: 'conflict' },
+    { id: 'Faborsetuks', title: 'Faytuks News', category: 'conflict' },
+    { id: 'TheWarZoneTWZ', title: 'The War Zone', category: 'conflict' },
+
+    // ─ Hacktivist & Cyber Networks ─
+    { id: 'QudsElectronicArmy', title: 'Quds Electronic Army', category: 'cyber' },
+    { id: 'hizbollahsyber', title: 'Hezbollah Cyber', category: 'cyber' },
 
     // ─ Geospatial Verification ─
     { id: 'GeoConfirmed_channel', title: 'GeoConfirmed', category: 'geoVerify' },
+    { id: 'TheIntelLab', title: 'Intel Lab', category: 'geoVerify' },
 
     // ─ Ukraine Theater ─
     { id: 'ryaborforce', title: 'Rybar', category: 'ukraine' },

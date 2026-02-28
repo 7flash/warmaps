@@ -28,9 +28,9 @@ let marketData: any[] = [];
 let threatAlerts: any[] = [];
 let strategicAssets: any = null;
 let acledEvents: any = null;
-let cyberData: any = null;
 let seismicData: any = null;
 let cryptoData: any = null;
+let webcamData: any[] = [];
 let currentFilter = 'all';
 
 // ─── MapLibre 2D Tactical Map Setup ─────────────────────────
@@ -84,8 +84,8 @@ function initMap() {
             data: { type: 'FeatureCollection', features: [] }
         });
 
-        // Cyber Anomalies Source
-        map.addSource('cyber', {
+        // Live Webcam Surveillance Source
+        map.addSource('webcams', {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [] }
         });
@@ -218,17 +218,17 @@ function initMap() {
             }
         });
 
-        // Cyber Anomaly Coronas (Glitch effect base)
+        // Live Webcam Markers (Camera icons)
         map.addLayer({
-            id: 'cyber-anomaly',
+            id: 'webcams-point',
             type: 'circle',
-            source: 'cyber',
+            source: 'webcams',
             paint: {
-                'circle-radius': 40,
-                'circle-color': '#a855f7', // Purple
-                'circle-opacity': 0.3,
+                'circle-radius': 5,
+                'circle-color': '#ffffff',
+                'circle-opacity': 0.9,
                 'circle-stroke-width': 2,
-                'circle-stroke-color': '#a855f7',
+                'circle-stroke-color': '#6366f1', // Indigo border
                 'circle-pitch-alignment': 'map'
             }
         });
@@ -358,11 +358,19 @@ function initMap() {
         setupInteractiveLayer('assets-base');
         setupInteractiveLayer('events-point');
         setupInteractiveLayer('acled-kinetic');
-        setupInteractiveLayer('cyber-anomaly');
+        setupInteractiveLayer('webcams-point');
         setupInteractiveLayer('seismic-kinetic');
 
-        // Initialize Timeline UI logic
-        initTimelineSlider();
+        // Click-to-open webcam viewer
+        map.on('click', 'webcams-point', (e: any) => {
+            const props = e.features?.[0]?.properties;
+            if (props?.playerUrl) {
+                window.open(props.playerUrl, '_blank', 'width=800,height=600');
+            }
+        });
+
+        // Initialize panel toggle system
+        initPanelToggles();
 
         updateMapSources();
     });
@@ -381,7 +389,8 @@ async function fetchAllData() {
         fetchAssets(),
         fetchAcled(),
         fetchSeismic(),
-        fetchCrypto()
+        fetchCrypto(),
+        fetchWebcams()
     ]);
     updateTicker();
     updateStats();
@@ -654,6 +663,39 @@ async function fetchFlights() {
     }
 }
 
+async function fetchWebcams() {
+    try {
+        const res = await fetch('/api/webcams');
+        if (!res.ok) return;
+        const data = await res.json();
+        webcamData = data.webcams || [];
+
+        const webcamGeoJSON = {
+            type: 'FeatureCollection',
+            features: webcamData.map((cam: any) => ({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [cam.lon, cam.lat] },
+                properties: {
+                    type: 'webcam',
+                    id: cam.id,
+                    title: `📷 ${cam.title}`,
+                    city: cam.city,
+                    country: cam.country,
+                    playerUrl: cam.playerUrl,
+                    status: cam.status,
+                }
+            }))
+        };
+
+        const src = map?.getSource('webcams');
+        if (src) src.setData(webcamGeoJSON);
+
+        console.log(`[STARWAR] Loaded ${webcamData.length} webcams`);
+    } catch (e) {
+        console.error('[STARWAR] Webcams fetch failed:', e);
+    }
+}
+
 // ─── Rendering ──────────────────────────────────────────────
 
 function renderNewsFeed() {
@@ -887,11 +929,9 @@ function showThreatBanner(alert: any) {
 function updateMapSources() {
     if (!map || !map.isStyleLoaded()) return;
 
-    // Determine timeline cutoff
-    const slider = document.getElementById('timeline-slider') as HTMLInputElement | null;
-    const val = slider ? parseInt(slider.value) : 100;
-    const daysAgo = 30 - (val / 100) * 30; // 0 = 30 days ago, 100 = 0 days ago (all fresh)
-    const cutoffTime = Date.now() - (daysAgo * 24 * 3600 * 1000);
+    const now = Date.now();
+    const DECAY_START = 7 * 24 * 3600 * 1000;  // Start fading after 7 days
+    const DECAY_END = 30 * 24 * 3600 * 1000;   // Fully gone after 30 days
 
     // Fires GeoJSON
     const firesGeoJSON = {
@@ -917,29 +957,31 @@ function updateMapSources() {
     const flSrc = map.getSource('flights');
     if (flSrc) flSrc.setData(flightsGeoJSON);
 
-    // Events GeoJSON (GDELT + Markets)
+    // Events GeoJSON with temporal decay
     const features: any[] = [];
 
     gdeltEvents.filter(e => e.lat && e.lon).forEach(e => {
-        // Timeline Filter Check
         const eventTime = e.date ? new Date(
             e.date.length === 8 ? `${e.date.slice(0, 4)}-${e.date.slice(4, 6)}-${e.date.slice(6, 8)}` : e.date
-        ).getTime() : Date.now();
+        ).getTime() : now;
 
-        if (eventTime >= cutoffTime) {
-            features.push({
-                type: 'Feature',
-                geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
-                properties: { type: 'gdelt', title: e.title, date: e.date }
-            });
-        }
+        const age = now - eventTime;
+        if (age > DECAY_END) return; // Too old, skip entirely
+
+        const opacity = age < DECAY_START ? 1.0 : 1.0 - ((age - DECAY_START) / (DECAY_END - DECAY_START));
+
+        features.push({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
+            properties: { type: 'gdelt', title: e.title, date: e.date, opacity: Math.max(0.1, opacity) }
+        });
     });
 
     marketData.filter((m: any) => m.lat && m.lon).forEach((m: any) => {
         features.push({
             type: 'Feature',
             geometry: { type: 'Point', coordinates: [m.lon, m.lat] },
-            properties: { type: m.probability >= 60 ? 'market-hot' : 'market', title: m.title }
+            properties: { type: m.probability >= 60 ? 'market-hot' : 'market', title: m.title, opacity: 1.0 }
         });
     });
 
@@ -951,35 +993,52 @@ function updateMapSources() {
     if (eSrc) eSrc.setData(eventsGeoJSON);
 }
 
-// ─── Timeline Slider Logic ──────────────────────────────────
+// ─── Panel Toggle System ────────────────────────────────────
 
-function initTimelineSlider() {
-    const slider = document.getElementById('timeline-slider') as HTMLInputElement;
-    const dateLabel = document.getElementById('timeline-date');
-    const playBtn = document.getElementById('timeline-play');
-    if (!slider || !dateLabel || !playBtn) return;
+function initPanelToggles() {
+    // Panel tabs toggle panels
+    document.querySelectorAll('.panel-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const panelId = (tab as HTMLElement).dataset.panel;
+            if (!panelId) return;
 
-    let isPlaying = false;
-    let playInterval: any;
+            const panel = document.getElementById(panelId);
+            if (!panel) return;
 
-    const updateMapFilter = (val: number) => {
-        const daysAgo = 30 - (val / 100) * 30;
+            // For right panels, close others first
+            if (panel.classList.contains('overlay-panel--right')) {
+                document.querySelectorAll('.overlay-panel--right.open').forEach(p => {
+                    if (p.id !== panelId) {
+                        p.classList.remove('open');
+                        // Deactivate its tab
+                        document.querySelector(`.panel-tab[data-panel="${p.id}"]`)?.classList.remove('active');
+                    }
+                });
+            }
 
-        if (daysAgo <= 1) {
-            dateLabel.textContent = 'LAST 24 HOURS';
-        } else {
-            dateLabel.textContent = `LAST ${Math.max(1, Math.round(daysAgo))} DAYS`;
-        }
-
-        updateMapSources(); // Actually filter the data
-    };
-
-    slider.addEventListener('input', (e) => {
-        updateMapFilter(parseInt((e.target as HTMLInputElement).value));
+            const isOpen = panel.classList.toggle('open');
+            tab.classList.toggle('active', isOpen);
+        });
     });
 
-    playBtn.style.display = 'none'; // User requested slider is a filter, not a playable timeline.
-    updateMapFilter(100);
+    // Close buttons
+    document.querySelectorAll('.panel-close-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const panelId = (btn as HTMLElement).dataset.panel;
+            if (!panelId) return;
+            document.getElementById(panelId)?.classList.remove('open');
+            document.querySelector(`.panel-tab[data-panel="${panelId}"]`)?.classList.remove('active');
+        });
+    });
+
+    // Legend toggle
+    const legendToggle = document.getElementById('legend-toggle');
+    const legendFloat = document.getElementById('legend-float');
+    if (legendToggle && legendFloat) {
+        legendToggle.addEventListener('click', () => {
+            legendFloat.classList.toggle('collapsed');
+        });
+    }
 }
 
 // ─── Ticker ─────────────────────────────────────────────────
@@ -1009,10 +1068,12 @@ function updateTicker() {
 function updateStats() {
     const evtEl = document.getElementById('event-count');
     const fireEl = document.getElementById('fire-count');
-    const srcEl = document.getElementById('source-count');
+    const flightEl = document.getElementById('flight-count');
+    const webcamEl = document.getElementById('webcam-count');
     if (evtEl) evtEl.textContent = String(gdeltEvents.length);
     if (fireEl) fireEl.textContent = String(firePoints.length);
-    if (srcEl) srcEl.textContent = String(new Set(newsItems.map(n => n.source)).size);
+    if (flightEl) flightEl.textContent = String(flightData.length);
+    if (webcamEl) webcamEl.textContent = String(webcamData.length);
 }
 
 // ─── TV Channel Switching ───────────────────────────────────
@@ -1492,5 +1553,10 @@ function setupLegendFilters() {
 
     if (cFlights) cFlights.addEventListener('change', e => {
         toggleLayer('flights-point', cFlights.checked);
+    });
+
+    const cWebcams = document.getElementById('filter-webcams') as HTMLInputElement | null;
+    if (cWebcams) cWebcams.addEventListener('change', e => {
+        toggleLayer('webcams-point', cWebcams.checked);
     });
 }

@@ -61,40 +61,63 @@ export default function Page() {
                 </div>
             </header>
 
-            {/* ─── Main Dashboard Grid ─────────────────── */}
-            <div id="dashboard">
+            {/* ─── Full-Screen Map ─────────────────────── */}
+            <div id="map-wrapper">
+                <div id="map" class="map-view"></div>
 
-                {/* Left Panel: News Feed (Redesigned Pulse Feed) */}
-                <aside id="news-panel">
-                    <div class="pulse-smart-digest">
-                        <span class="pulse-icon">📄</span> SMART DIGEST <span class="pulse-lock">🔒</span>
+                {/* Map Stats Overlay (top-right) */}
+                <div id="map-overlay" class="map-overlay">
+                    <div class="map-stats" id="map-stats">
+                        <span>Events: <strong id="event-count">—</strong></span>
+                        <span class="separator">│</span>
+                        <span>Fires: <strong id="fire-count">—</strong></span>
+                        <span class="separator">│</span>
+                        <span>✈: <strong id="flight-count">—</strong></span>
+                        <span class="separator">│</span>
+                        <span>📷: <strong id="webcam-count">—</strong></span>
                     </div>
-                    <div class="panel-header pulse-header">
-                        <div class="pulse-title">
-                            <span class="icon">📡</span> PULSE FEED
-                        </div>
-                        <div class="pulse-header-actions">
-                            <button class="pulse-mute-btn" title="Mute Alerts">🔕</button>
-                            <div class="pulse-meta">
-                                <span class="pulse-sync">🔄</span> <span id="pulse-time">{now.split(' ').pop()}</span>
-                            </div>
-                        </div>
-                    </div>
+                </div>
 
+                {/* Threat Alert Banner */}
+                <div id="threat-banner" class="threat-banner" style="display:none">
+                    <div class="threat-banner-icon">🚨</div>
+                    <div class="threat-banner-content" id="threat-banner-content"></div>
+                    <button class="threat-banner-close" id="threat-banner-close">×</button>
+                </div>
+
+                {/* Bottom Ticker */}
+                <div id="ticker" class="ticker">
+                    <div class="ticker-label">▶ BREAKING</div>
+                    <div class="ticker-content" id="ticker-content">
+                        Initializing global monitoring systems...
+                    </div>
+                </div>
+
+                {/* ─── Panel Toggle Tabs ───────────────── */}
+                <div class="panel-tabs panel-tabs--left">
+                    <button class="panel-tab active" data-panel="news-panel" title="Pulse Feed">📡</button>
+                </div>
+                <div class="panel-tabs panel-tabs--right">
+                    <button class="panel-tab active" data-panel="intel-panel" title="Intel">🎯</button>
+                    <button class="panel-tab" data-panel="tv-panel" title="Live TV">📺</button>
+                    <button class="panel-tab" data-panel="feeds-panel" title="Data Feeds">📊</button>
+                </div>
+
+                {/* ─── Left Panel: Pulse Feed (Overlay) ─── */}
+                <aside id="news-panel" class="overlay-panel overlay-panel--left open">
+                    <div class="panel-drag-header">
+                        <span class="icon">📡</span> PULSE FEED
+                        <button class="panel-close-btn" data-panel="news-panel">×</button>
+                    </div>
                     <div class="pulse-filters" id="feed-filters">
                         <button class="pf-pill hot active" data-source="all">🔥 HIGH</button>
-                        <button class="pf-pill med" data-source="reuters">⚡ MEDIUM</button>
+                        <button class="pf-pill med" data-source="reuters">⚡ MED</button>
                         <button class="pf-pill std" data-source="bbc">24H</button>
-                        <button class="pf-pill esc" data-source="aljazeera">↗ ESCALATION</button>
-                        <button class="pf-pill des" data-source="irna">↘ DE-ESCALATION</button>
+                        <button class="pf-pill esc" data-source="aljazeera">↗ ESC</button>
                     </div>
-
                     <div class="pulse-search">
-                        <span class="pulse-search-icon">🔍</span>
                         <input type="text" id="pulse-search-input" placeholder="Search..." />
-                        <button class="pulse-filter-icon">⚗️</button>
                     </div>
-
                     <div id="news-feed" class="pulse-list">
                         <div class="loading-state">
                             <span class="spinner"></span>
@@ -103,86 +126,20 @@ export default function Page() {
                     </div>
                 </aside>
 
-                {/* Center: Map */}
-                <main id="map-container">
-                    <div id="map" class="map-view"></div>
-
-                    {/* Tactical Map UI Overlays */}
-                    <div id="map-ui-layer" class="map-ui-layer">
-
-                        {/* Legend & Filters Container */}
-                        <div class="tactical-legend panel-section">
-                            <div class="panel-header" style="border:none; margin:0">
-                                <h2>Legend & Filters</h2>
-                            </div>
-                            <div class="legend-items">
-                                <label class="legend-filter"><input type="checkbox" id="filter-protest" checked /><span class="legend-dot bg-orange"></span> Protests / Unrest</label>
-                                <label class="legend-filter"><input type="checkbox" id="filter-base" checked /><span class="legend-dot bg-blue"></span> IRGC / Military Bases</label>
-                                <label class="legend-filter"><input type="checkbox" id="filter-nuclear" checked /><span class="legend-dot bg-cyan"></span> Nuclear Facilities</label>
-                                <label class="legend-filter"><input type="checkbox" id="filter-strike" checked /><span class="legend-dot bg-red"></span> Kinetic Strikes</label>
-                                <label class="legend-filter"><input type="checkbox" id="filter-seismic" checked /><span class="legend-dot" style="background:#fbbf24; border-radius:0;"></span> Seismic (0-2km)</label>
-                                <label class="legend-filter"><input type="checkbox" id="filter-flights" checked /><span class="legend-dot bg-blue" style="border-radius:0;"></span> Live Flights (ADSB)</label>
-                            </div>
-                            <div class="confidence-toggles mt-2" style="border-top: 1px solid var(--border); padding-top: 8px;">
-                                <div style="font-size:10px; color:var(--text-secondary); margin-bottom:4px;">CONFIDENCE LEVEL</div>
-                                <div style="display:flex; gap:8px;">
-                                    <label class="legend-filter"><input type="checkbox" id="conf-high" checked /> High</label>
-                                    <label class="legend-filter"><input type="checkbox" id="conf-mod" checked /> Mod</label>
-                                    <label class="legend-filter"><input type="checkbox" id="conf-low" /> Low</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Temporal Control / Timeline Slider */}
-                        <div class="tactical-timeline panel-section">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-                                <h2>Temporal Dynamics</h2>
-                                <span class="badge" id="timeline-date">—</span>
-                            </div>
-                            <div class="slider-row" style="display:flex; align-items:center; gap: 12px;">
-                                <button id="timeline-play" class="play-btn">▶</button>
-                                <input type="range" id="timeline-slider" class="timeline-slider" min="0" max="100" value="100" />
-                            </div>
-                        </div>
-
+                {/* ─── Right Panel: Intel (Overlay) ──────── */}
+                <aside id="intel-panel" class="overlay-panel overlay-panel--right open">
+                    <div class="panel-drag-header">
+                        <span>🎯</span> INTEL
+                        <button class="panel-close-btn" data-panel="intel-panel">×</button>
                     </div>
 
-                    <div id="map-overlay" class="map-overlay" style="bottom: auto; top: 12px; right: 12px; pointer-events: none;">
-                        <div class="map-stats" id="map-stats" style="background: rgba(5, 9, 19, 0.85); backdrop-filter: blur(8px);">
-                            <span>Events: <strong id="event-count">—</strong></span>
-                            <span class="separator">│</span>
-                            <span>Fires: <strong id="fire-count">—</strong></span>
-                            <span class="separator">│</span>
-                            <span>✈: <strong id="flight-count">—</strong></span>
-                        </div>
-                    </div>
-
-                    {/* Threat Alert Banner */}
-                    <div id="threat-banner" class="threat-banner" style="display:none">
-                        <div class="threat-banner-icon">🚨</div>
-                        <div class="threat-banner-content" id="threat-banner-content"></div>
-                        <button class="threat-banner-close" id="threat-banner-close">×</button>
-                    </div>
-
-                    {/* Bottom Ticker */}
-                    <div id="ticker" class="ticker">
-                        <div class="ticker-label">▶ BREAKING</div>
-                        <div class="ticker-content" id="ticker-content">
-                            Initializing global monitoring systems...
-                        </div>
-                    </div>
-                </main>
-
-                {/* Right Panel: Markets + Live TV + Data Feeds */}
-                <aside id="intel-panel">
-
-                    {/* Threat Radar / Prediction Markets */}
+                    {/* Threat Radar */}
                     <div class="panel-section panel-section--radar">
                         <div class="panel-header">
-                            <h2>🎯 THREAT RADAR</h2>
+                            <h2>THREAT RADAR</h2>
                             <span class="badge badge--hot" id="radar-alert-count">0</span>
                         </div>
-                        <div id="radar-feed" class="feed-list feed-list--radar">
+                        <div id="radar-feed" class="feed-list feed-list--short">
                             <div class="loading-state">
                                 <span class="spinner"></span>
                                 <span>Scanning prediction markets...</span>
@@ -190,7 +147,7 @@ export default function Page() {
                         </div>
                     </div>
 
-                    {/* Panic Economy Arbitrage Layer */}
+                    {/* Panic Economy */}
                     <div class="panel-section panel-section--crypto">
                         <div class="panel-header" style="justify-content: space-between;">
                             <div>
@@ -199,78 +156,75 @@ export default function Page() {
                             </div>
                             <span class="badge" id="crypto-premium-badge">0%</span>
                         </div>
-                        <div class="crypto-chart-container" style="padding: 12px; height: 120px; position:relative;">
+                        <div class="crypto-chart-container" style="padding: 8px; height: 90px; position:relative;">
                             <canvas id="crypto-chart"></canvas>
-                        </div>
-                    </div>
-
-                    {/* Live TV */}
-                    <div class="panel-section panel-section--tv">
-                        <div class="panel-header">
-                            <h2>LIVE NEWS TV</h2>
-                        </div>
-                        <div id="tv-channels" class="tv-channels">
-                            <button class="channel-btn active" data-channel="aljazeeraenglish">AL JAZEERA</button>
-                            <button class="channel-btn" data-channel="france24english">FRANCE24</button>
-                            <button class="channel-btn" data-channel="skynews">SKY NEWS</button>
-                            <button class="channel-btn" data-channel="dwnews">DW</button>
-                            <button class="channel-btn" data-channel="cnn">CNN</button>
-                            <button class="channel-btn" data-channel="wion">WION</button>
-                            <button class="channel-btn" data-channel="trt">TRT WORLD</button>
-                            <button class="channel-btn" data-channel="ndtv">NDTV</button>
-                        </div>
-                        <div id="tv-player" class="tv-player">
-                            <div id="tv-loading" class="loading-state" style="height:100%">
-                                <span class="spinner"></span>
-                                <span>Discovering live streams...</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* GDELT Events */}
-                    <div class="panel-section">
-                        <div class="panel-header">
-                            <h2>GDELT EVENTS</h2>
-                            <span class="badge" id="gdelt-count">0</span>
-                        </div>
-                        <div id="gdelt-feed" class="feed-list feed-list--short">
-                            <div class="loading-state">
-                                <span class="spinner"></span>
-                                <span>Querying GDELT...</span>
-                            </div>
                         </div>
                     </div>
 
                     {/* Telegram OSINT */}
                     <div class="panel-section">
                         <div class="panel-header">
-                            <h2>📡 TELEGRAM OSINT</h2>
+                            <h2>📡 TELEGRAM</h2>
                             <span class="badge" id="tg-count">0</span>
                         </div>
                         <div id="tg-status" class="tg-status">Connecting...</div>
                         <div id="tg-feed" class="feed-list feed-list--short">
-                            <div class="loading-state">
-                                <span class="spinner"></span>
-                                <span>Initializing OSINT channels...</span>
-                            </div>
+                            <div class="loading-state"><span class="spinner"></span><span>Connecting channels...</span></div>
+                        </div>
+                    </div>
+                </aside>
+
+                {/* ─── Right Panel: TV (Overlay, hidden by default) ─ */}
+                <aside id="tv-panel" class="overlay-panel overlay-panel--right">
+                    <div class="panel-drag-header">
+                        <span>📺</span> LIVE TV
+                        <button class="panel-close-btn" data-panel="tv-panel">×</button>
+                    </div>
+                    <div id="tv-channels" class="tv-channels">
+                        <button class="channel-btn active" data-channel="aljazeeraenglish">AL JAZEERA</button>
+                        <button class="channel-btn" data-channel="france24english">FRANCE24</button>
+                        <button class="channel-btn" data-channel="skynews">SKY NEWS</button>
+                        <button class="channel-btn" data-channel="dwnews">DW</button>
+                        <button class="channel-btn" data-channel="cnn">CNN</button>
+                        <button class="channel-btn" data-channel="wion">WION</button>
+                        <button class="channel-btn" data-channel="trt">TRT WORLD</button>
+                        <button class="channel-btn" data-channel="ndtv">NDTV</button>
+                    </div>
+                    <div id="tv-player" class="tv-player">
+                        <div id="tv-loading" class="loading-state" style="height:100%">
+                            <span class="spinner"></span>
+                            <span>Discovering live streams...</span>
+                        </div>
+                    </div>
+                </aside>
+
+                {/* ─── Right Panel: Data Feeds (Overlay, hidden by default) ─ */}
+                <aside id="feeds-panel" class="overlay-panel overlay-panel--right">
+                    <div class="panel-drag-header">
+                        <span>📊</span> DATA FEEDS
+                        <button class="panel-close-btn" data-panel="feeds-panel">×</button>
+                    </div>
+
+                    <div class="panel-section">
+                        <div class="panel-header">
+                            <h2>GDELT EVENTS</h2>
+                            <span class="badge" id="gdelt-count">0</span>
+                        </div>
+                        <div id="gdelt-feed" class="feed-list feed-list--short">
+                            <div class="loading-state"><span class="spinner"></span><span>Querying GDELT...</span></div>
                         </div>
                     </div>
 
-                    {/* Satellite Fires */}
                     <div class="panel-section">
                         <div class="panel-header">
                             <h2>🔥 SATELLITE FIRES</h2>
                             <span class="badge" id="firms-count">0</span>
                         </div>
                         <div id="firms-feed" class="feed-list feed-list--short">
-                            <div class="loading-state">
-                                <span class="spinner"></span>
-                                <span>Scanning NASA FIRMS...</span>
-                            </div>
+                            <div class="loading-state"><span class="spinner"></span><span>Scanning NASA FIRMS...</span></div>
                         </div>
                     </div>
 
-                    {/* Global Chat */}
                     <div class="panel-section panel-section--chat">
                         <div class="panel-header">
                             <h2>GLOBAL CHAT</h2>
@@ -278,18 +232,29 @@ export default function Page() {
                         </div>
                         <div id="chat-messages" class="chat-messages"></div>
                         <div class="chat-input-row">
-                            <input
-                                type="text"
-                                id="chat-input"
-                                class="chat-input"
-                                placeholder="Type message..."
-                                maxLength={500}
-                                autoComplete="off"
-                            />
+                            <input type="text" id="chat-input" class="chat-input" placeholder="Type message..." maxLength={500} autoComplete="off" />
                             <button id="chat-send" class="chat-send-btn">SEND</button>
                         </div>
                     </div>
                 </aside>
+
+                {/* ─── Floating Legend (Compact, top-left on map) ─── */}
+                <div id="legend-float" class="legend-float">
+                    <div class="legend-float-header" id="legend-toggle">
+                        <span>LAYERS</span>
+                        <span class="legend-chevron">▼</span>
+                    </div>
+                    <div class="legend-float-body" id="legend-body">
+                        <label class="legend-filter"><input type="checkbox" id="filter-protest" checked /><span class="legend-dot bg-orange"></span> Events</label>
+                        <label class="legend-filter"><input type="checkbox" id="filter-base" checked /><span class="legend-dot bg-blue"></span> Bases</label>
+                        <label class="legend-filter"><input type="checkbox" id="filter-nuclear" checked /><span class="legend-dot bg-cyan"></span> Nuclear</label>
+                        <label class="legend-filter"><input type="checkbox" id="filter-strike" checked /><span class="legend-dot bg-red"></span> Strikes</label>
+                        <label class="legend-filter"><input type="checkbox" id="filter-seismic" checked /><span class="legend-dot" style="background:#fbbf24; border-radius:0;"></span> Seismic</label>
+                        <label class="legend-filter"><input type="checkbox" id="filter-flights" checked /><span class="legend-dot bg-blue" style="border-radius:0;"></span> Flights</label>
+                        <label class="legend-filter"><input type="checkbox" id="filter-webcams" checked /><span class="legend-dot" style="background:#fff; border:2px solid #6366f1;"></span> Webcams</label>
+                    </div>
+                </div>
+
             </div>
         </>
     );
