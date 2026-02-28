@@ -7,7 +7,27 @@ export default function Page() {
         <>
             <Head>
                 <title>STARWAR — Global Conflict Monitor</title>
+                <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@^5.0.0/dist/maplibre-gl.css" />
             </Head>
+
+            {/* ─── Cinematic Boot Sequence ───────────────── */}
+            <div id="boot-sequence" class="boot-sequence">
+                <div class="boot-content">
+                    <div class="boot-logo">◆ STARWAR</div>
+                    <div id="boot-text" class="boot-text">INITIALIZING PROTOCOL...</div>
+                    <div class="boot-progress">
+                        <div id="boot-bar" class="boot-bar"></div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ─── Country Search Modal (Ctrl+K) ─────────── */}
+            <div id="search-modal" class="modal-overlay" style="display:none">
+                <div class="search-box">
+                    <input type="text" id="search-input" class="search-input" placeholder="Jump to country/city... (Press Esc to close)" autocomplete="off" />
+                    <div id="search-results" class="search-results"></div>
+                </div>
+            </div>
 
             {/* ─── Top Bar ─────────────────────────────── */}
             <header id="top-bar">
@@ -67,17 +87,52 @@ export default function Page() {
                 {/* Center: Map */}
                 <main id="map-container">
                     <div id="map" class="map-view"></div>
-                    <div id="map-overlay" class="map-overlay">
-                        <div class="map-stats" id="map-stats">
+
+                    {/* Tactical Map UI Overlays */}
+                    <div id="map-ui-layer" class="map-ui-layer">
+
+                        {/* Legend & Filters Container */}
+                        <div class="tactical-legend panel-section">
+                            <div class="panel-header" style="border:none; margin:0">
+                                <h2>Legend & Filters</h2>
+                            </div>
+                            <div class="legend-items">
+                                <label class="legend-filter"><input type="checkbox" id="filter-protest" checked /><span class="legend-dot bg-orange"></span> Protests / Unrest</label>
+                                <label class="legend-filter"><input type="checkbox" id="filter-base" checked /><span class="legend-dot bg-blue"></span> IRGC / Military Bases</label>
+                                <label class="legend-filter"><input type="checkbox" id="filter-nuclear" checked /><span class="legend-dot bg-cyan"></span> Nuclear Facilities</label>
+                                <label class="legend-filter"><input type="checkbox" id="filter-strike" checked /><span class="legend-dot bg-red"></span> Kinetic Strikes</label>
+                            </div>
+                            <div class="confidence-toggles mt-2" style="border-top: 1px solid var(--border); padding-top: 8px;">
+                                <div style="font-size:10px; color:var(--text-secondary); margin-bottom:4px;">CONFIDENCE LEVEL</div>
+                                <div style="display:flex; gap:8px;">
+                                    <label class="legend-filter"><input type="checkbox" id="conf-high" checked /> High</label>
+                                    <label class="legend-filter"><input type="checkbox" id="conf-mod" checked /> Mod</label>
+                                    <label class="legend-filter"><input type="checkbox" id="conf-low" /> Low</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Temporal Control / Timeline Slider */}
+                        <div class="tactical-timeline panel-section">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                                <h2>Temporal Dynamics</h2>
+                                <span class="badge" id="timeline-date">—</span>
+                            </div>
+                            <div class="slider-row" style="display:flex; align-items:center; gap: 12px;">
+                                <button id="timeline-play" class="play-btn">▶</button>
+                                <input type="range" id="timeline-slider" class="timeline-slider" min="0" max="100" value="100" />
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div id="map-overlay" class="map-overlay" style="bottom: auto; top: 12px; right: 12px; pointer-events: none;">
+                        <div class="map-stats" id="map-stats" style="background: rgba(5, 9, 19, 0.85); backdrop-filter: blur(8px);">
                             <span>Events: <strong id="event-count">—</strong></span>
                             <span class="separator">│</span>
                             <span>Fires: <strong id="fire-count">—</strong></span>
                             <span class="separator">│</span>
-                            <span>✈ Aircraft: <strong id="flight-count">—</strong></span>
-                            <span class="separator">│</span>
-                            <span>Markets: <strong id="market-count">—</strong></span>
-                            <span class="separator">│</span>
-                            <span>Sources: <strong id="source-count">—</strong></span>
+                            <span>✈: <strong id="flight-count">—</strong></span>
                         </div>
                     </div>
 

@@ -14,9 +14,11 @@
  * - Telegram OSINT
  */
 
+import maplibregl from 'maplibre-gl';
+
 // ─── State ──────────────────────────────────────────────────
 
-let globe: any;
+let map: any;
 let newsItems: any[] = [];
 let gdeltEvents: any[] = [];
 let firePoints: any[] = [];
@@ -26,94 +28,129 @@ let marketData: any[] = [];
 let threatAlerts: any[] = [];
 let currentFilter = 'all';
 
-// ─── 3D Globe Setup ─────────────────────────────────────────
+// ─── MapLibre 2D Tactical Map Setup ─────────────────────────
 
-function initGlobe() {
+function initMap() {
     const mapEl = document.getElementById('map');
-    if (!mapEl || globe) return;
+    if (!mapEl || map) return;
 
-    // Load Globe.gl from CDN (unpkg serves the UMD build with globals)
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/globe.gl';
-    script.onerror = () => {
-        console.error('[STARWAR] Failed to load Globe.gl from CDN');
-        mapEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#475569;font-size:12px;font-family:monospace;">⚠ Globe visualization unavailable — CDN blocked</div>`;
-    };
-    script.onload = () => {
-        const Globe = (window as any).Globe;
-        if (!Globe) {
-            console.error('[STARWAR] Globe constructor not found after script load');
-            return;
-        }
+    // Use Carto Dark Matter style for tactical operations feel
+    map = new maplibregl.Map({
+        container: 'map',
+        style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+        center: [45, 30], // Middle East
+        zoom: 3,
+        pitch: 0,
+        attributionControl: false,
+    });
 
-        globe = Globe({ animateIn: true })
-            (mapEl)
-            .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
-            .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
-            .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
-            .showAtmosphere(true)
-            .atmosphereColor('#22d3ee')
-            .atmosphereAltitude(0.2)
-            // Point of view: centered on Middle East
-            .pointOfView({ lat: 30, lng: 45, altitude: 2.2 }, 1000)
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-            // Fire points (orange pulsing dots)
-            .pointsData([])
-            .pointColor(() => '#ff6b35')
-            .pointAltitude(0.01)
-            .pointRadius((d: any) => d.size || 0.15)
-            .pointsMerge(true)
+    map.on('load', () => {
+        // --- Sources ---
 
-            // GDELT events (green rings)
-            .ringsData([])
-            .ringColor(() => '#22c55e')
-            .ringMaxRadius(3)
-            .ringPropagationSpeed(1.5)
-            .ringRepeatPeriod(2000)
-
-            // Arcs between related events
-            .arcsData([])
-            .arcColor(() => ['#22d3ee44', '#ef444444'])
-            .arcStroke(0.4)
-            .arcDashLength(0.4)
-            .arcDashGap(0.2)
-            .arcDashAnimateTime(2000)
-
-            // HTML labels for key events
-            .htmlElementsData([])
-            .htmlElement((d: any) => {
-                const el = document.createElement('div');
-                el.className = 'globe-label';
-                el.innerHTML = `<span class="globe-label-dot ${d.type}"></span>${d.label}`;
-                return el;
-            })
-            .htmlAltitude(0.02);
-
-        // Adjust globe size on window resize
-        const handleResize = () => {
-            if (globe && mapEl) {
-                globe.width(mapEl.clientWidth);
-                globe.height(mapEl.clientHeight);
-            }
-        };
-        window.addEventListener('resize', handleResize);
-        handleResize();
-
-        // Auto-rotate slowly
-        globe.controls().autoRotate = true;
-        globe.controls().autoRotateSpeed = 0.3;
-
-        // Stop auto-rotate on user interaction
-        globe.controls().addEventListener('start', () => {
-            globe.controls().autoRotate = false;
+        map.addSource('fires', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
         });
 
-        // Globe is ready — plot any data we already have
-        plotGdeltOnGlobe();
-        plotFiresOnGlobe();
-        plotMarketsOnGlobe();
-    };
-    document.head.appendChild(script);
+        map.addSource('flights', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+        });
+
+        map.addSource('events', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+            cluster: true,
+            clusterMaxZoom: 14,
+            clusterRadius: 50
+        });
+
+        // --- Layers ---
+
+        // Thermal Anomalies (Heatmap)
+        map.addLayer({
+            id: 'fires-heat',
+            type: 'heatmap',
+            source: 'fires',
+            paint: {
+                'heatmap-weight': ['interpolate', ['linear'], ['get', 'brightness'], 300, 0.2, 400, 1],
+                'heatmap-intensity': 1.5,
+                'heatmap-color': [
+                    'interpolate', ['linear'], ['heatmap-density'],
+                    0, 'rgba(255, 107, 53, 0)',
+                    0.2, 'rgba(255, 107, 53, 0.4)',
+                    1, 'rgba(255, 68, 68, 1)'
+                ],
+                'heatmap-radius': 15,
+                'heatmap-opacity': 0.8
+            }
+        });
+
+        // Aircraft (Points)
+        map.addLayer({
+            id: 'flights-point',
+            type: 'circle',
+            source: 'flights',
+            paint: {
+                'circle-radius': ['match', ['get', 'type'], 'military', 4, 'sigint', 5, 2],
+                'circle-color': ['match', ['get', 'type'], 'military', '#ef4444', 'sigint', '#a855f7', '#22d3ee'],
+                'circle-opacity': 0.8,
+                'circle-stroke-width': 1,
+                'circle-stroke-color': '#000'
+            }
+        });
+
+        // Event Clusters
+        map.addLayer({
+            id: 'events-clusters',
+            type: 'circle',
+            source: 'events',
+            filter: ['has', 'point_count'],
+            paint: {
+                'circle-color': '#eab308',
+                'circle-radius': ['step', ['get', 'point_count'], 15, 10, 20, 50, 30],
+                'circle-opacity': 0.7,
+                'circle-stroke-width': 2,
+                'circle-stroke-color': 'rgba(234, 179, 8, 0.3)'
+            }
+        });
+
+        map.addLayer({
+            id: 'events-cluster-count',
+            type: 'symbol',
+            source: 'events',
+            filter: ['has', 'point_count'],
+            layout: {
+                'text-field': '{point_count_abbreviated}',
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-size': 12
+            },
+            paint: {
+                'text-color': '#000'
+            }
+        });
+
+        // Unclustered Events (Markers)
+        map.addLayer({
+            id: 'events-point',
+            type: 'circle',
+            source: 'events',
+            filter: ['!', ['has', 'point_count']],
+            paint: {
+                'circle-color': ['match', ['get', 'type'], 'market-hot', '#ef4444', 'market', '#22d3ee', '#22c55e'],
+                'circle-radius': 5,
+                'circle-stroke-width': 1,
+                'circle-stroke-color': '#050913'
+            }
+        });
+
+        // Initialize Timeline UI logic
+        initTimelineSlider();
+
+        updateMapSources();
+    });
 }
 
 // ─── Data Fetching ──────────────────────────────────────────
@@ -148,7 +185,7 @@ async function fetchGdelt() {
         const data = await res.json();
         gdeltEvents = data.events || [];
         renderGdeltFeed();
-        plotGdeltOnGlobe();
+        updateMapSources();
         const el = document.getElementById('gdelt-count');
         if (el) el.textContent = String(gdeltEvents.length);
     } catch (e) {
@@ -162,7 +199,7 @@ async function fetchFires() {
         const data = await res.json();
         firePoints = data.fires || [];
         renderFiresFeed();
-        plotFiresOnGlobe();
+        updateMapSources();
         const el = document.getElementById('firms-count');
         if (el) el.textContent = String(firePoints.length);
     } catch (e) {
@@ -178,7 +215,7 @@ async function fetchMarkets() {
         marketData = data.markets || [];
         threatAlerts = data.alerts || [];
         renderRadarFeed();
-        plotMarketsOnGlobe();
+        updateMapSources();
 
         const countEl = document.getElementById('radar-alert-count');
         if (countEl) {
@@ -220,7 +257,7 @@ async function fetchFlights() {
         const data = await res.json();
         flightData = data.flights || [];
         flightStats = data.stats || {};
-        plotFiresOnGlobe(); // Re-plot combined fires + flights
+        updateMapSources(); // Update map features
 
         // Update flight count in stats
         const flightCountEl = document.getElementById('flight-count');
@@ -415,111 +452,108 @@ function showThreatBanner(alert: any) {
     }, 15000);
 }
 
-// ─── Globe Plotting ─────────────────────────────────────────
+// ─── Tactical Map Updating ──────────────────────────────────
 
-function plotGdeltOnGlobe() {
-    if (!globe) return;
+function updateMapSources() {
+    if (!map || !map.isStyleLoaded()) return;
 
-    const geoEvents = gdeltEvents.filter(ev => ev.lat && ev.lon);
-    const seen = new Set<string>();
+    // Fires GeoJSON
+    const firesGeoJSON = {
+        type: 'FeatureCollection',
+        features: firePoints.map(f => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
+            properties: { brightness: f.brightness, confidence: f.confidence }
+        }))
+    };
+    const fSrc = map.getSource('fires');
+    if (fSrc) fSrc.setData(firesGeoJSON);
 
-    // Rings for GDELT events
-    const rings = geoEvents.filter(ev => {
-        const key = `${(ev.lat! * 10 | 0)}_${(ev.lon! * 10 | 0)}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    }).map(ev => ({
-        lat: ev.lat,
-        lng: ev.lon,
-    }));
+    // Flights GeoJSON
+    const flightsGeoJSON = {
+        type: 'FeatureCollection',
+        features: flightData.map((f: any) => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
+            properties: { type: f.type, callsign: f.callsign }
+        }))
+    };
+    const flSrc = map.getSource('flights');
+    if (flSrc) flSrc.setData(flightsGeoJSON);
 
-    globe.ringsData(rings);
+    // Events GeoJSON (GDELT + Markets)
+    const features: any[] = [];
 
-    // HTML labels — combine GDELT + market labels
-    updateGlobeLabels();
+    gdeltEvents.filter(e => e.lat && e.lon).forEach(e => {
+        features.push({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
+            properties: { type: 'gdelt', title: e.title, date: e.date }
+        });
+    });
+
+    marketData.filter((m: any) => m.lat && m.lon).forEach((m: any) => {
+        features.push({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [m.lon, m.lat] },
+            properties: { type: m.probability >= 60 ? 'market-hot' : 'market', title: m.title }
+        });
+    });
+
+    const eventsGeoJSON = {
+        type: 'FeatureCollection',
+        features: features
+    };
+    const eSrc = map.getSource('events');
+    if (eSrc) eSrc.setData(eventsGeoJSON);
 }
 
-function plotFiresOnGlobe() {
-    if (!globe) return;
+// ─── Timeline Slider Logic ──────────────────────────────────
 
-    // Combine fires (orange) + flights (cyan) into one point layer
-    const firePointsForGlobe = firePoints.map(fire => ({
-        lat: fire.lat,
-        lng: fire.lon,
-        size: Math.min(fire.brightness / 2000, 0.4),
-        color: '#ff6b35',
-        type: 'fire',
-    }));
+function initTimelineSlider() {
+    const slider = document.getElementById('timeline-slider') as HTMLInputElement;
+    const dateLabel = document.getElementById('timeline-date');
+    const playBtn = document.getElementById('timeline-play');
+    if (!slider || !dateLabel || !playBtn) return;
 
-    const flightPointsForGlobe = flightData.map((f: any) => ({
-        lat: f.lat,
-        lng: f.lon,
-        size: f.type === 'military' ? 0.25 : f.type === 'sigint' ? 0.3 : 0.1,
-        color: f.type === 'military' ? '#ef4444' : f.type === 'sigint' ? '#a855f7' : '#22d3ee',
-        type: 'flight',
-    }));
+    let isPlaying = false;
+    let playInterval: any;
 
-    globe
-        .pointsData([...firePointsForGlobe, ...flightPointsForGlobe])
-        .pointColor((d: any) => d.color)
-        .pointRadius((d: any) => d.size || 0.15)
-        .pointAltitude((d: any) => d.type === 'flight' ? 0.04 : 0.01);
-}
+    const updateMapFilter = (val: number) => {
+        // Here we would implement real maplibre temporal filtering
+        // For now, it updates the visual date label to show intent
+        const date = new Date();
+        date.setDate(date.getDate() - (100 - val));
+        dateLabel.textContent = formatTime(date.toISOString()).split('T')[0];
+    };
 
-function plotMarketsOnGlobe() {
-    if (!globe) return;
+    slider.addEventListener('input', (e) => {
+        updateMapFilter(parseInt((e.target as HTMLInputElement).value));
+    });
 
-    // Add market arcs connecting related bets
-    const geoMarkets = marketData.filter((m: any) => m.lat && m.lon);
-    if (geoMarkets.length >= 2) {
-        const arcs = [];
-        for (let i = 0; i < geoMarkets.length - 1 && i < 5; i++) {
-            arcs.push({
-                startLat: geoMarkets[i].lat,
-                startLng: geoMarkets[i].lon,
-                endLat: geoMarkets[i + 1].lat,
-                endLng: geoMarkets[i + 1].lon,
-            });
+    playBtn.addEventListener('click', () => {
+        isPlaying = !isPlaying;
+        playBtn.textContent = isPlaying ? '⏸' : '▶';
+
+        if (isPlaying) {
+            slider.value = '0';
+            playInterval = setInterval(() => {
+                let v = parseInt(slider.value) + 1;
+                if (v > 100) {
+                    v = 100;
+                    isPlaying = false;
+                    playBtn.textContent = '▶';
+                    clearInterval(playInterval);
+                }
+                slider.value = String(v);
+                updateMapFilter(v);
+            }, 50);
+        } else {
+            clearInterval(playInterval);
         }
-        globe.arcsData(arcs);
-    }
+    });
 
-    // Update labels to include market data
-    updateGlobeLabels();
-}
-
-function updateGlobeLabels() {
-    if (!globe) return;
-
-    const labels: any[] = [];
-
-    // GDELT labels
-    const geoEvents = gdeltEvents.filter(ev => ev.lat && ev.lon);
-    for (const ev of geoEvents.slice(0, 5)) {
-        labels.push({
-            lat: ev.lat,
-            lng: ev.lon,
-            label: ev.country || 'Unknown',
-            type: 'gdelt',
-        });
-    }
-
-    // Market labels (with probability)
-    const geoMarkets = marketData.filter((m: any) => m.lat && m.lon);
-    const seenRegions = new Set<string>();
-    for (const market of geoMarkets.slice(0, 6)) {
-        if (market.region && seenRegions.has(market.region)) continue;
-        if (market.region) seenRegions.add(market.region);
-        labels.push({
-            lat: market.lat + 0.5,
-            lng: market.lon + 0.5,
-            label: `${market.region || 'Market'} ${market.probability}%`,
-            type: market.probability >= 60 ? 'market-hot' : 'market',
-        });
-    }
-
-    globe.htmlElementsData(labels);
+    updateMapFilter(100);
 }
 
 // ─── Ticker ─────────────────────────────────────────────────
@@ -807,19 +841,113 @@ function scrollChat() {
     }
 }
 
+// ─── Search / Jump Modal ────────────────────────────────────
+
+const GLOBE_LOCATIONS = [
+    { name: 'Iran', lat: 32.42, lng: 53.68 },
+    { name: 'Israel', lat: 31.04, lng: 34.85 },
+    { name: 'Gaza Strip', lat: 31.41, lng: 34.35 },
+    { name: 'Lebanon (Beirut)', lat: 33.89, lng: 35.50 },
+    { name: 'Syria (Damascus)', lat: 33.51, lng: 36.29 },
+    { name: 'Yemen (Sanaa)', lat: 15.36, lng: 44.19 },
+    { name: 'Ukraine (Kyiv)', lat: 50.45, lng: 30.52 },
+    { name: 'Russia (Moscow)', lat: 55.75, lng: 37.61 },
+    { name: 'United States (DC)', lat: 38.90, lng: -77.03 },
+    { name: 'China (Beijing)', lat: 39.90, lng: 116.40 },
+    { name: 'Taiwan', lat: 23.69, lng: 120.96 },
+    { name: 'North Korea', lat: 40.33, lng: 127.51 },
+];
+
+function initSearchModal() {
+    const modal = document.getElementById('search-modal');
+    const input = document.getElementById('search-input') as HTMLInputElement | null;
+    const resultsContainer = document.getElementById('search-results');
+
+    if (!modal || !input || !resultsContainer) return;
+
+    // Toggle on Ctrl+K or Cmd+K
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            const isVisible = modal.style.display === 'flex';
+            modal.style.display = isVisible ? 'none' : 'flex';
+            if (!isVisible) {
+                input.value = '';
+                renderResults(GLOBE_LOCATIONS);
+                setTimeout(() => input.focus(), 50);
+            }
+        }
+        if (e.key === 'Escape' && modal.style.display === 'flex') {
+            modal.style.display = 'none';
+        }
+    });
+
+    // Close on click outside
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.style.display = 'none';
+    });
+
+    const renderResults = (locs: typeof GLOBE_LOCATIONS) => {
+        resultsContainer.innerHTML = '';
+        locs.forEach(loc => {
+            const div = document.createElement('div');
+            div.className = 'search-result-item';
+            div.innerHTML = `<span>${loc.name}</span><span style="opacity:0.5">${loc.lat}, ${loc.lng}</span>`;
+            div.addEventListener('click', () => {
+                if (map) {
+                    map.flyTo({ center: [loc.lng, loc.lat], zoom: 6, essential: true });
+                }
+                modal.style.display = 'none';
+            });
+            resultsContainer.appendChild(div);
+        });
+    };
+
+    input.addEventListener('input', () => {
+        const query = input.value.toLowerCase();
+        const filtered = GLOBE_LOCATIONS.filter(l => l.name.toLowerCase().includes(query));
+        renderResults(filtered);
+    });
+}
+
+// ─── Boot Sequence ──────────────────────────────────────────
+
+function initBootSequence() {
+    const bootEl = document.getElementById('boot-sequence');
+    if (!bootEl) return;
+
+    // Only show once per session to avoid annoying the user on refresh
+    if (sessionStorage.getItem('starwar-booted')) {
+        bootEl.style.display = 'none';
+        return;
+    }
+
+    sessionStorage.setItem('starwar-booted', 'true');
+
+    // Remove overlay after 4.5 seconds (matches CSS animation)
+    setTimeout(() => {
+        bootEl.classList.add('done');
+        setTimeout(() => {
+            bootEl.style.display = 'none';
+        }, 1000);
+    }, 4500);
+}
+
 // ─── Mount ──────────────────────────────────────────────────
 
 export default function mount() {
+    initBootSequence();
     startClock();
-    initGlobe();
+    initMap();
     initTVChannels();
     initFilters();
     initChat();
     initTelegram();
     initThreatBanner();
     initAurebeshToggle();
+    initSearchModal();
 
-    // Start data fetching immediately (don't wait for globe)
+    // Start data fetching immediately
     fetchAllData();
     setInterval(fetchAllData, 120_000);
 
@@ -830,4 +958,32 @@ export default function mount() {
             window.open(item.dataset.link, '_blank');
         }
     });
+
+    // Check legend filters to update map layers
+    setupLegendFilters();
+}
+
+function setupLegendFilters() {
+    const toggleLayer = (id: string, visible: boolean) => {
+        if (!map || !map.getLayer(id)) return;
+        map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+    };
+
+    const cProtest = document.getElementById('filter-protest') as HTMLInputElement | null;
+    const cBase = document.getElementById('filter-base') as HTMLInputElement | null;
+    const cNuclear = document.getElementById('filter-nuclear') as HTMLInputElement | null;
+    const cStrike = document.getElementById('filter-strike') as HTMLInputElement | null;
+
+    if (cProtest) cProtest.addEventListener('change', e => {
+        toggleLayer('events-clusters', cProtest.checked);
+        toggleLayer('events-cluster-count', cProtest.checked);
+        toggleLayer('events-point', cProtest.checked);
+    });
+
+    if (cStrike) cStrike.addEventListener('change', e => {
+        // Fires/Strikes
+        toggleLayer('fires-heat', cStrike.checked);
+    });
+
+    // Additional toggles (Bases, Nuclear) will be hooked up to their specific map layers when we add them.
 }
