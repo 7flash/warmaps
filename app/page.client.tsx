@@ -6,6 +6,7 @@
  * - RSS news feed polling & rendering
  * - GDELT event feed
  * - NASA FIRMS fire overlay
+ * - Prediction Markets / Threat Radar
  * - Live TV channel switching
  * - Clock update
  * - Breaking news ticker
@@ -19,6 +20,8 @@ let globe: any;
 let newsItems: any[] = [];
 let gdeltEvents: any[] = [];
 let firePoints: any[] = [];
+let marketData: any[] = [];
+let threatAlerts: any[] = [];
 let currentFilter = 'all';
 
 // ─── 3D Globe Setup ─────────────────────────────────────────
@@ -29,7 +32,7 @@ function initGlobe() {
 
     // Load Globe.gl from CDN
     const script = document.createElement('script');
-    script.src = 'https://unpkg.com/globe.gl@2.35.2';
+    script.src = 'https://cdn.jsdelivr.net/npm/globe.gl@2.35.2';
     script.onload = () => {
         const Globe = (window as any).Globe;
 
@@ -95,9 +98,10 @@ function initGlobe() {
             globe.controls().autoRotate = false;
         });
 
-        // Start data fetching
-        fetchAllData();
-        setInterval(fetchAllData, 120_000);
+        // Globe is ready — plot any data we already have
+        plotGdeltOnGlobe();
+        plotFiresOnGlobe();
+        plotMarketsOnGlobe();
     };
     document.head.appendChild(script);
 }
@@ -109,6 +113,7 @@ async function fetchAllData() {
         fetchNews(),
         fetchGdelt(),
         fetchFires(),
+        fetchMarkets(),
         fetchTelegramAlerts(),
     ]);
     updateTicker();
@@ -133,7 +138,8 @@ async function fetchGdelt() {
         gdeltEvents = data.events || [];
         renderGdeltFeed();
         plotGdeltOnGlobe();
-        document.getElementById('gdelt-count')!.textContent = String(gdeltEvents.length);
+        const el = document.getElementById('gdelt-count');
+        if (el) el.textContent = String(gdeltEvents.length);
     } catch (e) {
         console.error('[STARWAR] GDELT fetch failed:', e);
     }
@@ -146,9 +152,40 @@ async function fetchFires() {
         firePoints = data.fires || [];
         renderFiresFeed();
         plotFiresOnGlobe();
-        document.getElementById('firms-count')!.textContent = String(firePoints.length);
+        const el = document.getElementById('firms-count');
+        if (el) el.textContent = String(firePoints.length);
     } catch (e) {
         console.error('[STARWAR] FIRMS fetch failed:', e);
+    }
+}
+
+async function fetchMarkets() {
+    try {
+        const res = await fetch('/api/markets');
+        if (!res.ok) return;
+        const data = await res.json();
+        marketData = data.markets || [];
+        threatAlerts = data.alerts || [];
+        renderRadarFeed();
+        plotMarketsOnGlobe();
+
+        const countEl = document.getElementById('radar-alert-count');
+        if (countEl) {
+            const criticalCount = threatAlerts.filter((a: any) => a.level === 'critical' || a.level === 'high').length;
+            countEl.textContent = String(criticalCount);
+            countEl.className = criticalCount > 0 ? 'badge badge--hot badge--active' : 'badge badge--hot';
+        }
+
+        const marketCountEl = document.getElementById('market-count');
+        if (marketCountEl) marketCountEl.textContent = String(marketData.length);
+
+        // Show critical threat banner
+        const criticals = threatAlerts.filter((a: any) => a.level === 'critical');
+        if (criticals.length > 0) {
+            showThreatBanner(criticals[0]);
+        }
+    } catch (e) {
+        console.error('[STARWAR] Markets fetch failed:', e);
     }
 }
 
@@ -254,6 +291,102 @@ function renderTelegramFeed(alerts: any[]) {
     `).join('');
 }
 
+// ─── Threat Radar Rendering ─────────────────────────────────
+
+function renderRadarFeed() {
+    const container = document.getElementById('radar-feed');
+    if (!container) return;
+
+    if (marketData.length === 0 && threatAlerts.length === 0) {
+        container.innerHTML = `<div class="loading-state"><span>No prediction market data available</span></div>`;
+        return;
+    }
+
+    // Render alerts first, then markets
+    let html = '';
+
+    // Show active threat alerts
+    for (const alert of threatAlerts.slice(0, 5)) {
+        const levelClass = `radar-alert--${alert.level}`;
+        const icon = alert.level === 'critical' ? '🚨' : alert.level === 'high' ? '⚠️' : '📊';
+        html += `
+            <div class="radar-alert ${levelClass}">
+                <div class="radar-alert-header">
+                    <span class="radar-alert-icon">${icon}</span>
+                    <span class="radar-alert-level">${alert.level.toUpperCase()}</span>
+                    <span class="radar-alert-time">${formatTime(alert.timestamp)}</span>
+                </div>
+                <div class="radar-alert-title">${escHtml(alert.title.replace(/^[🚨⚠📊️\s]+/, ''))}</div>
+                <div class="radar-alert-desc">${escHtml(alert.description)}</div>
+            </div>
+        `;
+    }
+
+    // Show top prediction markets
+    for (const market of marketData.slice(0, 8)) {
+        const probClass = market.probability >= 70 ? 'prob--hot' :
+            market.probability >= 50 ? 'prob--warm' : 'prob--cool';
+        const catIcon = getCategoryIcon(market.category);
+        const velocity = market.velocityPct ? (market.velocityPct > 0 ? `▲${market.velocityPct.toFixed(1)}%` : `▼${Math.abs(market.velocityPct).toFixed(1)}%`) : '';
+        const velocityClass = market.velocityPct > 5 ? 'velocity--up' : market.velocityPct < -5 ? 'velocity--down' : '';
+
+        html += `
+            <div class="radar-market" data-link="${escHtml(market.url)}">
+                <div class="radar-market-header">
+                    <span class="radar-market-cat">${catIcon} ${market.category.toUpperCase()}</span>
+                    <span class="radar-market-platform">${market.platform === 'polymarket' ? 'PM' : 'KA'}</span>
+                </div>
+                <div class="radar-market-title">${escHtml(market.title)}</div>
+                <div class="radar-market-stats">
+                    <span class="radar-market-prob ${probClass}">${market.probability}%</span>
+                    ${velocity ? `<span class="radar-market-velocity ${velocityClass}">${velocity}</span>` : ''}
+                    <span class="radar-market-vol">$${formatVolume(market.volume)}</span>
+                    ${market.region ? `<span class="radar-market-region">📍 ${market.region}</span>` : ''}
+                </div>
+                <div class="radar-market-bar">
+                    <div class="radar-market-bar-fill ${probClass}" style="width:${market.probability}%"></div>
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+}
+
+function getCategoryIcon(cat: string): string {
+    switch (cat) {
+        case 'strike': return '💣';
+        case 'regime': return '👑';
+        case 'chokepoint': return '🚢';
+        case 'nuclear': return '☢️';
+        case 'escalation': return '⚔️';
+        default: return '📊';
+    }
+}
+
+function formatVolume(vol: number): string {
+    if (vol >= 1_000_000) return `${(vol / 1_000_000).toFixed(1)}M`;
+    if (vol >= 1_000) return `${(vol / 1_000).toFixed(0)}K`;
+    return String(Math.round(vol));
+}
+
+function showThreatBanner(alert: any) {
+    const banner = document.getElementById('threat-banner');
+    const content = document.getElementById('threat-banner-content');
+    if (!banner || !content) return;
+
+    content.innerHTML = `
+        <div class="threat-banner-title">${escHtml(alert.title)}</div>
+        <div class="threat-banner-desc">${escHtml(alert.description)}</div>
+    `;
+    banner.style.display = 'flex';
+
+    // Auto-hide after 15 seconds
+    setTimeout(() => {
+        banner.style.display = 'none';
+    }, 15000);
+}
+
 // ─── Globe Plotting ─────────────────────────────────────────
 
 function plotGdeltOnGlobe() {
@@ -275,14 +408,8 @@ function plotGdeltOnGlobe() {
 
     globe.ringsData(rings);
 
-    // HTML labels for top events
-    const labels = geoEvents.slice(0, 8).map(ev => ({
-        lat: ev.lat,
-        lng: ev.lon,
-        label: ev.country || 'Unknown',
-        type: 'gdelt',
-    }));
-    globe.htmlElementsData(labels);
+    // HTML labels — combine GDELT + market labels
+    updateGlobeLabels();
 }
 
 function plotFiresOnGlobe() {
@@ -297,6 +424,61 @@ function plotFiresOnGlobe() {
     globe.pointsData(points);
 }
 
+function plotMarketsOnGlobe() {
+    if (!globe) return;
+
+    // Add market arcs connecting related bets
+    const geoMarkets = marketData.filter((m: any) => m.lat && m.lon);
+    if (geoMarkets.length >= 2) {
+        const arcs = [];
+        for (let i = 0; i < geoMarkets.length - 1 && i < 5; i++) {
+            arcs.push({
+                startLat: geoMarkets[i].lat,
+                startLng: geoMarkets[i].lon,
+                endLat: geoMarkets[i + 1].lat,
+                endLng: geoMarkets[i + 1].lon,
+            });
+        }
+        globe.arcsData(arcs);
+    }
+
+    // Update labels to include market data
+    updateGlobeLabels();
+}
+
+function updateGlobeLabels() {
+    if (!globe) return;
+
+    const labels: any[] = [];
+
+    // GDELT labels
+    const geoEvents = gdeltEvents.filter(ev => ev.lat && ev.lon);
+    for (const ev of geoEvents.slice(0, 5)) {
+        labels.push({
+            lat: ev.lat,
+            lng: ev.lon,
+            label: ev.country || 'Unknown',
+            type: 'gdelt',
+        });
+    }
+
+    // Market labels (with probability)
+    const geoMarkets = marketData.filter((m: any) => m.lat && m.lon);
+    const seenRegions = new Set<string>();
+    for (const market of geoMarkets.slice(0, 6)) {
+        if (market.region && seenRegions.has(market.region)) continue;
+        if (market.region) seenRegions.add(market.region);
+        labels.push({
+            lat: market.lat + 0.5,
+            lng: market.lon + 0.5,
+            label: `${market.region || 'Market'} ${market.probability}%`,
+            type: market.probability >= 60 ? 'market-hot' : 'market',
+        });
+    }
+
+    globe.htmlElementsData(labels);
+}
+
 // ─── Ticker ─────────────────────────────────────────────────
 
 function updateTicker() {
@@ -304,8 +486,12 @@ function updateTicker() {
     if (!el) return;
 
     const headlines = [
-        ...newsItems.slice(0, 8).map(n => `[${n.source.toUpperCase()}] ${n.title}`),
-        ...gdeltEvents.slice(0, 4).map(e => `[GDELT] ${e.title}`),
+        ...threatAlerts.filter((a: any) => a.level === 'critical' || a.level === 'high').slice(0, 3)
+            .map((a: any) => `[THREAT RADAR] ${a.title}`),
+        ...newsItems.slice(0, 6).map(n => `[${n.source.toUpperCase()}] ${n.title}`),
+        ...marketData.filter((m: any) => m.probability >= 60).slice(0, 3)
+            .map((m: any) => `[MARKET] ${m.title} — ${m.probability}% (${m.platform})`),
+        ...gdeltEvents.slice(0, 3).map(e => `[GDELT] ${e.title}`),
     ];
 
     if (headlines.length === 0) {
@@ -513,6 +699,18 @@ function initTelegram() {
     }).catch(() => { });
 }
 
+// ─── Threat Banner ──────────────────────────────────────────
+
+function initThreatBanner() {
+    const closeBtn = document.getElementById('threat-banner-close');
+    const banner = document.getElementById('threat-banner');
+    if (closeBtn && banner) {
+        closeBtn.addEventListener('click', () => {
+            banner.style.display = 'none';
+        });
+    }
+}
+
 // ─── Clock ──────────────────────────────────────────────────
 
 function startClock() {
@@ -649,10 +847,15 @@ export default function mount() {
     initFilters();
     initChat();
     initTelegram();
+    initThreatBanner();
+
+    // Start data fetching immediately (don't wait for globe)
+    fetchAllData();
+    setInterval(fetchAllData, 120_000);
 
     // Click on feed items opens link
     document.addEventListener('click', (e) => {
-        const item = (e.target as HTMLElement).closest('.feed-item') as HTMLElement | null;
+        const item = (e.target as HTMLElement).closest('.feed-item, .radar-market') as HTMLElement | null;
         if (item && item.dataset.link && !(e.target as HTMLElement).closest('a')) {
             window.open(item.dataset.link, '_blank');
         }

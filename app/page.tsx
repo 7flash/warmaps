@@ -71,8 +71,17 @@ export default function Page() {
                             <span class="separator">│</span>
                             <span>Fires: <strong id="fire-count">—</strong></span>
                             <span class="separator">│</span>
+                            <span>Markets: <strong id="market-count">—</strong></span>
+                            <span class="separator">│</span>
                             <span>Sources: <strong id="source-count">—</strong></span>
                         </div>
+                    </div>
+
+                    {/* Threat Alert Banner */}
+                    <div id="threat-banner" class="threat-banner" style="display:none">
+                        <div class="threat-banner-icon">🚨</div>
+                        <div class="threat-banner-content" id="threat-banner-content"></div>
+                        <button class="threat-banner-close" id="threat-banner-close">×</button>
                     </div>
 
                     {/* Bottom Ticker */}
@@ -84,8 +93,24 @@ export default function Page() {
                     </div>
                 </main>
 
-                {/* Right Panel: Live TV + GDELT Events */}
+                {/* Right Panel: Markets + Live TV + Data Feeds */}
                 <aside id="intel-panel">
+
+                    {/* Threat Radar / Prediction Markets */}
+                    <div class="panel-section panel-section--radar">
+                        <div class="panel-header">
+                            <h2>🎯 THREAT RADAR</h2>
+                            <span class="badge badge--hot" id="radar-alert-count">0</span>
+                        </div>
+                        <div id="radar-feed" class="feed-list feed-list--radar">
+                            <div class="loading-state">
+                                <span class="spinner"></span>
+                                <span>Scanning prediction markets...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Live TV */}
                     <div class="panel-section">
                         <div class="panel-header">
                             <h2>LIVE NEWS TV</h2>
@@ -108,6 +133,7 @@ export default function Page() {
                         </div>
                     </div>
 
+                    {/* GDELT Events */}
                     <div class="panel-section">
                         <div class="panel-header">
                             <h2>GDELT EVENTS</h2>
@@ -121,6 +147,7 @@ export default function Page() {
                         </div>
                     </div>
 
+                    {/* Telegram OSINT */}
                     <div class="panel-section">
                         <div class="panel-header">
                             <h2>📡 TELEGRAM OSINT</h2>
@@ -135,6 +162,7 @@ export default function Page() {
                         </div>
                     </div>
 
+                    {/* Satellite Fires */}
                     <div class="panel-section">
                         <div class="panel-header">
                             <h2>🔥 SATELLITE FIRES</h2>
@@ -148,6 +176,7 @@ export default function Page() {
                         </div>
                     </div>
 
+                    {/* Global Chat */}
                     <div class="panel-section panel-section--chat">
                         <div class="panel-header">
                             <h2>GLOBAL CHAT</h2>
