@@ -12,6 +12,7 @@
  * 
  * Implements velocity detection for "smart money" alerts.
  */
+import { recordMarketSnapshot, getVelocity15m, saveAlert, getRecentAlerts } from '../../../src/db';
 
 interface MarketData {
     id: string;
@@ -239,15 +240,19 @@ async function fetchKalshiMarkets(): Promise<MarketData[]> {
 function categorizeMarket(title: string): MarketData['category'] | null {
     const lower = title.toLowerCase();
 
-    if (lower.match(/strike|bomb|attack|military action|airstrike|operation|air strike|airstrikes/))
+    // Blocklist: known false positives from generic markets
+    if (lower.match(/\b(warner|disney|netflix|apple|google|meta|amazon|bitcoin|ethereum|crypto|nfl|nba|oscar|grammy|super bowl|stock|earnings|ipo|merger|acquir|box office|streaming|movie|tv show|album|election.*202[0-9].*president)\b/))
+        return null;
+
+    if (lower.match(/\b(strike|bomb|attack|military action|airstrike|air strike|airstrikes)\b/))
         return 'strike';
-    if (lower.match(/khamenei|supreme leader|regime|out of power|president.*removed|coup|leader.*removed|overthrow/))
+    if (lower.match(/\b(khamenei|supreme leader|regime|coup|overthrow)\b|out of power|president.*removed|leader.*removed/))
         return 'regime';
-    if (lower.match(/hormuz|strait|blockade|shipping.*iran|oil.*choke|shipping lane/))
+    if (lower.match(/\b(hormuz|strait|blockade)\b|shipping.*iran|oil.*choke|shipping lane/))
         return 'chokepoint';
-    if (lower.match(/nuclear|atomic|enrichment|warhead|nuke|weapon.*mass/))
+    if (lower.match(/\b(nuclear|atomic|enrichment|warhead|nuke)\b|weapon.*mass/))
         return 'nuclear';
-    if (lower.match(/war|escalat|conflict|invade|invasion|world war|troops|deploy|sanction|military|missile|drone|territory|ceasefire|peace|frontline|annex|occupy/))
+    if (lower.match(/\b(war|escalat|conflict|invade|invasion|troops|deploy|sanction|military|missile|drone|ceasefire|frontline|annex|occupy)\b/))
         return 'escalation';
 
     return null;
@@ -295,39 +300,25 @@ function deduplicateMarkets(markets: MarketData[]): MarketData[] {
     return Array.from(seen.values());
 }
 
-// ─── Velocity Detection (Smart Money Alerts) ────────────────
+// ─── Velocity Detection (Smart Money Alerts) — uses SQLite ──
 
-interface MarketSnapshot {
-    probability: number;
-    volume: number;
-    timestamp: number;
-}
-
-const marketHistory = new Map<string, MarketSnapshot[]>();
-const MAX_HISTORY = 60;
-
-function recordSnapshot(market: MarketData) {
-    const history = marketHistory.get(market.id) || [];
-    history.push({
+function recordAndDetectVelocity(market: MarketData): { velocityPct: number; volumeSpike: number } {
+    // Record snapshot to database
+    recordMarketSnapshot({
+        id: market.id,
+        title: market.title,
+        platform: market.platform,
         probability: market.probability,
         volume: market.volume,
-        timestamp: Date.now(),
+        category: market.category,
+        url: market.url,
+        region: market.region,
+        lat: market.lat,
+        lon: market.lon,
     });
-    if (history.length > MAX_HISTORY) history.shift();
-    marketHistory.set(market.id, history);
-}
 
-function detectVelocity(market: MarketData): { velocityPct: number; volumeSpike: number } {
-    const history = marketHistory.get(market.id);
-    if (!history || history.length < 2) return { velocityPct: 0, volumeSpike: 0 };
-
-    const fifteenMinsAgo = Date.now() - 15 * 60 * 1000;
-    const recentStart = history.find(s => s.timestamp >= fifteenMinsAgo) || history[0];
-
-    const velocityPct = market.probability - recentStart.probability;
-    const volumeSpike = market.volume - recentStart.volume;
-
-    return { velocityPct, volumeSpike };
+    // Get 15-minute velocity from database history
+    return getVelocity15m(market.id, market.probability, market.volume);
 }
 
 // ─── Threat Alert Generation ─────────────────────────────────
@@ -339,17 +330,16 @@ function generateAlerts(markets: MarketData[]): ThreatAlert[] {
     const newAlerts: ThreatAlert[] = [];
 
     for (const market of markets) {
-        recordSnapshot(market);
-        const { velocityPct, volumeSpike } = detectVelocity(market);
+        const { velocityPct, volumeSpike } = recordAndDetectVelocity(market);
 
         market.velocityPct = velocityPct;
         market.volumeSpike = volumeSpike;
 
         // CRITICAL: Volume spike > $50k AND probability jump > 15%
         if (volumeSpike > 50000 && velocityPct > 15) {
-            newAlerts.push({
+            const alert = {
                 id: `alert-${market.id}-${Date.now()}`,
-                level: 'critical',
+                level: 'critical' as const,
                 title: `🚨 CRITICAL ANOMALY: ${market.title}`,
                 description: `Smart money detected. $${(volumeSpike / 1000).toFixed(0)}k wagered in 15 min. Probability +${velocityPct.toFixed(1)}%.`,
                 signals: [
@@ -362,13 +352,15 @@ function generateAlerts(markets: MarketData[]): ThreatAlert[] {
                 region: market.region,
                 lat: market.lat,
                 lon: market.lon,
-            });
+            };
+            newAlerts.push(alert);
+            saveAlert({ ...alert, marketIds: [market.id] });
         }
         // HIGH: Probability > 70% and rising
         else if (market.probability > 70 && velocityPct > 5) {
-            newAlerts.push({
+            const alert = {
                 id: `alert-${market.id}-${Date.now()}`,
-                level: 'high',
+                level: 'high' as const,
                 title: `⚠ HIGH PROBABILITY: ${market.title}`,
                 description: `Market pricing ${market.probability}% chance, rising +${velocityPct.toFixed(1)}% in 15 min.`,
                 signals: [
@@ -381,13 +373,15 @@ function generateAlerts(markets: MarketData[]): ThreatAlert[] {
                 region: market.region,
                 lat: market.lat,
                 lon: market.lon,
-            });
+            };
+            newAlerts.push(alert);
+            saveAlert({ ...alert, marketIds: [market.id] });
         }
         // MEDIUM: Any significant probability (>50%) on conflict markets
         else if (market.probability > 50) {
-            newAlerts.push({
+            const alert = {
                 id: `alert-${market.id}-${Date.now()}`,
-                level: 'medium',
+                level: 'medium' as const,
                 title: `📊 ELEVATED: ${market.title}`,
                 description: `Market pricing ${market.probability}% chance. Volume: $${market.volume.toLocaleString()}.`,
                 signals: [
@@ -399,30 +393,28 @@ function generateAlerts(markets: MarketData[]): ThreatAlert[] {
                 region: market.region,
                 lat: market.lat,
                 lon: market.lon,
-            });
+            };
+            newAlerts.push(alert);
+            saveAlert({ ...alert, marketIds: [market.id] });
         }
     }
-
-    // Store alerts
-    for (const alert of newAlerts) {
-        activeAlerts.unshift(alert);
-    }
-    while (activeAlerts.length > MAX_ALERTS) activeAlerts.pop();
 
     return newAlerts;
 }
 
 // ─── Cache + Handler ─────────────────────────────────────────
 
-let cache: { markets: MarketData[]; alerts: ThreatAlert[]; ts: number } | null = null;
+let cache: { markets: MarketData[]; alerts: any[]; ts: number } | null = null;
 const CACHE_TTL = 60 * 1000; // 1 minute
 
 export async function GET(req: Request) {
     const url = new URL(req.url);
     const format = url.searchParams.get('format');
 
+    // Return persisted alerts from database
     if (format === 'alerts') {
-        return Response.json({ alerts: activeAlerts });
+        const alerts = getRecentAlerts(20);
+        return Response.json({ alerts });
     }
 
     if (cache && Date.now() - cache.ts < CACHE_TTL) {
@@ -454,15 +446,18 @@ export async function GET(req: Request) {
 
     const newAlerts = generateAlerts(allMarkets);
 
+    // Get persisted alerts from database
+    const persistedAlerts = getRecentAlerts(20);
+
     cache = {
         markets: allMarkets,
-        alerts: activeAlerts,
+        alerts: persistedAlerts,
         ts: Date.now(),
     };
 
     return Response.json({
         markets: allMarkets,
-        alerts: activeAlerts,
+        alerts: persistedAlerts,
         newAlerts: newAlerts.length,
         cached: false,
         lastUpdated: new Date().toISOString(),

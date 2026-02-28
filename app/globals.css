@@ -679,17 +679,26 @@ body {
     background: var(--accent-dim);
 }
 
+.panel-section--tv {
+    flex: 0 0 auto;
+}
+
 .tv-player {
     aspect-ratio: 16 / 9;
     background: #000;
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
+    overflow: hidden;
+    position: relative;
 }
 
 .tv-player iframe {
     width: 100%;
     height: 100%;
     border: none;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 /* ─── Responsive ───────────────────────────────────────────── */

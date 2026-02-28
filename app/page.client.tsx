@@ -20,6 +20,8 @@ let globe: any;
 let newsItems: any[] = [];
 let gdeltEvents: any[] = [];
 let firePoints: any[] = [];
+let flightData: any[] = [];
+let flightStats: any = {};
 let marketData: any[] = [];
 let threatAlerts: any[] = [];
 let currentFilter = 'all';
@@ -30,11 +32,19 @@ function initGlobe() {
     const mapEl = document.getElementById('map');
     if (!mapEl || globe) return;
 
-    // Load Globe.gl from CDN
+    // Load Globe.gl from CDN (unpkg serves the UMD build with globals)
     const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/globe.gl@2.35.2';
+    script.src = 'https://unpkg.com/globe.gl';
+    script.onerror = () => {
+        console.error('[STARWAR] Failed to load Globe.gl from CDN');
+        mapEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#475569;font-size:12px;font-family:monospace;">⚠ Globe visualization unavailable — CDN blocked</div>`;
+    };
     script.onload = () => {
         const Globe = (window as any).Globe;
+        if (!Globe) {
+            console.error('[STARWAR] Globe constructor not found after script load');
+            return;
+        }
 
         globe = Globe({ animateIn: true })
             (mapEl)
@@ -113,6 +123,7 @@ async function fetchAllData() {
         fetchNews(),
         fetchGdelt(),
         fetchFires(),
+        fetchFlights(),
         fetchMarkets(),
         fetchTelegramAlerts(),
     ]);
@@ -200,6 +211,23 @@ async function fetchTelegramAlerts() {
             if (countEl) countEl.textContent = String(alerts.length);
         }
     } catch { /* telegram not connected */ }
+}
+
+async function fetchFlights() {
+    try {
+        const res = await fetch('/api/flights');
+        if (!res.ok) return;
+        const data = await res.json();
+        flightData = data.flights || [];
+        flightStats = data.stats || {};
+        plotFiresOnGlobe(); // Re-plot combined fires + flights
+
+        // Update flight count in stats
+        const flightCountEl = document.getElementById('flight-count');
+        if (flightCountEl) flightCountEl.textContent = String(flightData.length);
+    } catch (e) {
+        console.error('[STARWAR] Flights fetch failed:', e);
+    }
 }
 
 // ─── Rendering ──────────────────────────────────────────────
@@ -415,13 +443,28 @@ function plotGdeltOnGlobe() {
 function plotFiresOnGlobe() {
     if (!globe) return;
 
-    const points = firePoints.map(fire => ({
+    // Combine fires (orange) + flights (cyan) into one point layer
+    const firePointsForGlobe = firePoints.map(fire => ({
         lat: fire.lat,
         lng: fire.lon,
         size: Math.min(fire.brightness / 2000, 0.4),
+        color: '#ff6b35',
+        type: 'fire',
     }));
 
-    globe.pointsData(points);
+    const flightPointsForGlobe = flightData.map((f: any) => ({
+        lat: f.lat,
+        lng: f.lon,
+        size: f.type === 'military' ? 0.25 : f.type === 'sigint' ? 0.3 : 0.1,
+        color: f.type === 'military' ? '#ef4444' : f.type === 'sigint' ? '#a855f7' : '#22d3ee',
+        type: 'flight',
+    }));
+
+    globe
+        .pointsData([...firePointsForGlobe, ...flightPointsForGlobe])
+        .pointColor((d: any) => d.color)
+        .pointRadius((d: any) => d.size || 0.15)
+        .pointAltitude((d: any) => d.type === 'flight' ? 0.04 : 0.01);
 }
 
 function plotMarketsOnGlobe() {
@@ -514,22 +557,45 @@ function updateStats() {
 
 // ─── TV Channel Switching ───────────────────────────────────
 
+// Known YouTube handles → live embed URLs (most reliable approach)
+const LIVE_STREAM_URLS: Record<string, string> = {
+    aljazeeraenglish: 'https://www.youtube.com/embed/gCNeDWCI0vo?autoplay=1&mute=1',
+    france24english: 'https://www.youtube.com/embed/h3MuIUNCCzI?autoplay=1&mute=1',
+    skynews: 'https://www.youtube.com/embed/9Auq9mYxFEE?autoplay=1&mute=1',
+    dwnews: 'https://www.youtube.com/embed/GE_SfNVNyqk?autoplay=1&mute=1',
+    cnn: 'https://www.youtube.com/embed/ekAem7MBuGk?autoplay=1&mute=1',
+};
+
+function loadTVChannel(channelKey: string) {
+    const player = document.getElementById('tv-player');
+    if (!player) return;
+
+    const embedUrl = LIVE_STREAM_URLS[channelKey];
+    if (embedUrl) {
+        player.innerHTML = `<iframe id="tv-iframe" src="${embedUrl}" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:none;"></iframe>`;
+    } else {
+        player.innerHTML = `<div class="loading-state" style="height:100%"><span>No live stream available</span></div>`;
+    }
+}
+
 function initTVChannels() {
     const container = document.getElementById('tv-channels');
-    const iframe = document.getElementById('tv-iframe') as HTMLIFrameElement | null;
-    if (!container || !iframe) return;
+    if (!container) return;
+
+    // Load the default channel (Al Jazeera)
+    loadTVChannel('aljazeeraenglish');
 
     container.addEventListener('click', (e) => {
         const btn = (e.target as HTMLElement).closest('.channel-btn') as HTMLElement | null;
         if (!btn) return;
 
-        const channelId = btn.dataset.channel;
-        if (!channelId) return;
+        const channelKey = btn.dataset.channel;
+        if (!channelKey) return;
 
         container.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
 
-        iframe.src = `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1`;
+        loadTVChannel(channelKey);
     });
 }
 

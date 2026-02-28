@@ -2,9 +2,10 @@ import { createAppRouter } from 'melina';
 import { measure } from 'measure-fn';
 import { builtAssets } from 'melina/server';
 import path from 'path';
+import { saveChatMessage, getChatHistory, cleanupOldData } from './src/db';
 
 const appDir = path.join(import.meta.dir, 'app');
-const port = parseInt(process.env.BUN_PORT || "4444");
+const port = parseInt(process.env.STARWAR_PORT || "4444");
 const isDev = process.env.NODE_ENV !== 'production';
 
 // ─── Chat State ─────────────────────────────────────────────
@@ -19,6 +20,9 @@ interface ChatMessage {
 const recentMessages: ChatMessage[] = [];
 const MAX_HISTORY = 50;
 let guestCounter = 0;
+
+// Cleanup old data on startup
+cleanupOldData(7);
 
 function generateGuestName(): string {
     guestCounter++;
@@ -37,6 +41,7 @@ const router = createAppRouter({
 
 const server = Bun.serve({
     port,
+    idleTimeout: 60, // seconds — allow slow external APIs (GDELT, FIRMS)
     async fetch(req, server) {
         const url = new URL(req.url);
 
@@ -83,10 +88,12 @@ const server = Bun.serve({
             ws.subscribe('chat');
             console.log(`[Chat] ${ws.data.username} connected`);
 
+            // Load chat history from database
+            const dbHistory = getChatHistory(30);
             ws.send(JSON.stringify({
                 type: 'init',
                 username: ws.data.username,
-                history: recentMessages.slice(-30),
+                history: dbHistory.map(m => ({ user: m.username, text: m.text, time: m.sent_at })),
                 online: server.subscriberCount('chat'),
             }));
 
@@ -112,6 +119,9 @@ const server = Bun.serve({
                     if (recentMessages.length > MAX_HISTORY) {
                         recentMessages.shift();
                     }
+
+                    // Persist to database
+                    saveChatMessage(chatMsg.user, chatMsg.text);
 
                     server.publish('chat', JSON.stringify({
                         type: 'message',

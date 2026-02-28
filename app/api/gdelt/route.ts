@@ -40,7 +40,7 @@ async function queryGdeltDocs(query: string, maxRecords = 40): Promise<GdeltEven
         console.log('[GDELT] Fetching:', url);
 
         const res = await fetch(url, {
-            signal: AbortSignal.timeout(30000),
+            signal: AbortSignal.timeout(55000),
         });
 
         console.log('[GDELT] Status:', res.status);

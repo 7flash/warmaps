@@ -4,6 +4,7 @@
  * Fetches and parses RSS feeds from major news outlets,
  * extracts conflict-related articles.
  */
+import { cacheNewsItems } from '../../../src/db';
 
 interface NewsItem {
     id: string;
@@ -111,6 +112,9 @@ export async function GET(req: Request) {
     });
 
     cache = { data: allItems, ts: Date.now() };
+
+    // Persist to database
+    cacheNewsItems(allItems);
 
     const filtered = source === 'all'
         ? allItems

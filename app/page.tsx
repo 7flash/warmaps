@@ -71,6 +71,8 @@ export default function Page() {
                             <span class="separator">│</span>
                             <span>Fires: <strong id="fire-count">—</strong></span>
                             <span class="separator">│</span>
+                            <span>✈ Aircraft: <strong id="flight-count">—</strong></span>
+                            <span class="separator">│</span>
                             <span>Markets: <strong id="market-count">—</strong></span>
                             <span class="separator">│</span>
                             <span>Sources: <strong id="source-count">—</strong></span>
@@ -111,25 +113,22 @@ export default function Page() {
                     </div>
 
                     {/* Live TV */}
-                    <div class="panel-section">
+                    <div class="panel-section panel-section--tv">
                         <div class="panel-header">
                             <h2>LIVE NEWS TV</h2>
                         </div>
                         <div id="tv-channels" class="tv-channels">
-                            <button class="channel-btn active" data-channel="UCIRYBXDze5krPDzAEOxFGVA">AL JAZEERA</button>
-                            <button class="channel-btn" data-channel="UCQfwfsi5VrQ8yKZ-UWmAEFg">FRANCE24</button>
-                            <button class="channel-btn" data-channel="UC_gUM8rL-Lrg6O3adPW9K1g">SKY NEWS</button>
-                            <button class="channel-btn" data-channel="UCUMZ7gohGI9HcU9VNsr2FJQ">BLOOMBERG</button>
-                            <button class="channel-btn" data-channel="UCknLrEdhRCp1aegoMqRaCZg">DW</button>
-                            <button class="channel-btn" data-channel="UCupvZG-5ko_eiXAupbDfxWw">CNN</button>
+                            <button class="channel-btn active" data-channel="aljazeeraenglish" data-search="Al Jazeera English Live">AL JAZEERA</button>
+                            <button class="channel-btn" data-channel="france24english" data-search="France 24 English Live">FRANCE24</button>
+                            <button class="channel-btn" data-channel="skynews" data-search="Sky News Live">SKY NEWS</button>
+                            <button class="channel-btn" data-channel="dwnews" data-search="DW News Live">DW</button>
+                            <button class="channel-btn" data-channel="cnn" data-search="CNN News Live">CNN</button>
                         </div>
                         <div id="tv-player" class="tv-player">
-                            <iframe
-                                id="tv-iframe"
-                                src="https://www.youtube.com/embed/live_stream?channel=UCIRYBXDze5krPDzAEOxFGVA&autoplay=1&mute=1"
-                                allow="autoplay; encrypted-media"
-                                allowFullScreen={true}
-                            ></iframe>
+                            <div id="tv-loading" class="loading-state" style="height:100%">
+                                <span class="spinner"></span>
+                                <span>Searching for live stream...</span>
+                            </div>
                         </div>
                     </div>
 
