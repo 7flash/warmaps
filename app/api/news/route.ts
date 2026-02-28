@@ -26,6 +26,18 @@ const RSS_FEEDS: Record<string, string[]> = {
     aljazeera: [
         'https://www.aljazeera.com/xml/rss/all.xml',
     ],
+    irna: [
+        'https://en.irna.ir/rss',
+    ],
+    mehr: [
+        'https://en.mehrnews.com/rss',
+    ],
+    tasnim: [
+        'https://www.tasnimnews.com/en/rss',
+    ],
+    presstv: [
+        'https://www.presstv.ir/rss',
+    ],
 };
 
 // Simple XML tag extractor (no parser dependency)

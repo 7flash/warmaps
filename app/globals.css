@@ -1732,3 +1732,70 @@ body::before {
     cursor: pointer;
     accent-color: var(--accent);
 }
+
+/* ─── MapLibre Popups ────────────────────────────────────────── */
+
+.tactical-popup .maplibregl-popup-content {
+    background: rgba(5, 9, 19, 0.95);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    width: 280px;
+}
+
+.tactical-popup .maplibregl-popup-tip {
+    border-top-color: var(--border);
+    border-bottom-color: var(--border);
+}
+
+.tactical-popup .maplibregl-popup-close-button {
+    color: var(--text-secondary);
+    font-size: 16px;
+    padding: 4px 8px;
+    right: 4px;
+    top: 4px;
+}
+
+.tactical-popup .maplibregl-popup-close-button:hover {
+    color: var(--accent);
+    background: transparent;
+}
+
+.intel-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.intel-card-header {
+    background: rgba(34, 211, 238, 0.1);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 12px;
+    padding-right: 28px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+    word-break: break-word;
+}
+
+.intel-card-body {
+    padding: 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.intel-card-footer {
+    border-top: 1px dashed var(--border);
+    padding: 8px 12px;
+    font-size: 10px;
+    display: flex;
+    justify-content: space-between;
+    color: var(--text-dim);
+    background: rgba(0, 0, 0, 0.2);
+}

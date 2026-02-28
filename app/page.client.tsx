@@ -181,6 +181,72 @@ function initMap() {
             }
         });
 
+        // --- Interactive Intel Popups ---
+
+        const popup = new maplibregl.Popup({
+            closeButton: true,
+            closeOnClick: false,
+            className: 'tactical-popup'
+        });
+
+        const setupInteractiveLayer = (layerId: string) => {
+            map.on('mouseenter', layerId, () => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on('mouseleave', layerId, () => {
+                map.getCanvas().style.cursor = '';
+            });
+
+            map.on('click', layerId, (e: any) => {
+                const coordinates = e.features[0].geometry.coordinates.slice();
+                const props = e.features[0].properties;
+
+                // Ensure that if the map is zoomed out such that multiple copies of the feature are visible, the popup appears over the copy being pointed to.
+                while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                    coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                }
+
+                let htmlContent = '';
+
+                if (props.type === 'nuclear' || props.type === 'base') {
+                    const icon = props.type === 'nuclear' ? '☢️' : '🔵';
+                    const confColor = props.confidence === 'High' ? '#22c55e' : props.confidence === 'Moderate' ? '#eab308' : '#ef4444';
+                    htmlContent = `
+                        <div class="intel-card">
+                            <div class="intel-card-header">${icon} ${props.name}</div>
+                            <div class="intel-card-body">
+                                <p>${props.description || 'No detailed intel available.'}</p>
+                            </div>
+                            <div class="intel-card-footer">
+                                <span>TYPE: ${props.type.toUpperCase()}</span>
+                                <span>CONF: <span style="color:${confColor}">${props.confidence}</span></span>
+                            </div>
+                        </div>
+                    `;
+                } else if (props.type === 'gdelt' || props.type === 'market-hot' || props.type === 'market') {
+                    htmlContent = `
+                        <div class="intel-card">
+                            <div class="intel-card-header">📍 EVENT</div>
+                            <div class="intel-card-body">
+                                <p>${props.title}</p>
+                            </div>
+                            <div class="intel-card-footer">
+                                <span>DATE: ${props.date ? props.date.slice(0, 10) : 'LIVE'}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (htmlContent) {
+                    popup.setLngLat(coordinates).setHTML(htmlContent).addTo(map);
+                }
+            });
+        };
+
+        setupInteractiveLayer('assets-nuclear');
+        setupInteractiveLayer('assets-base');
+        setupInteractiveLayer('events-point');
+
         // Initialize Timeline UI logic
         initTimelineSlider();
 
