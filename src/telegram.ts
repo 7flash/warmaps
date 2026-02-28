@@ -13,30 +13,26 @@ import * as path from 'path'
 // Curated intelligence matrix for Middle East & global conflict OSINT
 export const OSINT_CHANNELS = [
     // ─ Official / Semi-Official State Agencies ─
-    { id: 'faraborsnewsagency', title: 'Fars News Agency', category: 'state' },
-    { id: 'TasnimagencyEN', title: 'Tasnim News (IRGC-linked)', category: 'state' },
-    { id: 'TehranTimesDaily', title: 'Tehran Times', category: 'state' },
-    { id: 'IranIntl_En', title: 'Iran International', category: 'state' },
+    { id: 'faraborsnews', title: 'Fars News Agency', category: 'state' },
+    { id: 'TasnimNewsEN', title: 'Tasnim News (IRGC-linked)', category: 'state' },
+    { id: 'IranIntlEn', title: 'Iran International', category: 'state' },
 
     // ─ Conflict Media & Aggregators ─
     { id: 'Middle_East_Spectator', title: 'Middle East Spectator', category: 'conflict' },
     { id: 'ClashReport', title: 'Clash Report', category: 'conflict' },
-    { id: 'inaborni', title: 'Iran Observer', category: 'conflict' },
-    { id: 'AbuAliEnglish', title: 'Abu Ali Express', category: 'conflict' },
+    { id: 'aaborni', title: 'Iran Observer', category: 'conflict' },
+    { id: 'AbuAliExpressEng', title: 'Abu Ali Express', category: 'conflict' },
     { id: 'CIG_telegram', title: 'Caliber Intelligence Group', category: 'conflict' },
-    { id: 'TheIntelligenceRepublic', title: 'Intelligence Republic', category: 'conflict' },
-    { id: 'RedAlertIsrael', title: 'Red Alert Israel', category: 'conflict' },
-    { id: 'maborontalk', title: 'Mabront Talk', category: 'conflict' },
+    { id: 'IntelRepublic', title: 'Intelligence Republic', category: 'conflict' },
+    { id: 'RedAlertsIsrael', title: 'Red Alert Israel', category: 'conflict' },
 
-    // ─ Geospatial Verification Collectives ─
-    { id: 'GeoConfirmed', title: 'GeoConfirmed', category: 'geoVerify' },
-    { id: 'ukraine_map', title: 'Ukraine Map Project', category: 'geoVerify' },
+    // ─ Geospatial Verification ─
+    { id: 'GeoConfirmed_channel', title: 'GeoConfirmed', category: 'geoVerify' },
 
     // ─ Ukraine Theater ─
-    { id: 'sotaborci', title: 'Sota Borci', category: 'ukraine' },
-    { id: 'ryaborV', title: 'Rybar', category: 'ukraine' },
+    { id: 'ryaborforce', title: 'Rybar', category: 'ukraine' },
     { id: 'war_monitor_ua', title: 'War Monitor UA', category: 'ukraine' },
-    { id: 'vaboronka', title: 'Oboronka', category: 'ukraine' },
+    { id: 'Deep_statee', title: 'DeepState UA', category: 'ukraine' },
 ]
 
 // ── State ──
