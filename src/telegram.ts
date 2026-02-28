@@ -10,18 +10,33 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 // ── OSINT Channels to Monitor ──
-// Key Telegram channels for Middle East & global conflict OSINT
+// Curated intelligence matrix for Middle East & global conflict OSINT
 export const OSINT_CHANNELS = [
-    { id: 'Middle_East_Spectator', title: 'Middle East Spectator' },
-    { id: 'ClashReport', title: 'Clash Report' },
-    { id: 'inaborni', title: 'Iran Observer' },
-    { id: 'AbuAliEnglish', title: 'Abu Ali Express' },
-    { id: 'CIG_telegram', title: 'Caliber Intelligence Group' },
-    { id: 'sotaborci', title: 'Sota Borci' },
-    { id: 'ryaborV', title: 'Rybar (Ukraine)' },
-    { id: 'war_monitor_ua', title: 'War Monitor UA' },
-    { id: 'vaboronka', title: 'Oboronka' },
-    { id: 'TheIntelligenceRepublic', title: 'Intelligence Republic' },
+    // ─ Official / Semi-Official State Agencies ─
+    { id: 'faraborsnewsagency', title: 'Fars News Agency', category: 'state' },
+    { id: 'TasnimagencyEN', title: 'Tasnim News (IRGC-linked)', category: 'state' },
+    { id: 'TehranTimesDaily', title: 'Tehran Times', category: 'state' },
+    { id: 'IranIntl_En', title: 'Iran International', category: 'state' },
+
+    // ─ Conflict Media & Aggregators ─
+    { id: 'Middle_East_Spectator', title: 'Middle East Spectator', category: 'conflict' },
+    { id: 'ClashReport', title: 'Clash Report', category: 'conflict' },
+    { id: 'inaborni', title: 'Iran Observer', category: 'conflict' },
+    { id: 'AbuAliEnglish', title: 'Abu Ali Express', category: 'conflict' },
+    { id: 'CIG_telegram', title: 'Caliber Intelligence Group', category: 'conflict' },
+    { id: 'TheIntelligenceRepublic', title: 'Intelligence Republic', category: 'conflict' },
+    { id: 'RedAlertIsrael', title: 'Red Alert Israel', category: 'conflict' },
+    { id: 'maborontalk', title: 'Mabront Talk', category: 'conflict' },
+
+    // ─ Geospatial Verification Collectives ─
+    { id: 'GeoConfirmed', title: 'GeoConfirmed', category: 'geoVerify' },
+    { id: 'ukraine_map', title: 'Ukraine Map Project', category: 'geoVerify' },
+
+    // ─ Ukraine Theater ─
+    { id: 'sotaborci', title: 'Sota Borci', category: 'ukraine' },
+    { id: 'ryaborV', title: 'Rybar', category: 'ukraine' },
+    { id: 'war_monitor_ua', title: 'War Monitor UA', category: 'ukraine' },
+    { id: 'vaboronka', title: 'Oboronka', category: 'ukraine' },
 ]
 
 // ── State ──
@@ -261,6 +276,69 @@ export async function disconnect() {
 
 // ── OSINT Channel Polling ──
 
+// Known conflict locations for automatic geolocation
+const KNOWN_LOCATIONS: Array<{ pattern: RegExp; lat: number; lon: number; name: string }> = [
+    // Iran
+    { pattern: /\bisfahan\b/i, lat: 32.65, lon: 51.68, name: 'Isfahan' },
+    { pattern: /\btehran\b/i, lat: 35.69, lon: 51.39, name: 'Tehran' },
+    { pattern: /\bnatanz\b/i, lat: 33.51, lon: 51.73, name: 'Natanz' },
+    { pattern: /\bfordow\b/i, lat: 34.88, lon: 51.59, name: 'Fordow' },
+    { pattern: /\bbushehr\b/i, lat: 28.97, lon: 50.84, name: 'Bushehr' },
+    { pattern: /\btabriz\b/i, lat: 38.07, lon: 46.30, name: 'Tabriz' },
+    { pattern: /\bshiraz\b/i, lat: 29.59, lon: 52.58, name: 'Shiraz' },
+    { pattern: /\bbandar abbas\b/i, lat: 27.19, lon: 56.28, name: 'Bandar Abbas' },
+    { pattern: /\bhormuz\b/i, lat: 27.06, lon: 56.46, name: 'Strait of Hormuz' },
+    // Israel / Palestine
+    { pattern: /\btel aviv\b/i, lat: 32.08, lon: 34.78, name: 'Tel Aviv' },
+    { pattern: /\bjerusalem\b/i, lat: 31.77, lon: 35.23, name: 'Jerusalem' },
+    { pattern: /\bgaza\b/i, lat: 31.50, lon: 34.47, name: 'Gaza' },
+    { pattern: /\bdimona\b/i, lat: 31.07, lon: 35.03, name: 'Dimona' },
+    { pattern: /\bhaifa\b/i, lat: 32.79, lon: 34.99, name: 'Haifa' },
+    { pattern: /\bnegev\b/i, lat: 30.85, lon: 34.78, name: 'Negev' },
+    // Lebanon
+    { pattern: /\bbeirut\b/i, lat: 33.89, lon: 35.50, name: 'Beirut' },
+    { pattern: /\bdahiyeh\b/i, lat: 33.84, lon: 35.51, name: 'Dahiyeh' },
+    // Syria
+    { pattern: /\bdamascus\b/i, lat: 33.51, lon: 36.29, name: 'Damascus' },
+    { pattern: /\baleppo\b/i, lat: 36.20, lon: 37.15, name: 'Aleppo' },
+    // Iraq
+    { pattern: /\bbaghdad\b/i, lat: 33.31, lon: 44.37, name: 'Baghdad' },
+    { pattern: /\berbil\b/i, lat: 36.19, lon: 44.01, name: 'Erbil' },
+    // Ukraine
+    { pattern: /\bkyiv\b/i, lat: 50.45, lon: 30.52, name: 'Kyiv' },
+    { pattern: /\bkharkiv\b/i, lat: 49.99, lon: 36.23, name: 'Kharkiv' },
+    { pattern: /\bodessa\b/i, lat: 46.48, lon: 30.73, name: 'Odessa' },
+    { pattern: /\bkremenchuk\b/i, lat: 49.07, lon: 33.42, name: 'Kremenchuk' },
+    { pattern: /\bdnipro\b/i, lat: 48.47, lon: 35.04, name: 'Dnipro' },
+    { pattern: /\bzaporizhzhia\b/i, lat: 47.84, lon: 35.14, name: 'Zaporizhzhia' },
+    { pattern: /\bcrimea\b/i, lat: 44.95, lon: 34.10, name: 'Crimea' },
+    { pattern: /\bdonetsk\b/i, lat: 48.00, lon: 37.80, name: 'Donetsk' },
+    // Yemen / Horn of Africa
+    { pattern: /\bsanaa\b/i, lat: 15.37, lon: 44.19, name: "Sana'a" },
+    { pattern: /\bhodeida\b/i, lat: 14.80, lon: 42.95, name: 'Hodeidah' },
+    { pattern: /\baden\b/i, lat: 12.79, lon: 45.02, name: 'Aden' },
+]
+
+function extractLocation(text: string): TelegramAlert['location'] | undefined {
+    for (const loc of KNOWN_LOCATIONS) {
+        if (loc.pattern.test(text)) {
+            return { lat: loc.lat, lon: loc.lon, name: loc.name }
+        }
+    }
+    return undefined
+}
+
+function classifyThreat(text: string): TelegramAlert['threatLevel'] {
+    const lower = text.toLowerCase()
+    if (/\b(explosion|missile|strike|bomb|intercept|nuclear|wmd|chemical)\b/.test(lower))
+        return 'critical'
+    if (/\b(attack|shoot|drone|siren|alert|launch|fires?|escalat|raid|shelling)\b/.test(lower))
+        return 'high'
+    if (/\b(troops|deploy|military|convoy|naval|airspace|closed|forces|mobiliz)\b/.test(lower))
+        return 'medium'
+    return 'low'
+}
+
 // Track last message ID per channel to avoid duplicates
 const lastMessageIds = new Map<string, number>()
 
@@ -316,6 +394,8 @@ export function startPolling(intervalMs = 15_000) {
                         text: msg.message,
                         date: msg.date,
                         mediaType: msg.media?.className?.replace('MessageMedia', '').toLowerCase(),
+                        location: extractLocation(msg.message),
+                        threatLevel: classifyThreat(msg.message),
                     }
 
                     pushAlert(alert)
