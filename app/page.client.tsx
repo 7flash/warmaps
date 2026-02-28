@@ -429,65 +429,115 @@ async function fetchSeismic() {
 async function fetchCrypto() {
     try {
         const res = await fetch('/api/crypto');
+        if (!res.ok) return;
         const data = await res.json();
-        if (data.history) {
-            const chartCanvas = document.getElementById('crypto-chart') as HTMLCanvasElement;
-            if (!chartCanvas) return;
+        if (!data.ok || !data.history || data.history.length === 0) return;
 
-            const badge = document.getElementById('crypto-premium-badge');
-            if (badge) {
-                badge.innerText = `+${data.currentPremium.toFixed(1)}%`;
-                badge.className = data.alertStatus === 'HIGH_PANIC' ? 'badge badge--hot badge--active' : 'badge';
-                if (data.alertStatus === 'HIGH_PANIC') {
-                    badge.style.animation = 'pulseBorder 2s infinite';
-                    badge.style.color = '#fff';
-                    badge.style.backgroundColor = '#ef4444';
-                }
+        // Update badge
+        const badge = document.getElementById('crypto-premium-badge');
+        if (badge) {
+            const prem = data.currentPremium;
+            badge.innerText = `${prem >= 0 ? '+' : ''}${prem.toFixed(2)}%`;
+            badge.className = data.alertStatus === 'HIGH_PANIC' ? 'badge badge--hot badge--active' : 'badge';
+            if (data.alertStatus === 'HIGH_PANIC') {
+                badge.style.animation = 'pulseBorder 2s infinite';
+                badge.style.color = '#fff';
+                badge.style.backgroundColor = '#ef4444';
+            } else {
+                badge.style.animation = '';
+                badge.style.backgroundColor = '';
             }
+        }
 
-            // Draw simple minimal chart
-            const ctx = chartCanvas.getContext('2d');
-            if (!ctx) return;
-            const w = chartCanvas.width = chartCanvas.offsetWidth;
-            const h = chartCanvas.height = chartCanvas.offsetHeight;
+        // Draw chart
+        const chartCanvas = document.getElementById('crypto-chart') as HTMLCanvasElement;
+        if (!chartCanvas) return;
 
-            ctx.clearRect(0, 0, w, h);
+        const ctx = chartCanvas.getContext('2d');
+        if (!ctx) return;
 
-            const values = data.history.map((h: any) => h.localUSDT);
-            const min = Math.min(...values);
-            const max = Math.max(...values);
-            const range = max - min || 1;
+        // Set canvas pixel dimensions to match its CSS container
+        const rect = chartCanvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        chartCanvas.width = rect.width * dpr;
+        chartCanvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
 
-            // Draw baseline (Global USD)
-            const globalUsd = data.history[0].globalUSD;
-            const baseLineY = h - ((globalUsd - min) / range) * h;
+        const w = rect.width;
+        const h = rect.height;
+        if (w < 10 || h < 10) return; // Container not visible
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Draw background grid
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 4; i++) {
+            const gy = (h / 4) * i;
             ctx.beginPath();
-            ctx.moveTo(0, baseLineY);
-            ctx.lineTo(w, baseLineY);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.setLineDash([5, 5]);
+            ctx.moveTo(0, gy);
+            ctx.lineTo(w, gy);
             ctx.stroke();
-            ctx.setLineDash([]);
+        }
 
-            // Draw actual rates line
-            ctx.beginPath();
-            values.forEach((v: number, i: number) => {
-                const x = (i / (values.length - 1)) * w;
-                const y = h - ((v - min) / range) * h * 0.8 - h * 0.1; // 10% vertical padding
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            });
-            ctx.strokeStyle = data.alertStatus === 'HIGH_PANIC' ? '#ef4444' : '#06b6d4';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+        const values = data.history.map((h: any) => h.premiumPercent);
+        const min = Math.min(...values) - 0.5;
+        const max = Math.max(...values) + 0.5;
+        const range = max - min || 1;
 
-            // Fill area
+        // Draw zero line
+        const zeroY = h - ((0 - min) / range) * h * 0.8 - h * 0.1;
+        ctx.beginPath();
+        ctx.moveTo(0, zeroY);
+        ctx.lineTo(w, zeroY);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw rate line
+        const lineColor = data.alertStatus === 'HIGH_PANIC' ? '#ef4444' : '#06b6d4';
+        ctx.beginPath();
+        const n = values.length;
+        values.forEach((v: number, i: number) => {
+            const x = n === 1 ? w / 2 : (i / (n - 1)) * w;
+            const y = h - ((v - min) / range) * h * 0.8 - h * 0.1;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Fill area under curve
+        if (n > 1) {
             ctx.lineTo(w, h);
             ctx.lineTo(0, h);
-            ctx.globalAlpha = 0.2;
-            ctx.fillStyle = data.alertStatus === 'HIGH_PANIC' ? '#ef4444' : '#06b6d4';
+        } else {
+            // Single point — draw a wider area
+            ctx.lineTo(w, h);
+            ctx.lineTo(0, h);
+        }
+        ctx.globalAlpha = 0.15;
+        ctx.fillStyle = lineColor;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+
+        // Draw latest value + source label
+        ctx.font = '10px monospace';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.textAlign = 'right';
+        ctx.fillText(data.source || '', w - 4, h - 4);
+
+        // Draw dot on latest point
+        if (n >= 1) {
+            const lastX = n === 1 ? w / 2 : w;
+            const lastY = h - ((values[n - 1] - min) / range) * h * 0.8 - h * 0.1;
+            ctx.beginPath();
+            ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+            ctx.fillStyle = lineColor;
             ctx.fill();
-            ctx.globalAlpha = 1.0;
         }
     } catch (e) {
         console.error('[STARWAR] Crypto data fetch failed:', e);
@@ -1331,6 +1381,9 @@ export default function mount() {
 
     // Fast data loops (Live Aircraft Telemetry / Movements)
     setInterval(fetchFlights, 15_000);
+
+    // Medium loop (Crypto premium chart — accumulate data points)
+    setInterval(fetchCrypto, 30_000);
 
     // Click on feed items opens link
     document.addEventListener('click', (e) => {
