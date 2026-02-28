@@ -619,150 +619,35 @@ function initFilters() {
     });
 }
 
-// ─── Telegram Auth Modal ────────────────────────────────────
+// ─── Telegram Auto-Status ───────────────────────────────────
 
 function initTelegram() {
-    const connectBtn = document.getElementById('tg-connect-btn');
-    const modal = document.getElementById('tg-modal');
-    const closeBtn = document.getElementById('tg-modal-close');
-    const submitBtn = document.getElementById('tg-auth-submit');
-    const statusEl = document.getElementById('tg-auth-status');
     const statusBar = document.getElementById('tg-status');
 
-    if (!connectBtn || !modal) return;
-
-    connectBtn.addEventListener('click', () => {
-        modal.style.display = 'flex';
-    });
-
-    closeBtn?.addEventListener('click', () => {
-        modal.style.display = 'none';
-    });
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.style.display = 'none';
-    });
-
-    let authState: 'idle' | 'awaiting_code' | 'awaiting_password' = 'idle';
-
-    submitBtn?.addEventListener('click', async () => {
-        if (!statusEl) return;
-
-        if (authState === 'idle') {
-            // Step 1: Connect
-            const appId = (document.getElementById('tg-app-id') as HTMLInputElement)?.value;
-            const appHash = (document.getElementById('tg-app-hash') as HTMLInputElement)?.value;
-            const phone = (document.getElementById('tg-phone') as HTMLInputElement)?.value;
-
-            if (!appId || !appHash || !phone) {
-                statusEl.textContent = '⚠ Fill in all fields';
-                return;
-            }
-
-            statusEl.textContent = '🔄 Connecting...';
-            const res = await fetch('/api/telegram/connect', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ appId: Number(appId), appHash, phone }),
-            });
-            const data = await res.json();
-
-            if (data.ok && data.restored) {
-                statusEl.textContent = '✅ Connected! Session restored.';
-                if (statusBar) statusBar.textContent = '● Connected';
-                if (statusBar) statusBar.className = 'tg-status tg-connected';
-                setTimeout(() => { modal.style.display = 'none'; }, 1500);
-            } else if (data.ok) {
-                authState = 'awaiting_code';
-                statusEl.textContent = '📱 Code sent to your phone. Enter it below:';
-                // Replace form with code input
-                const authStep = document.getElementById('tg-auth-step');
-                if (authStep) {
-                    authStep.innerHTML = `
-                        <p class="modal-info">Enter the verification code sent to your Telegram app:</p>
-                        <div class="modal-field">
-                            <label>Verification Code</label>
-                            <input type="text" id="tg-code" placeholder="12345" autocomplete="one-time-code" />
-                        </div>
-                        <button id="tg-auth-submit-2" class="modal-submit">VERIFY</button>
-                        <div id="tg-auth-status" class="modal-status"></div>
-                    `;
-                    document.getElementById('tg-auth-submit-2')?.addEventListener('click', handleVerify);
+    // Poll status every 10s to track auto-connection
+    const checkStatus = () => {
+        fetch('/api/telegram/status').then(r => r.json()).then(data => {
+            if (statusBar) {
+                if (data.status === 'connected') {
+                    statusBar.textContent = `● Connected as ${data.me?.firstName || data.me?.username || 'OSINT'} — ${data.channelCount} channels`;
+                    statusBar.className = 'tg-status tg-connected';
+                } else if (data.status === 'awaiting_code' || data.status === 'awaiting_password') {
+                    statusBar.textContent = `⚠ Auth required — check server logs`;
+                    statusBar.className = 'tg-status';
+                } else if (data.status === 'error') {
+                    statusBar.textContent = `✗ ${data.error || 'Connection failed'}`;
+                    statusBar.className = 'tg-status';
+                } else {
+                    statusBar.textContent = 'Connecting...';
                 }
-            } else {
-                statusEl.textContent = `❌ ${data.error}`;
             }
-        }
-    });
-
-    async function handleVerify() {
-        const code = (document.getElementById('tg-code') as HTMLInputElement)?.value;
-        const statusEl2 = document.getElementById('tg-auth-status');
-        if (!code || !statusEl2) return;
-
-        statusEl2.textContent = '🔄 Verifying...';
-        const res = await fetch('/api/telegram/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code }),
+        }).catch(() => {
+            if (statusBar) statusBar.textContent = 'Offline';
         });
-        const data = await res.json();
+    };
 
-        if (data.ok && data.needsPassword) {
-            authState = 'awaiting_password';
-            const authStep = document.getElementById('tg-auth-step');
-            if (authStep) {
-                authStep.innerHTML = `
-                    <p class="modal-info">2FA is enabled. Enter your password:</p>
-                    <div class="modal-field">
-                        <label>2FA Password</label>
-                        <input type="password" id="tg-password" placeholder="Your 2FA password" />
-                    </div>
-                    <button id="tg-auth-submit-3" class="modal-submit">SUBMIT</button>
-                    <div id="tg-auth-status" class="modal-status"></div>
-                `;
-                document.getElementById('tg-auth-submit-3')?.addEventListener('click', handlePassword);
-            }
-        } else if (data.ok) {
-            statusEl2.textContent = '✅ Connected! OSINT channels streaming.';
-            if (statusBar) statusBar.textContent = '● Connected — Streaming OSINT';
-            if (statusBar) statusBar.className = 'tg-status tg-connected';
-            setTimeout(() => { modal!.style.display = 'none'; }, 1500);
-        } else {
-            statusEl2.textContent = `❌ ${data.error}`;
-        }
-    }
-
-    async function handlePassword() {
-        const password = (document.getElementById('tg-password') as HTMLInputElement)?.value;
-        const statusEl3 = document.getElementById('tg-auth-status');
-        if (!password || !statusEl3) return;
-
-        statusEl3.textContent = '🔄 Submitting...';
-        const res = await fetch('/api/telegram/password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password }),
-        });
-        const data = await res.json();
-
-        if (data.ok) {
-            statusEl3.textContent = '✅ Connected!';
-            if (statusBar) statusBar.textContent = '● Connected — Streaming OSINT';
-            if (statusBar) statusBar.className = 'tg-status tg-connected';
-            setTimeout(() => { modal!.style.display = 'none'; }, 1500);
-        } else {
-            statusEl3.textContent = `❌ ${data.error}`;
-        }
-    }
-
-    // Check initial status
-    fetch('/api/telegram/status').then(r => r.json()).then(data => {
-        if (data.status === 'connected' && statusBar) {
-            statusBar.textContent = `● Connected as ${data.me?.firstName || data.me?.username || 'User'}`;
-            statusBar.className = 'tg-status tg-connected';
-        }
-    }).catch(() => { });
+    checkStatus();
+    setInterval(checkStatus, 10_000);
 }
 
 // ─── Threat Banner ──────────────────────────────────────────

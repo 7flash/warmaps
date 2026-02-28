@@ -2,7 +2,9 @@ import { createAppRouter } from 'melina';
 import { measure } from 'measure-fn';
 import { builtAssets } from 'melina/server';
 import path from 'path';
+import * as fs from 'fs';
 import { saveChatMessage, getChatHistory, cleanupOldData } from './src/db';
+import * as tg from './src/telegram';
 
 const appDir = path.join(import.meta.dir, 'app');
 const port = parseInt(process.env.STARWAR_PORT || "4444");
@@ -146,3 +148,58 @@ const server = Bun.serve({
 });
 
 console.log(`⚔ STARWAR running at http://localhost:${port}`);
+
+// ─── Auto-connect Telegram OSINT ────────────────────────────
+
+function loadConfig(): { appId?: number; apiHash?: string; phone?: string } {
+    // Try .config.toml in project, then in geeksy
+    const configPaths = [
+        path.join(import.meta.dir, '.config.toml'),
+        'C:/Code/geeksy/.config.toml',
+    ];
+    for (const p of configPaths) {
+        try {
+            if (!fs.existsSync(p)) continue;
+            const content = fs.readFileSync(p, 'utf-8');
+            const appIdMatch = content.match(/app_id\s*=\s*"?(\d+)"?/);
+            const apiHashMatch = content.match(/api_hash\s*=\s*"([^"]+)"/);
+            const phoneMatch = content.match(/phone_number\s*=\s*"([^"]+)"/);
+            if (appIdMatch && apiHashMatch && phoneMatch) {
+                console.log(`[telegram] Config loaded from ${p}`);
+                return {
+                    appId: Number(appIdMatch[1]),
+                    apiHash: apiHashMatch[1],
+                    phone: phoneMatch[1],
+                };
+            }
+        } catch { }
+    }
+    // Fallback to env vars
+    if (process.env.TG_APP_ID && process.env.TG_API_HASH && process.env.TG_PHONE) {
+        return {
+            appId: Number(process.env.TG_APP_ID),
+            apiHash: process.env.TG_API_HASH,
+            phone: process.env.TG_PHONE,
+        };
+    }
+    return {};
+}
+
+(async () => {
+    const config = loadConfig();
+    if (config.appId && config.apiHash && config.phone) {
+        console.log(`[telegram] Auto-connecting as ${config.phone}...`);
+        const result = await tg.sendCode(config.appId, config.apiHash, config.phone);
+        if (result.ok && result.restored) {
+            tg.startPolling();
+            console.log(`[telegram] ✓ Connected & polling ${tg.OSINT_CHANNELS.length} channels`);
+        } else if (result.ok) {
+            console.log('[telegram] Auth code required — use the dashboard UI to verify');
+        } else {
+            console.error('[telegram] Auto-connect failed:', result.error);
+        }
+    } else {
+        console.log('[telegram] No config found — Telegram OSINT disabled');
+        console.log('[telegram] Add [telegram] section to .config.toml with app_id, api_hash, phone_number');
+    }
+})();

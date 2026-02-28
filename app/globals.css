@@ -817,7 +817,7 @@ body {
     background: #16a34a;
 }
 
-/* ─── Scanline Effect ──────────────────────────────────────── */
+/* ─── CRT Scanline + Vignette Effect ──────────────────────── */
 
 body::after {
     content: '';
@@ -827,9 +827,30 @@ body::after {
     background: repeating-linear-gradient(0deg,
             rgba(0, 0, 0, 0) 0px,
             rgba(0, 0, 0, 0) 2px,
-            rgba(0, 0, 0, 0.03) 2px,
-            rgba(0, 0, 0, 0.03) 4px);
+            rgba(0, 0, 0, 0.04) 2px,
+            rgba(0, 0, 0, 0.04) 4px);
     z-index: 10000;
+    animation: scanlineScroll 8s linear infinite;
+}
+
+@keyframes scanlineScroll {
+    0% {
+        background-position-y: 0;
+    }
+
+    100% {
+        background-position-y: 4px;
+    }
+}
+
+/* Vignette — darkened edges like a tactical display */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.5) 100%);
+    z-index: 9999;
 }
 
 /* ─── Globe Labels ─────────────────────────────────────────── */
