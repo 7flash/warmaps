@@ -26,6 +26,7 @@ let flightData: any[] = [];
 let flightStats: any = {};
 let marketData: any[] = [];
 let threatAlerts: any[] = [];
+let strategicAssets: any = null;
 let currentFilter = 'all';
 
 // ─── MapLibre 2D Tactical Map Setup ─────────────────────────
@@ -65,6 +66,12 @@ function initMap() {
             cluster: true,
             clusterMaxZoom: 14,
             clusterRadius: 50
+        });
+
+        // Fixed Tactical Assets Source
+        map.addSource('assets', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
         });
 
         // --- Layers ---
@@ -132,7 +139,6 @@ function initMap() {
             }
         });
 
-        // Unclustered Events (Markers)
         map.addLayer({
             id: 'events-point',
             type: 'circle',
@@ -143,6 +149,35 @@ function initMap() {
                 'circle-radius': 5,
                 'circle-stroke-width': 1,
                 'circle-stroke-color': '#050913'
+            }
+        });
+
+        // Strategic Assets (Nuclear / Bases)
+        map.addLayer({
+            id: 'assets-nuclear',
+            type: 'circle',
+            source: 'assets',
+            filter: ['==', ['get', 'type'], 'nuclear'],
+            paint: {
+                'circle-color': '#22d3ee', // Cyan
+                'circle-radius': 7,
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#000',
+                'circle-opacity': ['match', ['get', 'confidence'], 'High', 1, 'Moderate', 0.6, 0.3]
+            }
+        });
+
+        map.addLayer({
+            id: 'assets-base',
+            type: 'circle',
+            source: 'assets',
+            filter: ['==', ['get', 'type'], 'base'],
+            paint: {
+                'circle-color': '#3b82f6', // Blue
+                'circle-radius': 6,
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#000',
+                'circle-opacity': ['match', ['get', 'confidence'], 'High', 1, 'Moderate', 0.6, 0.3]
             }
         });
 
@@ -163,9 +198,21 @@ async function fetchAllData() {
         fetchFlights(),
         fetchMarkets(),
         fetchTelegramAlerts(),
+        fetchAssets(),
     ]);
     updateTicker();
     updateStats();
+}
+
+async function fetchAssets() {
+    try {
+        const res = await fetch('/api/assets');
+        strategicAssets = await res.json();
+        const aSrc = map?.getSource('assets');
+        if (aSrc) aSrc.setData(strategicAssets);
+    } catch (e) {
+        console.error('[STARWAR] Strategic assets fetch failed:', e);
+    }
 }
 
 async function fetchNews() {
@@ -985,5 +1032,11 @@ function setupLegendFilters() {
         toggleLayer('fires-heat', cStrike.checked);
     });
 
-    // Additional toggles (Bases, Nuclear) will be hooked up to their specific map layers when we add them.
+    if (cBase) cBase.addEventListener('change', e => {
+        toggleLayer('assets-base', cBase.checked);
+    });
+
+    if (cNuclear) cNuclear.addEventListener('change', e => {
+        toggleLayer('assets-nuclear', cNuclear.checked);
+    });
 }
