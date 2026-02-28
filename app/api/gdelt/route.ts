@@ -20,6 +20,7 @@ interface GdeltEvent {
     lon?: number;
     tone?: number;
     eventType?: string;
+    imageUrl?: string;
 }
 
 // ─── GDELT DOC 2.0 API (article search) ─────────────────────
@@ -64,6 +65,7 @@ async function queryGdeltDocs(query: string, maxRecords = 40): Promise<GdeltEven
             source: article.domain || 'unknown',
             date: article.seendate || '',
             country: article.sourcecountry || '',
+            imageUrl: article.socialimage || null,
         }));
     } catch (err) {
         console.error('[GDELT] Fetch error:', err);

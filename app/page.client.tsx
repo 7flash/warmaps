@@ -33,6 +33,97 @@ let cryptoData: any = null;
 let webcamData: any[] = [];
 let currentFilter = 'all';
 
+// Image marker pool — HTML markers with actual article thumbnails
+let imageMarkers: any[] = [];
+
+function syncImageMarkers() {
+    if (!map) return;
+
+    // Remove all existing image markers
+    imageMarkers.forEach(m => m.remove());
+    imageMarkers = [];
+
+    // Get the current source data
+    const src = map.getSource('events');
+    if (!src) return;
+
+    // Query rendered features for unclustered points
+    const features = map.queryRenderedFeatures({ layers: ['events-point'] });
+    if (!features || features.length === 0) return;
+
+    // Deduplicate by coordinate (avoid stacking)
+    const seen = new Set<string>();
+
+    for (const f of features) {
+        const coords = f.geometry.coordinates;
+        const key = `${coords[0].toFixed(3)},${coords[1].toFixed(3)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        const props = f.properties || {};
+        const imageUrl = props.imageUrl;
+        const title = props.title || '';
+        const opacity = props.opacity || 1;
+
+        // Create the marker element
+        const el = document.createElement('div');
+        el.className = 'map-image-marker';
+        el.style.opacity = String(opacity);
+
+        if (imageUrl && imageUrl !== 'null' && imageUrl.startsWith('http')) {
+            // Image marker
+            const img = document.createElement('img');
+            img.src = imageUrl;
+            img.alt = title;
+            img.loading = 'lazy';
+            img.onerror = () => {
+                // Fallback to colored dot on image load failure
+                el.innerHTML = '';
+                el.classList.add('map-image-marker--fallback');
+            };
+            el.appendChild(img);
+        } else {
+            // Colored dot fallback (no image available)
+            el.classList.add('map-image-marker--fallback');
+            const type = props.type || 'gdelt';
+            if (type === 'market-hot') el.style.background = '#ef4444';
+            else if (type === 'market') el.style.background = '#22d3ee';
+            else el.style.background = '#22c55e';
+        }
+
+        // Create tooltip
+        el.title = title;
+
+        // Click handler — show popup with article info
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const popup = new maplibregl.Popup({
+                className: 'tactical-popup',
+                closeButton: true,
+                maxWidth: '300px',
+            })
+                .setLngLat(coords as [number, number])
+                .setHTML(`
+                    <div class="intel-card">
+                        ${imageUrl && imageUrl !== 'null' ? `<img src="${imageUrl}" style="width:100%;height:120px;object-fit:cover;border-bottom:1px solid rgba(34,197,94,0.1);" />` : ''}
+                        <div class="intel-card-body" style="padding:10px;">
+                            <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px;line-height:1.3;">${title}</div>
+                            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">📍 ${props.date || 'Recent'} · ${props.type || 'Event'}</div>
+                            ${props.url ? `<a href="${props.url}" target="_blank" rel="noopener" style="font-size:10px;color:var(--accent);text-decoration:none;">Read Article →</a>` : ''}
+                        </div>
+                    </div>
+                `)
+                .addTo(map);
+        });
+
+        const marker = new maplibregl.Marker({ element: el })
+            .setLngLat(coords as [number, number])
+            .addTo(map);
+
+        imageMarkers.push(marker);
+    }
+}
+
 // ─── MapLibre 2D Tactical Map Setup ─────────────────────────
 
 function initMap() {
@@ -131,7 +222,7 @@ function initMap() {
             }
         });
 
-        // Event Clusters
+        // Event Clusters (zoomed out)
         map.addLayer({
             id: 'events-clusters',
             type: 'circle',
@@ -161,16 +252,16 @@ function initMap() {
             }
         });
 
+        // Hidden hit-target for unclustered events (popup triggers)
         map.addLayer({
             id: 'events-point',
             type: 'circle',
             source: 'events',
             filter: ['!', ['has', 'point_count']],
             paint: {
-                'circle-color': ['match', ['get', 'type'], 'market-hot', '#ef4444', 'market', '#22d3ee', '#22c55e'],
-                'circle-radius': 5,
-                'circle-stroke-width': 1,
-                'circle-stroke-color': '#050913'
+                'circle-color': 'transparent',
+                'circle-radius': 20,
+                'circle-opacity': 0
             }
         });
 
@@ -373,6 +464,12 @@ function initMap() {
         initPanelToggles();
 
         updateMapSources();
+
+        // Sync image markers on map move/zoom
+        map.on('moveend', syncImageMarkers);
+        map.on('zoomend', syncImageMarkers);
+        // Initial sync after a short delay for data to load
+        setTimeout(syncImageMarkers, 3000);
     });
 }
 
@@ -973,7 +1070,15 @@ function updateMapSources() {
         features.push({
             type: 'Feature',
             geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
-            properties: { type: 'gdelt', title: e.title, date: e.date, opacity: Math.max(0.1, opacity) }
+            properties: {
+                type: 'gdelt',
+                title: e.title,
+                date: e.date,
+                url: e.url || null,
+                source: e.source || null,
+                opacity: Math.max(0.1, opacity),
+                imageUrl: e.imageUrl || null,
+            }
         });
     });
 
@@ -991,6 +1096,9 @@ function updateMapSources() {
     };
     const eSrc = map.getSource('events');
     if (eSrc) eSrc.setData(eventsGeoJSON);
+
+    // Re-sync HTML image markers after data change
+    requestAnimationFrame(() => setTimeout(syncImageMarkers, 100));
 }
 
 // ─── Panel Toggle System ────────────────────────────────────
