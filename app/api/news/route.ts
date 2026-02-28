@@ -38,6 +38,15 @@ const RSS_FEEDS: Record<string, string[]> = {
     presstv: [
         'https://www.presstv.ir/rss',
     ],
+    middleeastmonitor: [
+        'https://www.middleeastmonitor.com/feed/',
+    ],
+    apnews: [
+        'https://rsshub.app/apnews/topics/middle-east',
+    ],
+    timesofisrael: [
+        'https://www.timesofisrael.com/feed/',
+    ],
 };
 
 // Simple XML tag extractor (no parser dependency)

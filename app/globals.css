@@ -1795,17 +1795,26 @@ body::before {
     padding: 8px 12px;
     font-size: 10px;
     display: flex;
-    justify-content: space-between;
     color: var(--text-dim);
     background: rgba(0, 0, 0, 0.2);
 }
 
 /* ─── PULSE FEED UI ────────────────────────────────────────────── */
+
+#crypto-chart {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
 .pulse-smart-digest {
     border: 1px solid #e11d48;
     background: rgba(225, 29, 72, 0.05);
     color: #e11d48;
-    padding: 10px;
+    padding: 12px;
+    /* Changed from 10px to 12px */
+    position: relative;
+    /* Added */
     margin: 12px;
     border-radius: 4px;
     text-align: center;

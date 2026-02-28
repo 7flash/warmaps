@@ -120,6 +120,8 @@ export default function Page() {
                                 <label class="legend-filter"><input type="checkbox" id="filter-base" checked /><span class="legend-dot bg-blue"></span> IRGC / Military Bases</label>
                                 <label class="legend-filter"><input type="checkbox" id="filter-nuclear" checked /><span class="legend-dot bg-cyan"></span> Nuclear Facilities</label>
                                 <label class="legend-filter"><input type="checkbox" id="filter-strike" checked /><span class="legend-dot bg-red"></span> Kinetic Strikes</label>
+                                <label class="legend-filter"><input type="checkbox" id="filter-seismic" checked /><span class="legend-dot" style="background:#fbbf24; border-radius:0;"></span> Seismic (0-2km)</label>
+                                <label class="legend-filter"><input type="checkbox" id="filter-flights" checked /><span class="legend-dot bg-blue" style="border-radius:0;"></span> Live Flights (ADSB)</label>
                             </div>
                             <div class="confidence-toggles mt-2" style="border-top: 1px solid var(--border); padding-top: 8px;">
                                 <div style="font-size:10px; color:var(--text-secondary); margin-bottom:4px;">CONFIDENCE LEVEL</div>
@@ -185,6 +187,20 @@ export default function Page() {
                                 <span class="spinner"></span>
                                 <span>Scanning prediction markets...</span>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Panic Economy Arbitrage Layer */}
+                    <div class="panel-section panel-section--crypto">
+                        <div class="panel-header" style="justify-content: space-between;">
+                            <div>
+                                <h2>Panic Economy (USDT/IRT)</h2>
+                                <div style="font-size:9px; color:var(--text-dim); margin-top:2px;">LOCAL "WAR PREMIUM"</div>
+                            </div>
+                            <span class="badge" id="crypto-premium-badge">0%</span>
+                        </div>
+                        <div class="crypto-chart-container" style="padding: 12px; height: 120px; position:relative;">
+                            <canvas id="crypto-chart"></canvas>
                         </div>
                     </div>
 

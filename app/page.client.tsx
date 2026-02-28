@@ -28,6 +28,9 @@ let marketData: any[] = [];
 let threatAlerts: any[] = [];
 let strategicAssets: any = null;
 let acledEvents: any = null;
+let cyberData: any = null;
+let seismicData: any = null;
+let cryptoData: any = null;
 let currentFilter = 'all';
 
 // ─── MapLibre 2D Tactical Map Setup ─────────────────────────
@@ -77,6 +80,18 @@ function initMap() {
 
         // ACLED Kinetic Events Source
         map.addSource('acled', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+        });
+
+        // Cyber Anomalies Source
+        map.addSource('cyber', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+        });
+
+        // Seismic Activity Source (0-2km depth)
+        map.addSource('seismic', {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [] }
         });
@@ -203,6 +218,36 @@ function initMap() {
             }
         });
 
+        // Cyber Anomaly Coronas (Glitch effect base)
+        map.addLayer({
+            id: 'cyber-anomaly',
+            type: 'circle',
+            source: 'cyber',
+            paint: {
+                'circle-radius': 40,
+                'circle-color': '#a855f7', // Purple
+                'circle-opacity': 0.3,
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#a855f7',
+                'circle-pitch-alignment': 'map'
+            }
+        });
+
+        // Seismic Deep-Earth Detonation Suspects
+        map.addLayer({
+            id: 'seismic-kinetic',
+            type: 'circle',
+            source: 'seismic',
+            paint: {
+                'circle-radius': 12,
+                'circle-color': '#fbbf24', // Amber
+                'circle-opacity': 0.8,
+                'circle-stroke-width': 4,
+                'circle-stroke-color': '#b45309', // Dark amber
+                'circle-pitch-alignment': 'map'
+            }
+        });
+
         // --- Interactive Intel Popups ---
 
         const popup = new maplibregl.Popup({
@@ -260,11 +305,39 @@ function initMap() {
                                 <div style="margin-bottom: 8px; font-weight: bold; color: #f8fafc;">
                                     ${props.actor1} <span style="opacity: 0.5;">VS</span> ${props.actor2}
                                 </div>
-                                <p>${props.notes}</p>
+                                <p>${props.notes || ''}</p>
                             </div>
                             <div class="intel-card-footer">
                                 <span>LOC: ${props.location}</span>
                                 <span>FATALITIES: ${props.fatalities}</span>
+                            </div>
+                        </div>
+                    `;
+                } else if (props.type === 'cyber') {
+                    htmlContent = `
+                        <div class="intel-card">
+                            <div class="intel-card-header" style="color: #a855f7;">🚨 CYBER ANOMALY</div>
+                            <div class="intel-card-body">
+                                <p style="font-weight:bold; color: #f8fafc;">Severe Regional Internet Blackout Detected</p>
+                                <p>Type: ${props.anomaly_type.toUpperCase()}</p>
+                            </div>
+                            <div class="intel-card-footer">
+                                <span>LOC: ${props.region}</span>
+                                <span style="color:#ef4444">DROP: ${props.drop}%</span>
+                            </div>
+                        </div>
+                    `;
+                } else if (props.type === 'seismic') {
+                    htmlContent = `
+                        <div class="intel-card">
+                            <div class="intel-card-header" style="color: #fbbf24;">🚨 CRITICAL SEISMIC EVENT</div>
+                            <div class="intel-card-body">
+                                <p style="font-weight:bold; color: #f8fafc;">Suspected Deep-Earth Kinetic Detonation</p>
+                                <p>${props.title}</p>
+                            </div>
+                            <div class="intel-card-footer">
+                                <span style="color:#ef4444">DEPTH: ${props.depth} km</span>
+                                <span>MAG: ${props.mag}</span>
                             </div>
                         </div>
                     `;
@@ -285,6 +358,8 @@ function initMap() {
         setupInteractiveLayer('assets-base');
         setupInteractiveLayer('events-point');
         setupInteractiveLayer('acled-kinetic');
+        setupInteractiveLayer('cyber-anomaly');
+        setupInteractiveLayer('seismic-kinetic');
 
         // Initialize Timeline UI logic
         initTimelineSlider();
@@ -305,6 +380,8 @@ async function fetchAllData() {
         fetchTelegramAlerts(),
         fetchAssets(),
         fetchAcled(),
+        fetchSeismic(),
+        fetchCrypto()
     ]);
     updateTicker();
     updateStats();
@@ -318,6 +395,102 @@ async function fetchAcled() {
         if (aSrc) aSrc.setData(acledEvents);
     } catch (e) {
         console.error('[STARWAR] ACLED events fetch failed:', e);
+    }
+}
+
+async function fetchSeismic() {
+    try {
+        const res = await fetch('/api/seismic');
+        const data = await res.json();
+        if (data.events) {
+            seismicData = {
+                type: 'FeatureCollection',
+                features: data.events.map((e: any) => ({
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
+                    properties: {
+                        type: 'seismic',
+                        id: e.id,
+                        title: e.title,
+                        mag: e.mag,
+                        depth: e.depth,
+                        is_kinetic: e.is_kinetic
+                    }
+                }))
+            };
+            const aSrc = map?.getSource('seismic');
+            if (aSrc) aSrc.setData(seismicData);
+        }
+    } catch (e) {
+        console.error('[STARWAR] Seismic events fetch failed:', e);
+    }
+}
+
+async function fetchCrypto() {
+    try {
+        const res = await fetch('/api/crypto');
+        const data = await res.json();
+        if (data.history) {
+            const chartCanvas = document.getElementById('crypto-chart') as HTMLCanvasElement;
+            if (!chartCanvas) return;
+
+            const badge = document.getElementById('crypto-premium-badge');
+            if (badge) {
+                badge.innerText = `+${data.currentPremium.toFixed(1)}%`;
+                badge.className = data.alertStatus === 'HIGH_PANIC' ? 'badge badge--hot badge--active' : 'badge';
+                if (data.alertStatus === 'HIGH_PANIC') {
+                    badge.style.animation = 'pulseBorder 2s infinite';
+                    badge.style.color = '#fff';
+                    badge.style.backgroundColor = '#ef4444';
+                }
+            }
+
+            // Draw simple minimal chart
+            const ctx = chartCanvas.getContext('2d');
+            if (!ctx) return;
+            const w = chartCanvas.width = chartCanvas.offsetWidth;
+            const h = chartCanvas.height = chartCanvas.offsetHeight;
+
+            ctx.clearRect(0, 0, w, h);
+
+            const values = data.history.map((h: any) => h.localUSDT);
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const range = max - min || 1;
+
+            // Draw baseline (Global USD)
+            const globalUsd = data.history[0].globalUSD;
+            const baseLineY = h - ((globalUsd - min) / range) * h;
+            ctx.beginPath();
+            ctx.moveTo(0, baseLineY);
+            ctx.lineTo(w, baseLineY);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw actual rates line
+            ctx.beginPath();
+            values.forEach((v: number, i: number) => {
+                const x = (i / (values.length - 1)) * w;
+                const y = h - ((v - min) / range) * h * 0.8 - h * 0.1; // 10% vertical padding
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.strokeStyle = data.alertStatus === 'HIGH_PANIC' ? '#ef4444' : '#06b6d4';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Fill area
+            ctx.lineTo(w, h);
+            ctx.lineTo(0, h);
+            ctx.globalAlpha = 0.2;
+            ctx.fillStyle = data.alertStatus === 'HIGH_PANIC' ? '#ef4444' : '#06b6d4';
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+        }
+    } catch (e) {
+        console.error('[STARWAR] Crypto data fetch failed:', e);
     }
 }
 
@@ -664,6 +837,12 @@ function showThreatBanner(alert: any) {
 function updateMapSources() {
     if (!map || !map.isStyleLoaded()) return;
 
+    // Determine timeline cutoff
+    const slider = document.getElementById('timeline-slider') as HTMLInputElement | null;
+    const val = slider ? parseInt(slider.value) : 100;
+    const daysAgo = 30 - (val / 100) * 30; // 0 = 30 days ago, 100 = 0 days ago (all fresh)
+    const cutoffTime = Date.now() - (daysAgo * 24 * 3600 * 1000);
+
     // Fires GeoJSON
     const firesGeoJSON = {
         type: 'FeatureCollection',
@@ -692,11 +871,18 @@ function updateMapSources() {
     const features: any[] = [];
 
     gdeltEvents.filter(e => e.lat && e.lon).forEach(e => {
-        features.push({
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
-            properties: { type: 'gdelt', title: e.title, date: e.date }
-        });
+        // Timeline Filter Check
+        const eventTime = e.date ? new Date(
+            e.date.length === 8 ? `${e.date.slice(0, 4)}-${e.date.slice(4, 6)}-${e.date.slice(6, 8)}` : e.date
+        ).getTime() : Date.now();
+
+        if (eventTime >= cutoffTime) {
+            features.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
+                properties: { type: 'gdelt', title: e.title, date: e.date }
+            });
+        }
     });
 
     marketData.filter((m: any) => m.lat && m.lon).forEach((m: any) => {
@@ -727,39 +913,22 @@ function initTimelineSlider() {
     let playInterval: any;
 
     const updateMapFilter = (val: number) => {
-        // Here we would implement real maplibre temporal filtering
-        // For now, it updates the visual date label to show intent
-        const date = new Date();
-        date.setDate(date.getDate() - (100 - val));
-        dateLabel.textContent = formatTime(date.toISOString()).split('T')[0];
+        const daysAgo = 30 - (val / 100) * 30;
+
+        if (daysAgo <= 1) {
+            dateLabel.textContent = 'LAST 24 HOURS';
+        } else {
+            dateLabel.textContent = `LAST ${Math.max(1, Math.round(daysAgo))} DAYS`;
+        }
+
+        updateMapSources(); // Actually filter the data
     };
 
     slider.addEventListener('input', (e) => {
         updateMapFilter(parseInt((e.target as HTMLInputElement).value));
     });
 
-    playBtn.addEventListener('click', () => {
-        isPlaying = !isPlaying;
-        playBtn.textContent = isPlaying ? '⏸' : '▶';
-
-        if (isPlaying) {
-            slider.value = '0';
-            playInterval = setInterval(() => {
-                let v = parseInt(slider.value) + 1;
-                if (v > 100) {
-                    v = 100;
-                    isPlaying = false;
-                    playBtn.textContent = '▶';
-                    clearInterval(playInterval);
-                }
-                slider.value = String(v);
-                updateMapFilter(v);
-            }, 50);
-        } else {
-            clearInterval(playInterval);
-        }
-    });
-
+    playBtn.style.display = 'none'; // User requested slider is a filter, not a playable timeline.
     updateMapFilter(100);
 }
 
@@ -1156,7 +1325,12 @@ export default function mount() {
 
     // Start data fetching immediately
     fetchAllData();
+
+    // Slow data loops (News, Fire, GDELT)
     setInterval(fetchAllData, 120_000);
+
+    // Fast data loops (Live Aircraft Telemetry / Movements)
+    setInterval(fetchFlights, 15_000);
 
     // Click on feed items opens link
     document.addEventListener('click', (e) => {
@@ -1199,5 +1373,16 @@ function setupLegendFilters() {
 
     if (cNuclear) cNuclear.addEventListener('change', e => {
         toggleLayer('assets-nuclear', cNuclear.checked);
+    });
+
+    const cSeismic = document.getElementById('filter-seismic') as HTMLInputElement | null;
+    const cFlights = document.getElementById('filter-flights') as HTMLInputElement | null;
+
+    if (cSeismic) cSeismic.addEventListener('change', e => {
+        toggleLayer('seismic-kinetic', cSeismic.checked);
+    });
+
+    if (cFlights) cFlights.addEventListener('change', e => {
+        toggleLayer('flights-point', cFlights.checked);
     });
 }
