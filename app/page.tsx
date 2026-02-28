@@ -210,16 +210,19 @@ export default function Page() {
                             <h2>LIVE NEWS TV</h2>
                         </div>
                         <div id="tv-channels" class="tv-channels">
-                            <button class="channel-btn active" data-channel="aljazeeraenglish" data-search="Al Jazeera English Live">AL JAZEERA</button>
-                            <button class="channel-btn" data-channel="france24english" data-search="France 24 English Live">FRANCE24</button>
-                            <button class="channel-btn" data-channel="skynews" data-search="Sky News Live">SKY NEWS</button>
-                            <button class="channel-btn" data-channel="dwnews" data-search="DW News Live">DW</button>
-                            <button class="channel-btn" data-channel="cnn" data-search="CNN News Live">CNN</button>
+                            <button class="channel-btn active" data-channel="aljazeeraenglish">AL JAZEERA</button>
+                            <button class="channel-btn" data-channel="france24english">FRANCE24</button>
+                            <button class="channel-btn" data-channel="skynews">SKY NEWS</button>
+                            <button class="channel-btn" data-channel="dwnews">DW</button>
+                            <button class="channel-btn" data-channel="cnn">CNN</button>
+                            <button class="channel-btn" data-channel="wion">WION</button>
+                            <button class="channel-btn" data-channel="trt">TRT WORLD</button>
+                            <button class="channel-btn" data-channel="ndtv">NDTV</button>
                         </div>
                         <div id="tv-player" class="tv-player">
                             <div id="tv-loading" class="loading-state" style="height:100%">
                                 <span class="spinner"></span>
-                                <span>Searching for live stream...</span>
+                                <span>Discovering live streams...</span>
                             </div>
                         </div>
                     </div>

@@ -1017,24 +1017,67 @@ function updateStats() {
 
 // ─── TV Channel Switching ───────────────────────────────────
 
-// Known YouTube handles → live embed URLs (most reliable approach)
-const LIVE_STREAM_URLS: Record<string, string> = {
-    aljazeeraenglish: 'https://www.youtube.com/embed/gCNeDWCI0vo?autoplay=1&mute=1',
-    france24english: 'https://www.youtube.com/embed/h3MuIUNCCzI?autoplay=1&mute=1',
-    skynews: 'https://www.youtube.com/embed/9Auq9mYxFEE?autoplay=1&mute=1',
-    dwnews: 'https://www.youtube.com/embed/GE_SfNVNyqk?autoplay=1&mute=1',
-    cnn: 'https://www.youtube.com/embed/ekAem7MBuGk?autoplay=1&mute=1',
+// Dynamic live stream discovery — populated from /api/youtube
+let discoveredStreams: Record<string, { embedUrl: string | null; isLive: boolean; label: string }> = {};
+
+// Hardcoded fallbacks (in case YouTube scraping fails)
+const FALLBACK_URLS: Record<string, string> = {
+    aljazeeraenglish: 'https://www.youtube.com/embed/live_stream?channel=UCNye-wNBqNL5ZzHSJj3l8Bg&autoplay=1&mute=1',
+    france24english: 'https://www.youtube.com/embed/live_stream?channel=UCQfwfsi5VrQ8yKZ-UWmAEFg&autoplay=1&mute=1',
+    skynews: 'https://www.youtube.com/embed/live_stream?channel=UCoMdktPbSTixAyNGwb-UYkQ&autoplay=1&mute=1',
+    dwnews: 'https://www.youtube.com/embed/live_stream?channel=UCknLrEdhRCp1aegoMqRhGGw&autoplay=1&mute=1',
+    cnn: 'https://www.youtube.com/embed/live_stream?channel=UCupvZG-5ko_eiXAupbDfxWw&autoplay=1&mute=1',
 };
+
+async function fetchYouTubeStreams() {
+    try {
+        const res = await fetch('/api/youtube');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.streams) return;
+
+        for (const s of data.streams) {
+            discoveredStreams[s.key] = {
+                embedUrl: s.embedUrl,
+                isLive: s.isLive,
+                label: s.label,
+            };
+        }
+
+        // Update channel buttons with live indicators
+        const container = document.getElementById('tv-channels');
+        if (!container) return;
+
+        // Clear and rebuild buttons with live status
+        container.innerHTML = '';
+        const channels = data.streams as { key: string; label: string; isLive: boolean }[];
+
+        channels.forEach((ch: any, i: number) => {
+            const btn = document.createElement('button');
+            btn.className = `channel-btn${i === 0 ? ' active' : ''}`;
+            btn.dataset.channel = ch.key;
+            btn.innerHTML = `${ch.label}${ch.isLive ? ' <span style="color:#ef4444;font-size:8px;">● LIVE</span>' : ''}`;
+            container.appendChild(btn);
+        });
+
+        console.log(`[STARWAR] YouTube: ${channels.filter((c: any) => c.isLive).length}/${channels.length} channels live`);
+    } catch (e) {
+        console.error('[STARWAR] YouTube stream discovery failed:', e);
+    }
+}
 
 function loadTVChannel(channelKey: string) {
     const player = document.getElementById('tv-player');
     if (!player) return;
 
-    const embedUrl = LIVE_STREAM_URLS[channelKey];
+    // Try discovered URL first, then fallback
+    const stream = discoveredStreams[channelKey];
+    const embedUrl = stream?.embedUrl || FALLBACK_URLS[channelKey];
+
     if (embedUrl) {
         player.innerHTML = `<iframe id="tv-iframe" src="${embedUrl}" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:none;"></iframe>`;
     } else {
-        player.innerHTML = `<div class="loading-state" style="height:100%"><span>No live stream available</span></div>`;
+        player.innerHTML = `<div class="loading-state" style="height:100%"><span>No live stream found for ${channelKey}</span></div>`;
     }
 }
 
@@ -1042,8 +1085,20 @@ function initTVChannels() {
     const container = document.getElementById('tv-channels');
     if (!container) return;
 
-    // Load the default channel (Al Jazeera)
+    // Load fallback immediately while discovery runs
     loadTVChannel('aljazeeraenglish');
+
+    // Start auto-discovery in parallel
+    fetchYouTubeStreams().then(() => {
+        // Reload current channel with discovered URL
+        const active = container.querySelector('.channel-btn.active') as HTMLElement;
+        if (active?.dataset.channel) {
+            loadTVChannel(active.dataset.channel);
+        }
+    });
+
+    // Refresh discovery every 10 minutes
+    setInterval(fetchYouTubeStreams, 10 * 60 * 1000);
 
     container.addEventListener('click', (e) => {
         const btn = (e.target as HTMLElement).closest('.channel-btn') as HTMLElement | null;
