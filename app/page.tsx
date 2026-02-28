@@ -15,6 +15,19 @@ export default function Page() {
                     <span class="logo">◆ STARWAR</span>
                     <span class="separator">│</span>
                     <span class="tagline">GLOBAL CONFLICT MONITOR</span>
+                    <span class="separator">│</span>
+                    <div class="token-links">
+                        <a href="https://twitter.com/starwar_xyz" target="_blank" rel="noopener" class="social-link" title="Twitter/X">
+                            <span class="social-icon">𝕏</span>
+                        </a>
+                        <a href="https://pump.fun" target="_blank" rel="noopener" class="social-link pump" title="PumpFun">
+                            <span class="social-icon">🟢</span>
+                        </a>
+                        <a href="https://dexscreener.com" target="_blank" rel="noopener" class="social-link dex" title="DexScreener">
+                            <span class="social-icon">📊</span>
+                        </a>
+                        <span class="token-badge" id="token-mcap" title="$STARWAR Market Cap">$STARWAR: <span id="mcap-value">—</span></span>
+                    </div>
                 </div>
                 <div class="top-bar-right">
                     <span class="status-indicator">

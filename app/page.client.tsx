@@ -2,51 +2,102 @@
  * page.client.tsx — Dashboard Client Controller
  * 
  * Handles:
- * - Leaflet map initialization with dark tiles
+ * - 3D Globe (Globe.gl/Three.js) with conflict visualization  
  * - RSS news feed polling & rendering
  * - GDELT event feed
  * - NASA FIRMS fire overlay
  * - Live TV channel switching
  * - Clock update
  * - Breaking news ticker
+ * - WebSocket chat
+ * - Telegram OSINT
  */
-
-declare const L: any; // Leaflet global
 
 // ─── State ──────────────────────────────────────────────────
 
-let map: any;
+let globe: any;
 let newsItems: any[] = [];
 let gdeltEvents: any[] = [];
 let firePoints: any[] = [];
 let currentFilter = 'all';
-let tickerItems: string[] = [];
 
-// ─── Leaflet Map Setup ──────────────────────────────────────
+// ─── 3D Globe Setup ─────────────────────────────────────────
 
-function initMap() {
+function initGlobe() {
     const mapEl = document.getElementById('map');
-    if (!mapEl || map) return;
+    if (!mapEl || globe) return;
 
-    // Load Leaflet from CDN
+    // Load Globe.gl from CDN
     const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.src = 'https://unpkg.com/globe.gl@2.35.2';
     script.onload = () => {
-        map = L.map('map', {
-            center: [30, 45], // Middle East center
-            zoom: 4,
-            zoomControl: true,
-            attributionControl: false,
-        });
+        const Globe = (window as any).Globe;
 
-        // CartoDB dark tiles
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 18,
-        }).addTo(map);
+        globe = Globe({ animateIn: true })
+            (mapEl)
+            .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
+            .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
+            .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
+            .showAtmosphere(true)
+            .atmosphereColor('#22d3ee')
+            .atmosphereAltitude(0.2)
+            // Point of view: centered on Middle East
+            .pointOfView({ lat: 30, lng: 45, altitude: 2.2 }, 1000)
+
+            // Fire points (orange pulsing dots)
+            .pointsData([])
+            .pointColor(() => '#ff6b35')
+            .pointAltitude(0.01)
+            .pointRadius((d: any) => d.size || 0.15)
+            .pointsMerge(true)
+
+            // GDELT events (green rings)
+            .ringsData([])
+            .ringColor(() => '#22c55e')
+            .ringMaxRadius(3)
+            .ringPropagationSpeed(1.5)
+            .ringRepeatPeriod(2000)
+
+            // Arcs between related events
+            .arcsData([])
+            .arcColor(() => ['#22d3ee44', '#ef444444'])
+            .arcStroke(0.4)
+            .arcDashLength(0.4)
+            .arcDashGap(0.2)
+            .arcDashAnimateTime(2000)
+
+            // HTML labels for key events
+            .htmlElementsData([])
+            .htmlElement((d: any) => {
+                const el = document.createElement('div');
+                el.className = 'globe-label';
+                el.innerHTML = `<span class="globe-label-dot ${d.type}"></span>${d.label}`;
+                return el;
+            })
+            .htmlAltitude(0.02);
+
+        // Adjust globe size on window resize
+        const handleResize = () => {
+            if (globe && mapEl) {
+                globe.width(mapEl.clientWidth);
+                globe.height(mapEl.clientHeight);
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        handleResize();
+
+        // Auto-rotate slowly
+        globe.controls().autoRotate = true;
+        globe.controls().autoRotateSpeed = 0.3;
+
+        // Stop auto-rotate on user interaction
+        globe.controls().addEventListener('start', () => {
+            globe.controls().autoRotate = false;
+        });
 
         // Start data fetching
         fetchAllData();
-        setInterval(fetchAllData, 120_000); // Refresh every 2 min
+        setInterval(fetchAllData, 120_000);
     };
     document.head.appendChild(script);
 }
@@ -58,6 +109,7 @@ async function fetchAllData() {
         fetchNews(),
         fetchGdelt(),
         fetchFires(),
+        fetchTelegramAlerts(),
     ]);
     updateTicker();
     updateStats();
@@ -80,7 +132,7 @@ async function fetchGdelt() {
         const data = await res.json();
         gdeltEvents = data.events || [];
         renderGdeltFeed();
-        plotGdeltOnMap();
+        plotGdeltOnGlobe();
         document.getElementById('gdelt-count')!.textContent = String(gdeltEvents.length);
     } catch (e) {
         console.error('[STARWAR] GDELT fetch failed:', e);
@@ -93,11 +145,24 @@ async function fetchFires() {
         const data = await res.json();
         firePoints = data.fires || [];
         renderFiresFeed();
-        plotFiresOnMap();
+        plotFiresOnGlobe();
         document.getElementById('firms-count')!.textContent = String(firePoints.length);
     } catch (e) {
         console.error('[STARWAR] FIRMS fetch failed:', e);
     }
+}
+
+async function fetchTelegramAlerts() {
+    try {
+        const res = await fetch('/api/telegram/alerts');
+        if (!res.ok) return;
+        const alerts = await res.json();
+        if (Array.isArray(alerts) && alerts.length > 0) {
+            renderTelegramFeed(alerts);
+            const countEl = document.getElementById('tg-count');
+            if (countEl) countEl.textContent = String(alerts.length);
+        }
+    } catch { /* telegram not connected */ }
 }
 
 // ─── Rendering ──────────────────────────────────────────────
@@ -174,75 +239,62 @@ function renderFiresFeed() {
     `).join('');
 }
 
-// ─── Map Plotting ───────────────────────────────────────────
+function renderTelegramFeed(alerts: any[]) {
+    const container = document.getElementById('tg-feed');
+    if (!container) return;
 
-let gdeltMarkers: any[] = [];
-let fireMarkers: any[] = [];
-
-function plotGdeltOnMap() {
-    if (!map) return;
-
-    // Clear old markers
-    gdeltMarkers.forEach(m => map.removeLayer(m));
-    gdeltMarkers = [];
-
-    // Plot events that have real coordinates from location extraction
-    const geoEvents = gdeltEvents.filter(ev => ev.lat && ev.lon);
-
-    // Deduplicate by rounding to ~10km grid
-    const seen = new Set<string>();
-
-    geoEvents.forEach(ev => {
-        const gridKey = `${(ev.lat! * 10 | 0)}_${(ev.lon! * 10 | 0)}`;
-        if (seen.has(gridKey)) return;
-        seen.add(gridKey);
-
-        const icon = L.divIcon({
-            className: 'conflict-marker',
-            iconSize: [12, 12],
-        });
-
-        const marker = L.marker([ev.lat!, ev.lon!], { icon })
-            .addTo(map)
-            .bindPopup(`
-                <div style="min-width:200px">
-                    <div style="font-weight:700; color:#22c55e; margin-bottom:4px;font-size:12px;">📡 ${escHtml(ev.country || 'Unknown')}</div>
-                    <div style="color:#e2e8f0; font-size:11px; margin-bottom:6px;">${escHtml(ev.title)}</div>
-                    <div style="color:#94a3b8; font-size:10px;">${ev.source} · ${ev.date ? formatTime(ev.date) : 'recent'}</div>
-                </div>
-            `);
-
-        gdeltMarkers.push(marker);
-    });
+    container.innerHTML = alerts.slice(0, 15).map(alert => `
+        <div class="feed-item feed-item--telegram">
+            <div class="feed-item-source telegram">📡 ${escHtml(alert.channelTitle)}</div>
+            <div class="feed-item-title">${escHtml(alert.text.slice(0, 200))}</div>
+            <div class="feed-item-meta">
+                <span class="feed-item-time">${formatTime(new Date(alert.date * 1000).toISOString())}</span>
+            </div>
+        </div>
+    `).join('');
 }
 
-function plotFiresOnMap() {
-    if (!map) return;
+// ─── Globe Plotting ─────────────────────────────────────────
 
-    // Clear old markers
-    fireMarkers.forEach(m => map.removeLayer(m));
-    fireMarkers = [];
+function plotGdeltOnGlobe() {
+    if (!globe) return;
 
-    firePoints.forEach(fire => {
-        const icon = L.divIcon({
-            className: 'fire-marker',
-            iconSize: [8, 8],
-        });
+    const geoEvents = gdeltEvents.filter(ev => ev.lat && ev.lon);
+    const seen = new Set<string>();
 
-        const marker = L.marker([fire.lat, fire.lon], { icon })
-            .addTo(map)
-            .bindPopup(`
-                <div style="min-width:160px">
-                    <div style="font-weight:700; color:#f97316; margin-bottom:4px;font-size:12px;">🔥 Thermal Anomaly</div>
-                    <div style="color:#94a3b8; font-size:10px;">${fire.country || 'Unknown'}</div>
-                    <div style="color:#94a3b8; font-size:10px;">Brightness: ${fire.brightness.toFixed(0)}K</div>
-                    <div style="color:#94a3b8; font-size:10px;">${fire.acq_date} ${fire.acq_time} UTC</div>
-                    <div style="color:#94a3b8; font-size:10px;">Satellite: ${fire.satellite}</div>
-                </div>
-            `);
+    // Rings for GDELT events
+    const rings = geoEvents.filter(ev => {
+        const key = `${(ev.lat! * 10 | 0)}_${(ev.lon! * 10 | 0)}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    }).map(ev => ({
+        lat: ev.lat,
+        lng: ev.lon,
+    }));
 
-        fireMarkers.push(marker);
-    });
+    globe.ringsData(rings);
+
+    // HTML labels for top events
+    const labels = geoEvents.slice(0, 8).map(ev => ({
+        lat: ev.lat,
+        lng: ev.lon,
+        label: ev.country || 'Unknown',
+        type: 'gdelt',
+    }));
+    globe.htmlElementsData(labels);
+}
+
+function plotFiresOnGlobe() {
+    if (!globe) return;
+
+    const points = firePoints.map(fire => ({
+        lat: fire.lat,
+        lng: fire.lon,
+        size: Math.min(fire.brightness / 2000, 0.4),
+    }));
+
+    globe.pointsData(points);
 }
 
 // ─── Ticker ─────────────────────────────────────────────────
@@ -261,7 +313,6 @@ function updateTicker() {
         return;
     }
 
-    // Duplicate for seamless scroll
     const text = headlines.join('    ◆    ');
     el.textContent = text + '    ◆    ' + text;
 }
@@ -289,11 +340,9 @@ function initTVChannels() {
         const channelId = btn.dataset.channel;
         if (!channelId) return;
 
-        // Update active state
         container.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
 
-        // Switch stream using channel live URL
         iframe.src = `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1`;
     });
 }
@@ -316,6 +365,152 @@ function initFilters() {
 
         fetchNews();
     });
+}
+
+// ─── Telegram Auth Modal ────────────────────────────────────
+
+function initTelegram() {
+    const connectBtn = document.getElementById('tg-connect-btn');
+    const modal = document.getElementById('tg-modal');
+    const closeBtn = document.getElementById('tg-modal-close');
+    const submitBtn = document.getElementById('tg-auth-submit');
+    const statusEl = document.getElementById('tg-auth-status');
+    const statusBar = document.getElementById('tg-status');
+
+    if (!connectBtn || !modal) return;
+
+    connectBtn.addEventListener('click', () => {
+        modal.style.display = 'flex';
+    });
+
+    closeBtn?.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.style.display = 'none';
+    });
+
+    let authState: 'idle' | 'awaiting_code' | 'awaiting_password' = 'idle';
+
+    submitBtn?.addEventListener('click', async () => {
+        if (!statusEl) return;
+
+        if (authState === 'idle') {
+            // Step 1: Connect
+            const appId = (document.getElementById('tg-app-id') as HTMLInputElement)?.value;
+            const appHash = (document.getElementById('tg-app-hash') as HTMLInputElement)?.value;
+            const phone = (document.getElementById('tg-phone') as HTMLInputElement)?.value;
+
+            if (!appId || !appHash || !phone) {
+                statusEl.textContent = '⚠ Fill in all fields';
+                return;
+            }
+
+            statusEl.textContent = '🔄 Connecting...';
+            const res = await fetch('/api/telegram/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ appId: Number(appId), appHash, phone }),
+            });
+            const data = await res.json();
+
+            if (data.ok && data.restored) {
+                statusEl.textContent = '✅ Connected! Session restored.';
+                if (statusBar) statusBar.textContent = '● Connected';
+                if (statusBar) statusBar.className = 'tg-status tg-connected';
+                setTimeout(() => { modal.style.display = 'none'; }, 1500);
+            } else if (data.ok) {
+                authState = 'awaiting_code';
+                statusEl.textContent = '📱 Code sent to your phone. Enter it below:';
+                // Replace form with code input
+                const authStep = document.getElementById('tg-auth-step');
+                if (authStep) {
+                    authStep.innerHTML = `
+                        <p class="modal-info">Enter the verification code sent to your Telegram app:</p>
+                        <div class="modal-field">
+                            <label>Verification Code</label>
+                            <input type="text" id="tg-code" placeholder="12345" autocomplete="one-time-code" />
+                        </div>
+                        <button id="tg-auth-submit-2" class="modal-submit">VERIFY</button>
+                        <div id="tg-auth-status" class="modal-status"></div>
+                    `;
+                    document.getElementById('tg-auth-submit-2')?.addEventListener('click', handleVerify);
+                }
+            } else {
+                statusEl.textContent = `❌ ${data.error}`;
+            }
+        }
+    });
+
+    async function handleVerify() {
+        const code = (document.getElementById('tg-code') as HTMLInputElement)?.value;
+        const statusEl2 = document.getElementById('tg-auth-status');
+        if (!code || !statusEl2) return;
+
+        statusEl2.textContent = '🔄 Verifying...';
+        const res = await fetch('/api/telegram/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code }),
+        });
+        const data = await res.json();
+
+        if (data.ok && data.needsPassword) {
+            authState = 'awaiting_password';
+            const authStep = document.getElementById('tg-auth-step');
+            if (authStep) {
+                authStep.innerHTML = `
+                    <p class="modal-info">2FA is enabled. Enter your password:</p>
+                    <div class="modal-field">
+                        <label>2FA Password</label>
+                        <input type="password" id="tg-password" placeholder="Your 2FA password" />
+                    </div>
+                    <button id="tg-auth-submit-3" class="modal-submit">SUBMIT</button>
+                    <div id="tg-auth-status" class="modal-status"></div>
+                `;
+                document.getElementById('tg-auth-submit-3')?.addEventListener('click', handlePassword);
+            }
+        } else if (data.ok) {
+            statusEl2.textContent = '✅ Connected! OSINT channels streaming.';
+            if (statusBar) statusBar.textContent = '● Connected — Streaming OSINT';
+            if (statusBar) statusBar.className = 'tg-status tg-connected';
+            setTimeout(() => { modal!.style.display = 'none'; }, 1500);
+        } else {
+            statusEl2.textContent = `❌ ${data.error}`;
+        }
+    }
+
+    async function handlePassword() {
+        const password = (document.getElementById('tg-password') as HTMLInputElement)?.value;
+        const statusEl3 = document.getElementById('tg-auth-status');
+        if (!password || !statusEl3) return;
+
+        statusEl3.textContent = '🔄 Submitting...';
+        const res = await fetch('/api/telegram/password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password }),
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+            statusEl3.textContent = '✅ Connected!';
+            if (statusBar) statusBar.textContent = '● Connected — Streaming OSINT';
+            if (statusBar) statusBar.className = 'tg-status tg-connected';
+            setTimeout(() => { modal!.style.display = 'none'; }, 1500);
+        } else {
+            statusEl3.textContent = `❌ ${data.error}`;
+        }
+    }
+
+    // Check initial status
+    fetch('/api/telegram/status').then(r => r.json()).then(data => {
+        if (data.status === 'connected' && statusBar) {
+            statusBar.textContent = `● Connected as ${data.me?.firstName || data.me?.username || 'User'}`;
+            statusBar.className = 'tg-status tg-connected';
+        }
+    }).catch(() => { });
 }
 
 // ─── Clock ──────────────────────────────────────────────────
@@ -368,7 +563,6 @@ function initChat() {
     const onlineEl = document.getElementById('chat-online');
     if (!messagesEl || !inputEl || !sendBtn) return;
 
-    // Connect WebSocket
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(`${protocol}//${location.host}/ws/chat`);
 
@@ -378,7 +572,6 @@ function initChat() {
 
             if (data.type === 'init') {
                 chatUsername = data.username;
-                // Render history
                 data.history?.forEach((msg: any) => appendChatMessage(msg));
                 if (onlineEl) onlineEl.textContent = String(data.online || 0);
                 scrollChat();
@@ -399,7 +592,6 @@ function initChat() {
         setTimeout(initChat, 3000);
     };
 
-    // Send message
     const sendMessage = () => {
         const text = inputEl.value.trim();
         if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
@@ -452,10 +644,11 @@ function scrollChat() {
 
 export default function mount() {
     startClock();
-    initMap();
+    initGlobe();
     initTVChannels();
     initFilters();
     initChat();
+    initTelegram();
 
     // Click on feed items opens link
     document.addEventListener('click', (e) => {
