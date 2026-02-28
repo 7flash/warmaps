@@ -137,13 +137,13 @@ function extractLocations(title: string): Array<{ name: string; lat: number; lon
 // ─── Main handler ────────────────────────────────────────────
 
 let cache: { data: GdeltEvent[]; ts: number } | null = null;
-const CACHE_TTL = 3 * 60 * 1000;
+const CACHE_TTL = 2 * 60 * 1000;
 
 export async function GET(req: Request) {
     const url = new URL(req.url);
     const region = url.searchParams.get('region') || 'conflict';
 
-    if (cache && Date.now() - cache.ts < CACHE_TTL) {
+    if (cache && Date.now() - cache.ts < CACHE_TTL && cache.data.length > 0) {
         return Response.json({ events: cache.data, cached: true });
     }
 
@@ -154,18 +154,37 @@ export async function GET(req: Request) {
     };
 
     const query = queries[region] || queries.conflict;
-    const events = await queryGdeltDocs(query, 40);
 
-    // Enrich events with coordinates from title analysis
-    for (const ev of events) {
-        const locs = extractLocations(ev.title);
-        if (locs.length > 0) {
-            ev.lat = locs[0].lat;
-            ev.lon = locs[0].lon;
-            if (!ev.country) ev.country = locs[0].name;
+    try {
+        const events = await queryGdeltDocs(query, 40);
+
+        // Enrich events with coordinates from title analysis
+        for (const ev of events) {
+            const locs = extractLocations(ev.title);
+            if (locs.length > 0) {
+                ev.lat = locs[0].lat;
+                ev.lon = locs[0].lon;
+                if (!ev.country) ev.country = locs[0].name;
+            }
         }
-    }
 
-    cache = { data: events, ts: Date.now() };
-    return Response.json({ events, cached: false });
+        // Only cache non-empty results
+        if (events.length > 0) {
+            cache = { data: events, ts: Date.now() };
+        }
+
+        // If we got nothing, return stale cache if available
+        if (events.length === 0 && cache && cache.data.length > 0) {
+            return Response.json({ events: cache.data, cached: true, stale: true });
+        }
+
+        return Response.json({ events, cached: false });
+    } catch (err) {
+        console.error('[GDELT] Fetch error:', err);
+        // Return stale cache on error
+        if (cache && cache.data.length > 0) {
+            return Response.json({ events: cache.data, cached: true, stale: true });
+        }
+        return Response.json({ events: [], cached: false, error: 'GDELT unavailable' });
+    }
 }

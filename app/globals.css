@@ -1,4 +1,5 @@
 /* ─── STARWAR Global Styles ─────────────────────────────────── */
+@import url('https://fonts.cdnfonts.com/css/aurebesh');
 
 :root {
     --bg-primary: #050913;
@@ -23,8 +24,50 @@
     --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
     --font-display: 'Orbitron', sans-serif;
     --font-body: 'Inter', -apple-system, sans-serif;
+    --font-aurebesh: 'Aurebesh', var(--font-mono);
     --radius: 4px;
     --transition: 0.2s ease;
+}
+
+/* ─── Aurebesh Mode ─────────────────────────────────── */
+
+body.aurebesh .feed-item-title,
+body.aurebesh .panel-header h2,
+body.aurebesh .logo,
+body.aurebesh .nav-label,
+body.aurebesh .ticker-content,
+body.aurebesh .tg-status,
+body.aurebesh .channel-btn,
+body.aurebesh .chat-msg-text,
+body.aurebesh .globe-label {
+    font-family: var(--font-aurebesh) !important;
+}
+
+/* Aurebesh toggle button */
+.aurebesh-toggle {
+    font-family: 'Aurebesh', monospace;
+    font-size: 14px;
+    padding: 2px 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all var(--transition);
+    letter-spacing: 1px;
+}
+
+.aurebesh-toggle:hover {
+    color: #FFE81F;
+    border-color: #FFE81F;
+    text-shadow: 0 0 8px rgba(255, 232, 31, 0.4);
+}
+
+body.aurebesh .aurebesh-toggle {
+    color: #FFE81F;
+    border-color: #FFE81F;
+    background: rgba(255, 232, 31, 0.1);
+    text-shadow: 0 0 8px rgba(255, 232, 31, 0.4);
 }
 
 * {

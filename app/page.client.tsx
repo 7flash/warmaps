@@ -675,6 +675,24 @@ function startClock() {
     setInterval(update, 1000);
 }
 
+// ─── Aurebesh Toggle ────────────────────────────────────────
+
+function initAurebeshToggle() {
+    const btn = document.getElementById('aurebesh-toggle');
+    if (!btn) return;
+
+    // Restore saved preference
+    if (localStorage.getItem('starwar-aurebesh') === 'on') {
+        document.body.classList.add('aurebesh');
+    }
+
+    btn.addEventListener('click', () => {
+        document.body.classList.toggle('aurebesh');
+        const isOn = document.body.classList.contains('aurebesh');
+        localStorage.setItem('starwar-aurebesh', isOn ? 'on' : 'off');
+    });
+}
+
 // ─── Utilities ──────────────────────────────────────────────
 
 function escHtml(str: string): string {
@@ -799,6 +817,7 @@ export default function mount() {
     initChat();
     initTelegram();
     initThreatBanner();
+    initAurebeshToggle();
 
     // Start data fetching immediately (don't wait for globe)
     fetchAllData();

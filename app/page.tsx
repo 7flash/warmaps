@@ -30,6 +30,8 @@ export default function Page() {
                     </div>
                 </div>
                 <div class="top-bar-right">
+                    <button id="aurebesh-toggle" class="aurebesh-toggle" title="Toggle Aurebesh / Human mode">AB</button>
+                    <span class="separator">│</span>
                     <span class="status-indicator">
                         <span class="pulse-dot"></span>
                         LIVE
