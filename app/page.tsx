@@ -38,6 +38,7 @@ export default function Page() {
                             <button class="filter-btn" data-source="reuters">REUTERS</button>
                             <button class="filter-btn" data-source="bbc">BBC</button>
                             <button class="filter-btn" data-source="aljazeera">AL JAZEERA</button>
+                            <button class="filter-btn" data-source="telegram">TELEGRAM</button>
                         </div>
                     </div>
                     <div id="news-feed" class="feed-list">
@@ -109,6 +110,20 @@ export default function Page() {
 
                     <div class="panel-section">
                         <div class="panel-header">
+                            <h2>📡 TELEGRAM OSINT</h2>
+                            <span class="badge" id="tg-count">0</span>
+                            <button id="tg-connect-btn" class="tg-connect-btn" title="Connect Telegram">⚡</button>
+                        </div>
+                        <div id="tg-status" class="tg-status">Not connected</div>
+                        <div id="tg-feed" class="feed-list feed-list--short">
+                            <div class="loading-state">
+                                <span>Connect Telegram to stream OSINT channels</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-section">
+                        <div class="panel-header">
                             <h2>🔥 SATELLITE FIRES</h2>
                             <span class="badge" id="firms-count">0</span>
                         </div>
@@ -139,6 +154,33 @@ export default function Page() {
                         </div>
                     </div>
                 </aside>
+            </div>
+
+            {/* ─── Telegram Auth Modal ─────────────────── */}
+            <div id="tg-modal" class="modal-overlay" style="display:none">
+                <div class="modal-box">
+                    <div class="modal-header">
+                        <h3>📡 TELEGRAM OSINT CONNECTION</h3>
+                        <button id="tg-modal-close" class="modal-close">×</button>
+                    </div>
+                    <div id="tg-auth-step" class="modal-body">
+                        <p class="modal-info">Connect your Telegram account to stream real-time OSINT from 10+ conflict channels.</p>
+                        <div class="modal-field">
+                            <label>API ID</label>
+                            <input type="text" id="tg-app-id" placeholder="e.g. 12345678" />
+                        </div>
+                        <div class="modal-field">
+                            <label>API Hash</label>
+                            <input type="text" id="tg-app-hash" placeholder="e.g. abc123def456..." />
+                        </div>
+                        <div class="modal-field">
+                            <label>Phone Number</label>
+                            <input type="text" id="tg-phone" placeholder="+1234567890" />
+                        </div>
+                        <button id="tg-auth-submit" class="modal-submit">CONNECT</button>
+                        <div id="tg-auth-status" class="modal-status"></div>
+                    </div>
+                </div>
             </div>
         </>
     );
