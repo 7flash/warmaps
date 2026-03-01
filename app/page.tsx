@@ -99,6 +99,7 @@ export default function Page() {
                     <button class="panel-tab active" data-panel="pulse-panel" title="News Feed">📡</button>
                     <button class="panel-tab" data-panel="intel-panel" title="Intel & Threats">🎯</button>
                     <button class="panel-tab" data-panel="signal-panel" title="Telegram">💬</button>
+                    <button class="panel-tab" data-panel="markets-panel" title="Prediction Markets">💎</button>
                     <button class="panel-tab" data-panel="live-panel" title="Live TV">📺</button>
                     <button class="panel-tab" data-panel="data-panel" title="Data & Stats">📊</button>
                     <button class="panel-tab" data-panel="layers-panel" title="Map Layers">🗺️</button>
@@ -177,6 +178,32 @@ export default function Page() {
                         <div id="tg-status" class="tg-status">Connecting...</div>
                         <div id="tg-feed" class="feed-list">
                             <div class="loading-state"><span class="spinner"></span><span>Connecting channels...</span></div>
+                        </div>
+                    </div>
+                </aside>
+
+                {/* ─── Tab: PREDICTION MARKETS ────────────────── */}
+                <aside id="markets-panel" class="overlay-panel overlay-panel--right">
+                    <div class="panel-drag-header">
+                        <span>💎</span> PREDICTION MARKETS
+                        <button class="panel-close-btn" data-panel="markets-panel">×</button>
+                    </div>
+                    <div class="pulse-filters" id="market-filters">
+                        <button class="pf-pill hot active" data-market-cat="all">ALL</button>
+                        <button class="pf-pill med" data-market-cat="conflict">⚔️ CONFLICT</button>
+                        <button class="pf-pill std" data-market-cat="geopolitical">🌐 GEOPOLITICAL</button>
+                        <button class="pf-pill esc" data-market-cat="energy">⚡ ENERGY</button>
+                    </div>
+                    <div class="panel-section panel-section--radar">
+                        <div class="panel-header">
+                            <h2>THREAT RADAR · POLYMARKET + KALSHI</h2>
+                            <span class="badge badge--hot" id="markets-alert-count">0</span>
+                        </div>
+                        <div id="markets-feed" class="feed-list">
+                            <div class="loading-state">
+                                <span class="spinner"></span>
+                                <span>Scanning prediction markets...</span>
+                            </div>
                         </div>
                     </div>
                 </aside>

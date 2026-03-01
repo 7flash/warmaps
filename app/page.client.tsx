@@ -316,8 +316,8 @@ function initMap() {
             'KWT': '#007a3d', 'BHR': '#ce1126', 'AFG': '#009900', 'PAK': '#01411c',
             'TUR': '#e30a17', 'AZE': '#00b5e2', 'GEO': '#ff0000', 'ARM': '#f2a800',
             // Europe
-            'UKR': '#0057b7', 'RUS': '#d52b1e', 'BLR': '#ce1126', 'POL': '#dc143c',
-            'DEU': '#ffcc00', 'FRA': '#002395', 'GBR': '#012169', 'ITA': '#009246',
+            'UKR': '#0057b7', 'RUS': '#ff2d2d', 'BLR': '#ce1126', 'POL': '#dc143c',
+            'DEU': '#ffcc00', 'FRA': '#0055a4', 'GBR': '#1a5cb5', 'ITA': '#009246',
             'ESP': '#c60b1e', 'PRT': '#006600', 'NLD': '#ae1c28', 'BEL': '#fdda24',
             'SWE': '#006aa7', 'NOR': '#ba0c2f', 'FIN': '#003580', 'DNK': '#c60c30',
             'ROU': '#002b7f', 'BGR': '#00966e', 'SRB': '#c6363c', 'HRV': '#171796',
@@ -332,7 +332,7 @@ function initMap() {
             'COD': '#007fff', 'TZA': '#1eb53a', 'UGA': '#fcdc04', 'RWA': '#00a1de',
             'MLI': '#14b53a', 'NER': '#e05206', 'TCD': '#002664', 'CMR': '#007a5e',
             // Americas
-            'USA': '#3c3b6e', 'CAN': '#ff0000', 'MEX': '#006847', 'BRA': '#009c3b',
+            'USA': '#1a6aff', 'CAN': '#ff0000', 'MEX': '#006847', 'BRA': '#009c3b',
             'ARG': '#74acdf', 'COL': '#fcd116', 'VEN': '#cf142b', 'CHL': '#d52b1e',
             'PER': '#d91023', 'CUB': '#002a8f',
             // Asia
@@ -443,7 +443,7 @@ function initMap() {
                     source: 'countries',
                     paint: {
                         'fill-color': ['get', 'flagColor'],
-                        'fill-opacity': 0.12,
+                        'fill-opacity': 0.18,
                     }
                 }, 'fires-heat'); // Insert BELOW fires and other data layers
 
@@ -454,8 +454,8 @@ function initMap() {
                     source: 'countries',
                     paint: {
                         'line-color': ['get', 'flagColor'],
-                        'line-width': 0.8,
-                        'line-opacity': 0.25,
+                        'line-width': 1.0,
+                        'line-opacity': 0.40,
                     }
                 }, 'fires-heat');
             })
@@ -1328,6 +1328,49 @@ function renderRadarFeed() {
     }
 
     container.innerHTML = html;
+
+    // Also populate the dedicated Markets panel (shows ALL markets)
+    const marketsContainer = document.getElementById('markets-feed');
+    const marketsCount = document.getElementById('markets-alert-count');
+    if (marketsContainer) {
+        if (marketData.length === 0) {
+            marketsContainer.innerHTML = `<div class="loading-state"><span>No prediction market data available</span></div>`;
+        } else {
+            // Get active category filter
+            const activeFilter = document.querySelector('#market-filters .pf-pill.active')?.getAttribute('data-market-cat') || 'all';
+            const filtered = activeFilter === 'all' ? marketData : marketData.filter(m => m.category === activeFilter);
+
+            let marketsHtml = '';
+            for (const market of filtered) {
+                const probClass = market.probability >= 70 ? 'prob--hot' :
+                    market.probability >= 50 ? 'prob--warm' : 'prob--cool';
+                const catIcon = getCategoryIcon(market.category);
+                const velocity = market.velocityPct ? (market.velocityPct > 0 ? `▲${market.velocityPct.toFixed(1)}%` : `▼${Math.abs(market.velocityPct).toFixed(1)}%`) : '';
+                const velocityClass = market.velocityPct > 5 ? 'velocity--up' : market.velocityPct < -5 ? 'velocity--down' : '';
+
+                marketsHtml += `
+                    <div class="radar-market" data-link="${escHtml(market.url)}">
+                        <div class="radar-market-header">
+                            <span class="radar-market-cat">${catIcon} ${market.category.toUpperCase()}</span>
+                            <span class="radar-market-platform">${market.platform === 'polymarket' ? 'PM' : 'KA'}</span>
+                        </div>
+                        <div class="radar-market-title">${escHtml(market.title)}</div>
+                        <div class="radar-market-stats">
+                            <span class="radar-market-prob ${probClass}">${market.probability}%</span>
+                            ${velocity ? `<span class="radar-market-velocity ${velocityClass}">${velocity}</span>` : ''}
+                            <span class="radar-market-vol">$${formatVolume(market.volume)}</span>
+                            ${market.region ? `<span class="radar-market-region">📍 ${market.region}</span>` : ''}
+                        </div>
+                        <div class="radar-market-bar">
+                            <div class="radar-market-bar-fill ${probClass}" style="width:${market.probability}%"></div>
+                        </div>
+                    </div>
+                `;
+            }
+            marketsContainer.innerHTML = marketsHtml;
+        }
+        if (marketsCount) marketsCount.textContent = String(marketData.length);
+    }
 }
 
 function getCategoryIcon(cat: string): string {
@@ -1494,6 +1537,15 @@ function initPanelToggles() {
             if (!panelId) return;
             document.getElementById(panelId)?.classList.remove('open');
             document.querySelector(`.panel-tab[data-panel="${panelId}"]`)?.classList.remove('active');
+        });
+    });
+
+    // Market category filter buttons
+    document.querySelectorAll('#market-filters .pf-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#market-filters .pf-pill').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderRadarFeed(); // Re-render with new filter
         });
     });
 }
