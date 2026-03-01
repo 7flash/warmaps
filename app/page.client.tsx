@@ -1,3 +1,5 @@
+import { render } from 'melina/client';
+
 /**
  * page.client.tsx — Dashboard Client Controller
  * 
@@ -180,7 +182,14 @@ function updatePerfDisplay() {
     if (!el) return;
     const fpsColor = _fps >= 100 ? 'var(--accent)' : _fps >= 60 ? 'var(--amber)' : '#ef4444';
     const pingColor = _pingMs < 100 ? 'var(--accent)' : _pingMs < 300 ? 'var(--amber)' : '#ef4444';
-    el.innerHTML = `<span style="color:${fpsColor}">${_fps} FPS</span> · <span style="color:${pingColor}">${_pingMs >= 0 ? _pingMs + 'ms' : '—'}</span>`;
+    render(
+        <>
+            <span style={{ color: fpsColor }}>{_fps} FPS</span>
+            {' · '}
+            <span style={{ color: pingColor }}>{_pingMs >= 0 ? _pingMs + 'ms' : '—'}</span>
+        </>,
+        el
+    );
 }
 
 // ─── Debounce utility ────────────────────────────────────────
@@ -197,12 +206,27 @@ function proxyImg(url: string | null | undefined): string {
 }
 
 // Build an img tag that tries direct first, then proxy, then fallback
-function imgWithFallback(url: string, fallbackText: string = ''): string {
+function ImgWithFallback({ url, fallbackText = '' }: { url: string; fallbackText?: string }) {
     const proxyUrl = proxyImg(url);
     const initials = fallbackText.slice(0, 2).toUpperCase();
-    return `<img src="${url}" 
-        onerror="if(!this.dataset.retried){this.dataset.retried='1';this.src='${proxyUrl}'}else{this.style.display='none';this.parentElement.querySelector('.map-marker-fb')&&(this.parentElement.querySelector('.map-marker-fb').style.display='flex')}" 
-        alt="" /><div class="map-marker-fb" style="display:none">${initials}</div>`;
+    return (
+        <>
+            <img src={url}
+                onError={(e: any) => {
+                    const img = e.currentTarget;
+                    if (!img.dataset.retried) {
+                        img.dataset.retried = '1';
+                        img.src = proxyUrl;
+                    } else {
+                        img.style.display = 'none';
+                        const fb = img.parentElement?.querySelector('.map-marker-fb') as HTMLElement;
+                        if (fb) fb.style.display = 'flex';
+                    }
+                }}
+                alt="" />
+            <div className="map-marker-fb" style={{ display: 'none' }}>{initials}</div>
+        </>
+    );
 }
 
 // Image markers removed — all rendering is GPU-native MapLibre layers now
@@ -1189,10 +1213,13 @@ function updateTokenMapSource() {
         const el = document.createElement('div');
         el.className = 'map-token-marker';
         const symbol = (token.symbol || '??').slice(0, 10);
-        el.innerHTML = `
-            ${imgWithFallback(token.imageUrl, symbol)}
-            <div class="map-token-marker__label">${escHtml(symbol)}</div>
-        `;
+        render(
+            <>
+                <ImgWithFallback url={token.imageUrl} fallbackText={symbol} />
+                <div className="map-token-marker__label">{symbol}</div>
+            </>,
+            el
+        );
         el.addEventListener('click', () => showTokenPopup(token));
 
         const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
@@ -1843,13 +1870,16 @@ function spawnImageMarker(ev: any, eid: string) {
     const title = (ev.title || '').slice(0, 60);
     const source = ev.source || '';
     const time = ev.date ? formatTime(ev.date) : '';
-    el.innerHTML = `
-        ${imgWithFallback(ev.imageUrl, ev.source || ev.title || '')}
-        <div class="map-image-marker__tooltip">
-            <div class="map-image-marker__tooltip-title">${escHtml(title)}</div>
-            <div class="map-image-marker__tooltip-meta">${escHtml(source)}${time ? ' · ' + time : ''}</div>
-        </div>
-    `;
+    render(
+        <>
+            <ImgWithFallback url={ev.imageUrl} fallbackText={ev.source || ev.title || ''} />
+            <div className="map-image-marker__tooltip">
+                <div className="map-image-marker__tooltip-title">{title}</div>
+                <div className="map-image-marker__tooltip-meta">{source}{time ? ' · ' + time : ''}</div>
+            </div>
+        </>,
+        el
+    );
 
     const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
         .setLngLat([finalLon, finalLat])
