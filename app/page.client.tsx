@@ -1213,8 +1213,16 @@ function updateMapSources() {
     const flSrc = map.getSource('flights');
     if (flSrc) flSrc.setData(flightsGeoJSON);
 
-    // Events GeoJSON with temporal decay
+    // Events GeoJSON with EXPONENTIAL temporal decay
+    // α = e^(-k·age) where k is tuned so:
+    //   - Events < 1h old: ~100% opacity (fully visible)
+    //   - Events at 12h: ~70% opacity
+    //   - Events at 24h: ~50% opacity  
+    //   - Events at 48h: ~25% opacity → expiry threshold
+    // This holds recent events bright before accelerating fadeout
     const features: any[] = [];
+    const DECAY_CONSTANT = 0.000000015; // k ≈ 1.5e-8: ~48h to reach 0.1 alpha
+    const MAX_AGE = 48 * 3600 * 1000;   // Hard cutoff at 48 hours
 
     gdeltEvents.filter(e => e.lat && e.lon).forEach(e => {
         const eventTime = e.date ? new Date(
@@ -1222,9 +1230,10 @@ function updateMapSources() {
         ).getTime() : now;
 
         const age = now - eventTime;
-        if (age > DECAY_END) return; // Too old, skip entirely
+        if (age > MAX_AGE || age < 0) return; // Too old or future-dated, skip
 
-        const opacity = age < DECAY_START ? 1.0 : 1.0 - ((age - DECAY_START) / (DECAY_END - DECAY_START));
+        // Exponential decay: α = e^(-k·age)
+        const opacity = Math.exp(-DECAY_CONSTANT * age);
 
         features.push({
             type: 'Feature',
@@ -1235,8 +1244,10 @@ function updateMapSources() {
                 date: e.date,
                 url: e.url || null,
                 source: e.source || null,
-                opacity: Math.max(0.1, opacity),
+                opacity: Math.max(0.08, Math.min(1.0, opacity)),
                 imageUrl: e.imageUrl || null,
+                vgkg: e.vgkg || false,
+                confidence: e.confidence || 0.5,
             }
         });
     });

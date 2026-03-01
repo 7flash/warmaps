@@ -10,6 +10,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "fflate": "^0.8.2",
     "maplibre-gl": "^5.19.0",
     "maplibre-gl-temporal-control": "^1.2.0",
     "melina": "^2.3.1",
