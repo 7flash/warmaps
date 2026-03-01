@@ -1,5 +1,11 @@
 import { Head } from 'melina/web';
 
+let GIT_HASH = '';
+try {
+    const proc = Bun.spawnSync(['git', 'rev-parse', '--short', 'HEAD'], { cwd: import.meta.dir });
+    GIT_HASH = proc.stdout.toString().trim();
+} catch { }
+
 export default function Page() {
     const now = new Date().toUTCString();
     const ca = process.env.WARMAPS_CA || '';
@@ -64,6 +70,10 @@ export default function Page() {
                     </span>
                     <span class="separator">│</span>
                     <span id="clock" class="clock">{now}</span>
+                    {GIT_HASH && <>
+                        <span class="separator">│</span>
+                        <span class="version-badge" title={`Build ${GIT_HASH}`}>v.{GIT_HASH}</span>
+                    </>}
                 </div>
             </header>
 
