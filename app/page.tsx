@@ -135,6 +135,7 @@ export default function Page() {
                     <button class="panel-tab" data-panel="intel-panel" title="Intel &amp; Threats">🎯</button>
                     <button class="panel-tab" data-panel="signal-panel" title="Telegram">💬</button>
                     <button class="panel-tab" data-panel="chat-panel" title="Global Chat">🗨️</button>
+                    <button class="panel-tab" data-panel="ai-panel" title="AI Analyst">🤖</button>
                     <button class="panel-tab" data-panel="tokens-panel" title="PF Tokens">🪙</button>
                     <button class="panel-tab" data-panel="markets-panel" title="Prediction Markets">💎</button>
                     <button class="panel-tab" data-panel="live-panel" title="Live TV">📺</button>
@@ -292,6 +293,25 @@ export default function Page() {
                         </div>
                         <div id="firms-feed" class="feed-list feed-list--short">
                             <div class="loading-state"><span class="spinner"></span><span>Scanning NASA FIRMS...</span></div>
+                        </div>
+                    </div>
+                </aside>
+
+                {/* ─── Tab: AI ANALYST ──────────────────────── */}
+                <aside id="ai-panel" class="overlay-panel overlay-panel--right">
+                    <div class="panel-drag-header">
+                        <span>🤖</span> AI ANALYST
+                        <button class="panel-close-btn" data-panel="ai-panel">×</button>
+                    </div>
+                    <div class="panel-section panel-section--chat">
+                        <div class="panel-header">
+                            <h2>WARMAPS AI</h2>
+                            <span class="badge ai-badge">GEMINI</span>
+                        </div>
+                        <div id="ai-messages" class="chat-messages ai-messages"></div>
+                        <div class="chat-input-row">
+                            <input type="text" id="ai-input" class="chat-input" placeholder="Ask about conflicts, intelligence..." maxLength={2000} autoComplete="off" />
+                            <button id="ai-send" class="chat-send-btn ai-send-btn">ASK</button>
                         </div>
                     </div>
                 </aside>

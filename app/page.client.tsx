@@ -769,6 +769,7 @@ function initMap() {
 
         // Initialize panel toggle system
         initPanelToggles();
+        initAIChat();
 
         updateMapSources();
 
@@ -1381,7 +1382,10 @@ function renderNewsFeed() {
             return (
                 <div className="pulse-card" data-lat={lat} data-lon={lon} data-idx={idx}
                     data-tone={tone} data-themes={themes} data-date={ev.date || ''}
-                    onClick={() => flyToEv(lat, lon)}>
+                    onClick={() => {
+                        flyToEv(lat, lon);
+                        openArticleModal(ev);
+                    }}>
                     <img className="pulse-card__img" src={imgUrl}
                         onError={(e: any) => e.currentTarget.style.display = 'none'} alt="" loading="lazy" />
                     <div className="pulse-card__body">
@@ -1393,28 +1397,6 @@ function renderNewsFeed() {
         })}</>,
         container
     );
-
-    // Click handler: fly to location on map
-    container.querySelectorAll('.pulse-card[data-lat]').forEach(card => {
-        card.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const el = card as HTMLElement;
-            const lat = parseFloat(el.dataset.lat || '0');
-            const lon = parseFloat(el.dataset.lon || '0');
-            if (!map || isNaN(lat) || isNaN(lon)) return;
-
-            map.flyTo({
-                center: [lon, lat],
-                zoom: 6,
-                speed: 1.5,
-                curve: 1.2,
-            });
-
-            container.querySelectorAll('.pulse-card--active').forEach(c => c.classList.remove('pulse-card--active'));
-            el.classList.add('pulse-card--active');
-        });
-    });
 
     // Wire up search bar (preserve value across re-renders)
     const searchInput = document.getElementById('pulse-search-input') as HTMLInputElement;
@@ -1862,6 +1844,12 @@ function spawnImageMarker(ev: any, eid: string) {
     const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
         .setLngLat([finalLon, finalLat])
         .addTo(map);
+
+    // Click to open article modal
+    el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openArticleModal(ev);
+    });
 
     IMAGE_MARKERS.set(eid, { marker, el, ev });
     IMAGE_MARKER_ORDER.push(eid);
@@ -2766,4 +2754,236 @@ function setupLegendFilters() {
     bind('filter-seismic', ['seismic-kinetic']);
     bind('filter-webcams', ['webcams-point']);
     bind('filter-flags', ['country-flag-labels']);
+}
+
+// ─── Article Modal ──────────────────────────────────────────
+
+function openArticleModal(ev: any) {
+    // Remove any existing modal
+    document.querySelector('.article-modal-overlay')?.remove();
+
+    const title = ev.title || 'Untitled';
+    const source = ev.source || ev.domain || '';
+    const time = ev.date ? formatTime(ev.date) : '';
+    const imageUrl = ev.imageUrl ? proxyImg(ev.imageUrl) : '';
+    const articleUrl = ev.url || ev.sourceUrl || '';
+
+    const overlay = document.createElement('div');
+    overlay.className = 'article-modal-overlay';
+
+    overlay.innerHTML = `
+        <div class="article-modal" onclick="event.stopPropagation()">
+            <div class="article-modal__header">
+                <div class="article-modal__title">${escHtml(title)}</div>
+                <button class="article-modal__close" title="Close">×</button>
+            </div>
+            ${imageUrl ? `<img class="article-modal__image" src="${escHtml(imageUrl)}" alt="" onerror="this.style.display='none'" />` : ''}
+            <div class="article-modal__meta">
+                ${source ? `<span>📡 ${escHtml(source)}</span>` : ''}
+                ${time ? `<span>🕐 ${time}</span>` : ''}
+                ${ev.lat ? `<span>📍 ${Number(ev.lat).toFixed(2)}°, ${Number(ev.lon || ev.lng).toFixed(2)}°</span>` : ''}
+                ${ev.tone ? `<span>🎯 Tone: ${Number(ev.tone).toFixed(1)}</span>` : ''}
+            </div>
+            <div class="article-modal__body">
+                <p>${escHtml(title)}</p>
+                ${ev.themes?.length ? `<p><strong>Themes:</strong> ${ev.themes.slice(0, 8).map((t: string) => escHtml(t.replace(/_/g, ' '))).join(', ')}</p>` : ''}
+                ${articleUrl ? `<a class="article-modal__link" href="${escHtml(articleUrl)}" target="_blank" rel="noopener">🔗 Read full article →</a>` : ''}
+            </div>
+        </div>
+    `;
+
+    // Close handlers
+    overlay.addEventListener('click', () => overlay.remove());
+    overlay.querySelector('.article-modal__close')?.addEventListener('click', () => overlay.remove());
+
+    const escHandler = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+            overlay.remove();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    document.body.appendChild(overlay);
+}
+
+
+// ─── AI Chat ────────────────────────────────────────────────
+
+interface AIChatMessage {
+    role: 'user' | 'assistant';
+    content: string;
+}
+
+const aiHistory: AIChatMessage[] = [];
+let aiStreaming = false;
+
+function initAIChat() {
+    const input = document.getElementById('ai-input') as HTMLInputElement;
+    const sendBtn = document.getElementById('ai-send') as HTMLButtonElement;
+    const messagesEl = document.getElementById('ai-messages')!;
+
+    if (!input || !sendBtn || !messagesEl) return;
+
+    // Add welcome message
+    appendAIMessage('assistant', `**WARMAPS AI** ready. I have access to real-time conflict data from GDELT, FIRMS, ACLED, and prediction markets.\n\nAsk me anything about current global conflicts, threat assessments, or geopolitical analysis.`);
+
+    function sendMessage() {
+        const text = input.value.trim();
+        if (!text || aiStreaming) return;
+
+        input.value = '';
+        appendAIMessage('user', text);
+        aiHistory.push({ role: 'user', content: text });
+
+        streamAIResponse();
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+}
+
+function appendAIMessage(role: 'user' | 'assistant', content: string): HTMLElement {
+    const messagesEl = document.getElementById('ai-messages')!;
+    const msgEl = document.createElement('div');
+    msgEl.className = `ai-msg ai-msg--${role}`;
+
+    const label = document.createElement('div');
+    label.className = 'ai-msg__label';
+    label.textContent = role === 'user' ? 'YOU' : 'WARMAPS AI';
+
+    const body = document.createElement('div');
+    body.className = 'ai-msg__body';
+    body.innerHTML = formatAIContent(content);
+
+    msgEl.appendChild(label);
+    msgEl.appendChild(body);
+    messagesEl.appendChild(msgEl);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    return body;
+}
+
+function formatAIContent(text: string): string {
+    return text
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+        .replace(/\n/g, '<br>');
+}
+
+function gatherLiveContext(): string {
+    const parts: string[] = [];
+
+    // Gather recent GDELT events shown on map
+    try {
+        const feedItems = document.querySelectorAll('#pulse-feed .feed-item');
+        if (feedItems.length > 0) {
+            const headlines: string[] = [];
+            feedItems.forEach((item, i) => {
+                if (i >= 15) return;
+                const title = item.querySelector('.feed-item-title')?.textContent?.trim();
+                const source = item.querySelector('.feed-item-source')?.textContent?.trim();
+                if (title) headlines.push(`- ${title}${source ? ` (${source})` : ''}`);
+            });
+            if (headlines.length > 0) {
+                parts.push(`### Recent Conflict Events\n${headlines.join('\n')}`);
+            }
+        }
+    } catch { }
+
+    // Gather token data
+    try {
+        const tokenItems = document.querySelectorAll('#tokens-feed .token-item');
+        if (tokenItems.length > 0) {
+            const tokens: string[] = [];
+            tokenItems.forEach((item, i) => {
+                if (i >= 5) return;
+                const name = item.querySelector('.token-name')?.textContent?.trim();
+                if (name) tokens.push(`- ${name}`);
+            });
+            if (tokens.length > 0) {
+                parts.push(`### Pump.fun Conflict Tokens\n${tokens.join('\n')}`);
+            }
+        }
+    } catch { }
+
+    return parts.join('\n\n');
+}
+
+async function streamAIResponse() {
+    aiStreaming = true;
+    const sendBtn = document.getElementById('ai-send') as HTMLButtonElement;
+    sendBtn.textContent = '...';
+    sendBtn.disabled = true;
+
+    const bodyEl = appendAIMessage('assistant', '');
+    let fullText = '';
+
+    try {
+        const context = gatherLiveContext();
+        const res = await fetch('/api/ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                messages: aiHistory.slice(-10), // last 10 messages for context
+                context,
+            }),
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+            fullText = `⚠ Error: ${err.error || res.statusText}`;
+            bodyEl.innerHTML = formatAIContent(fullText);
+            aiHistory.push({ role: 'assistant', content: fullText });
+            return;
+        }
+
+        const reader = res.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                const data = line.slice(6).trim();
+                if (data === '[DONE]') continue;
+
+                try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.error) {
+                        fullText += `\n⚠ ${parsed.error}`;
+                    } else if (parsed.text) {
+                        fullText += parsed.text;
+                    }
+                    bodyEl.innerHTML = formatAIContent(fullText);
+                    const messagesEl = document.getElementById('ai-messages')!;
+                    messagesEl.scrollTop = messagesEl.scrollHeight;
+                } catch { }
+            }
+        }
+
+        aiHistory.push({ role: 'assistant', content: fullText });
+    } catch (err: any) {
+        fullText = `⚠ Network error: ${err.message}`;
+        bodyEl.innerHTML = formatAIContent(fullText);
+    } finally {
+        aiStreaming = false;
+        sendBtn.textContent = 'ASK';
+        sendBtn.disabled = false;
+    }
 }

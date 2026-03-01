@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "fflate": "^0.8.2",
+    "jsx-ai": "^0.1.0",
     "maplibre-gl": "^5.19.0",
     "maplibre-gl-temporal-control": "^1.2.0",
     "measure-fn": "3.9.0",

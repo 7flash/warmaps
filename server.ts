@@ -6,6 +6,20 @@ import * as fs from 'fs';
 import { saveChatMessage, getChatHistory, cleanupOldData } from './src/db';
 import * as tg from './src/telegram';
 
+// Load Gemini API key from geeksy config if not already in env
+if (!process.env.GEMINI_API_KEY) {
+    try {
+        const configPaths = ['C:/Code/geeksy/.config.toml', path.join(import.meta.dir, '.config.toml')];
+        for (const p of configPaths) {
+            if (fs.existsSync(p)) {
+                const content = fs.readFileSync(p, 'utf-8');
+                const match = content.match(/api_key\s*=\s*"([^"]+)"/);
+                if (match) { process.env.GEMINI_API_KEY = match[1]; break; }
+            }
+        }
+    } catch { }
+}
+
 const appDir = path.join(import.meta.dir, 'app');
 const port = parseInt(process.env.WARMAPS_PORT || "4444");
 const isDev = process.env.NODE_ENV !== 'production';
