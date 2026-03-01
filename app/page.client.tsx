@@ -554,76 +554,12 @@ function initMap() {
             }
         });
 
-        // ─── Pump.fun Token Markers (GPU-native) ────────────────
+        // ─── Pump.fun Tokens: rendered as HTML markers (not circles) ─────
+        // Source kept for data tracking only, actual rendering via HTML markers
         map.addSource('pumpfun-tokens', {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [] }
         });
-
-        map.addLayer({
-            id: 'pumpfun-tokens-circle',
-            type: 'circle',
-            source: 'pumpfun-tokens',
-            paint: {
-                'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 6, 8, 10, 12, 14],
-                'circle-color': '#ffd700',
-                'circle-opacity': 0.9,
-                'circle-stroke-width': 2,
-                'circle-stroke-color': 'rgba(255, 165, 0, 0.7)',
-                'circle-pitch-alignment': 'map',
-            }
-        });
-
-        map.addLayer({
-            id: 'pumpfun-tokens-label',
-            type: 'symbol',
-            source: 'pumpfun-tokens',
-            layout: {
-                'text-field': ['get', 'symbol'],
-                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                'text-size': ['interpolate', ['linear'], ['zoom'], 3, 8, 8, 11],
-                'text-offset': [0, 1.4],
-                'text-anchor': 'top',
-                'text-allow-overlap': false,
-                'text-optional': true,
-            },
-            paint: {
-                'text-color': '#ffd700',
-                'text-halo-color': 'rgba(0,0,0,0.9)',
-                'text-halo-width': 1,
-            }
-        });
-
-        // Click handler for token popups
-        map.on('click', 'pumpfun-tokens-circle', (e: any) => {
-            if (!e.features || e.features.length === 0) return;
-            const props = e.features[0].properties;
-            const coords = e.features[0].geometry.coordinates.slice();
-            // Find matching token data
-            const token = pumpfunTokens.find((t: any) => t.symbol === props.symbol && t.name === props.name);
-            if (token) {
-                showTokenPopup(token);
-            } else {
-                // Fallback popup from feature properties
-                new maplibregl.Popup({
-                    className: 'tactical-popup',
-                    closeButton: true,
-                    maxWidth: '280px',
-                })
-                    .setLngLat(coords)
-                    .setHTML(`
-                    <div style="padding:10px">
-                        <div style="font-size:13px;font-weight:700;color:#ffd700">${props.symbol || props.name}</div>
-                        <div style="font-size:11px;color:var(--text-secondary);margin-top:4px">${props.country || ''}</div>
-                        <div style="font-size:10px;color:var(--text-muted);margin-top:4px">${props.keywords || ''}</div>
-                    </div>
-                `)
-                    .addTo(map);
-            }
-        });
-
-        map.on('mouseenter', 'pumpfun-tokens-circle', () => { map.getCanvas().style.cursor = 'pointer'; });
-        map.on('mouseleave', 'pumpfun-tokens-circle', () => { map.getCanvas().style.cursor = ''; });
 
         // --- Interactive Intel Popups ---
 
@@ -1185,8 +1121,8 @@ async function fetchWebcams() {
 
 // ─── Pump.fun Conflict Token Fetching ───────────────────────
 
-// Token markers are now rendered via native MapLibre 'pumpfun-tokens-circle' + 'pumpfun-tokens-label' layers
-// No HTML markers needed — all GPU-rendered
+// Token markers are now rendered as HTML image markers via updateTokenMapSource()
+// They show actual token images instead of yellow circles
 
 async function fetchPumpfun() {
     try {
@@ -1202,27 +1138,57 @@ async function fetchPumpfun() {
     }
 }
 
+// Track active token markers for cleanup
+const TOKEN_MARKERS: Map<string, any> = new Map();
+
 function updateTokenMapSource() {
     if (!map) return;
-    const geojson = {
-        type: 'FeatureCollection' as const,
-        features: pumpfunTokens.map((t: any) => ({
-            type: 'Feature' as const,
-            geometry: { type: 'Point' as const, coordinates: [t.lng, t.lat] },
-            properties: {
-                name: t.name,
-                symbol: t.symbol,
-                country: t.country,
-                countryCode: t.countryCode,
-                keywords: (t.matchedKeywords || []).join(', '),
-                boostAmount: t.boostAmount || 0,
-                url: t.url,
-                imageUrl: t.imageUrl,
+
+    // Remove old token markers
+    for (const [, m] of TOKEN_MARKERS) m.remove();
+    TOKEN_MARKERS.clear();
+
+    // Place each token as an HTML image marker
+    for (const token of pumpfunTokens) {
+        if (!token.imageUrl) continue;
+
+        // Try to find a nearby GDELT event matching this token's keywords
+        let placeLat = token.lat;
+        let placeLon = token.lng;
+        const keywords = (token.matchedKeywords || []).map((k: string) => k.toLowerCase());
+
+        if (keywords.length > 0 && gdeltEvents.length > 0) {
+            // Find a GDELT event whose title or country matches token keywords
+            const match = gdeltEvents.find((ev: any) => {
+                const evText = ((ev.title || '') + ' ' + (ev.country || '')).toLowerCase();
+                return keywords.some((kw: string) => evText.includes(kw));
+            });
+            if (match && match.lat && (match.lon || match.lng)) {
+                // Offset slightly from the event so they don't stack
+                const offsetLon = (Math.random() - 0.5) * 3;
+                const offsetLat = (Math.random() - 0.5) * 2;
+                placeLat = match.lat + offsetLat;
+                placeLon = (match.lon || match.lng) + offsetLon;
             }
-        }))
-    };
-    const src = map.getSource('pumpfun-tokens');
-    if (src) src.setData(geojson);
+        }
+
+        if (!placeLat || !placeLon) continue;
+
+        // Create token image element
+        const el = document.createElement('div');
+        el.className = 'map-token-marker';
+        el.innerHTML = `
+            <img src="${proxyImg(token.imageUrl)}" onerror="this.parentElement.style.display='none'" alt="" />
+            <div class="map-token-marker__label">${escHtml((token.symbol || '').slice(0, 10))}</div>
+        `;
+        el.addEventListener('click', () => showTokenPopup(token));
+
+        const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+            .setLngLat([placeLon, placeLat])
+            .addTo(map);
+
+        TOKEN_MARKERS.set(token.symbol + '-' + token.name, marker);
+    }
 }
 
 /** Show a rich popup for a token with nearby GDELT event cross-references */
@@ -2534,7 +2500,11 @@ function setupLegendFilters() {
     bind('filter-events', ['events-heat', 'events-point']);
     bind('filter-fires', ['fires-heat']);
     bind('filter-flights', ['flights-point']);
-    bind('filter-tokens', ['pumpfun-tokens-circle', 'pumpfun-tokens-label']);
+    bind('filter-tokens', [], (on: boolean) => {
+        document.querySelectorAll('.map-token-marker').forEach((el: any) => {
+            el.style.display = on ? '' : 'none';
+        });
+    });
     bind('filter-acled', ['acled-kinetic']);
     bind('filter-assets', ['assets-nuclear', 'assets-base']);
     bind('filter-seismic', ['seismic-kinetic']);
