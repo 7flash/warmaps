@@ -92,48 +92,17 @@ let _fps = 0;
 let _fpsFrames = 0;
 let _fpsLast = performance.now();
 let _pingMs = -1;
-let _pingInterval: any = null;
-const TARGET_FPS = 120;
-const FRAME_INTERVAL = 1000 / TARGET_FPS; // ~8.33ms per frame
-
 /**
- * 120 FPS rendering loop.
- * 
- * requestAnimationFrame is capped at monitor refresh rate (60Hz on most displays).
- * To hit 120fps we:
- *   1. Count MapLibre's actual GPU render frames via map.on('render')
- *   2. Force continuous repaint with map.triggerRepaint() every render
- *   3. Use a high-frequency setTimeout loop (8.33ms) for our own animation tick
- *
- * On 120Hz displays this matches natively. On 60Hz displays, MapLibre will
- * still render internally at up to 120fps via triggerRepaint() even though
- * the compositor shows 60fps — the HUD counts actual render calls.
+ * Passive FPS counter — counts actual MapLibre render frames.
+ * No hot loop. Only fires when the map actually redraws (pan/zoom/animation).
+ * Idles at 0% CPU when the map is static.
  */
 function startFPSCounter() {
-    // High-resolution timer loop — NOT limited to rAF's refresh rate
-    let lastTick = performance.now();
-
-    const tick = () => {
-        _fpsFrames++;
-        const now = performance.now();
-        if (now - _fpsLast >= 1000) {
-            _fps = _fpsFrames;
-            _fpsFrames = 0;
-            _fpsLast = now;
-            updatePerfDisplay();
-        }
-
-        // Schedule next tick at 120Hz using setTimeout
-        // setTimeout(fn, 0) actually fires at ~4ms (browser minimum)
-        // For 120fps we need ~8.33ms intervals
-        const elapsed = performance.now() - lastTick;
-        const delay = Math.max(0, FRAME_INTERVAL - elapsed);
-        lastTick = performance.now();
-        setTimeout(tick, delay);
-    };
-
-    // Start the loop
-    setTimeout(tick, 0);
+    setInterval(() => {
+        _fps = _fpsFrames;
+        _fpsFrames = 0;
+        updatePerfDisplay();
+    }, 1000);
 }
 
 /**
@@ -144,15 +113,12 @@ function startFPSCounter() {
 function startContinuousRepaint() {
     if (!map) return;
 
-    // Every time MapLibre finishes a render, immediately request another
-    map.on('render', () => {
-        map.triggerRepaint();
-    });
+    // Count actual render frames for the FPS display
+    map.on('render', () => { _fpsFrames++; });
 
     // Zoom-responsive image markers: update --marker-scale on zoom change
     const updateMarkerScale = () => {
         const zoom = map.getZoom();
-        // Scale: zoom 2→0.3, zoom 4→0.5, zoom 6→0.8, zoom 8→1.0, zoom 10+→1.2
         const scale = Math.min(1.3, Math.max(0.3, (zoom - 2) * 0.15 + 0.3));
         document.querySelectorAll('.map-image-marker').forEach((el: any) => {
             el.style.setProperty('--marker-scale', String(scale));
@@ -160,9 +126,6 @@ function startContinuousRepaint() {
     };
     map.on('zoom', updateMarkerScale);
     updateMarkerScale();
-
-    // Kick off the first repaint
-    map.triggerRepaint();
 }
 
 function startPingMonitor() {
@@ -174,7 +137,7 @@ function startPingMonitor() {
         } catch { _pingMs = -1; }
     };
     measure();
-    _pingInterval = setInterval(measure, 5000);
+    setInterval(measure, 5000);
 }
 
 function updatePerfDisplay() {
