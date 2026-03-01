@@ -66,38 +66,72 @@ function syncImageMarkers() {
     // Render directly from gdeltEvents data — NOT from clustered layer
     // This ensures markers are always visible regardless of zoom/clustering
     const bounds = map.getBounds();
-    const seen = new Set<string>();
 
-    // Only render events with images (or breaking events)
+    // Sort: breaking first, then VGKG (higher quality), then by freshness
     const eventsWithImages = gdeltEvents.filter(e => {
         if (!e.lat || !e.lon) return false;
-        // Check within map bounds
         if (e.lon < bounds.getWest() || e.lon > bounds.getEast()) return false;
         if (e.lat < bounds.getSouth() || e.lat > bounds.getNorth()) return false;
         return e.imageUrl || isBreaking(e.title || '');
+    }).sort((a, b) => {
+        const aBreaking = isBreaking(a.title || '') ? 1 : 0;
+        const bBreaking = isBreaking(b.title || '') ? 1 : 0;
+        if (aBreaking !== bBreaking) return bBreaking - aBreaking;
+        const aVgkg = a.vgkg ? 1 : 0;
+        const bVgkg = b.vgkg ? 1 : 0;
+        if (aVgkg !== bVgkg) return bVgkg - aVgkg;
+        return 0; // Already ordered by API response (newest first)
     });
 
     console.log(`[STARWAR] syncImageMarkers: ${gdeltEvents.length} total events, ${eventsWithImages.length} with images/breaking in view`);
 
-    // Limit to 60 markers for performance
+    // Spatial grid dedup: divide viewport into cells, max 1 marker per cell
+    // At zoom 3 (world), cells are ~5° → ~10 markers max
+    // At zoom 6 (continent), cells are ~1° → ~40 markers
+    // At zoom 10 (city), cells are ~0.05° → many markers
+    const zoom = map.getZoom();
+    const cellSize = Math.max(0.02, 5 / Math.pow(2, zoom - 3));
     const maxMarkers = 60;
-    const toRender = eventsWithImages.slice(0, maxMarkers);
+    const occupiedCells = new Set<string>();
 
-    for (const e of toRender) {
-        // Add small jitter to prevent stacking when multiple events share exact coordinates
-        const jitter = () => (Math.random() - 0.5) * 0.3;
+    let rendered = 0;
+    for (const e of eventsWithImages) {
+        if (rendered >= maxMarkers) break;
+
+        const breaking = isBreaking(e.title || '');
+
+        // Breaking events bypass spatial grid (always shown)
+        if (!breaking) {
+            const cellX = Math.floor(e.lon / cellSize);
+            const cellY = Math.floor(e.lat / cellSize);
+            const cellKey = `${cellX},${cellY}`;
+            if (occupiedCells.has(cellKey)) continue;
+            occupiedCells.add(cellKey);
+        }
+
+        // Jitter scales with cell size to spread markers within cells
+        const jitter = () => (Math.random() - 0.5) * cellSize * 0.6;
         const coords: [number, number] = [e.lon + jitter(), e.lat + jitter()];
-        const key = `${e.lon.toFixed(1)},${e.lat.toFixed(1)},${(e.title || '').slice(0, 20)}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
 
         const imageUrl = e.imageUrl;
         const title = e.title || '';
-        const breaking = isBreaking(title);
+
+        // ─── Zoom-responsive sizing ──────────────────────────
+        // Simulates Deck.gl sizeUnits:'meters' + sizeMinPixels/sizeMaxPixels
+        // Markers grow smoothly from 28px (global) to 160px (street level)
+        const MIN_SIZE = 28;   // sizeMinPixels equivalent
+        const MAX_SIZE = 160;  // sizeMaxPixels equivalent
+        const markerSize = Math.round(Math.min(MAX_SIZE, Math.max(MIN_SIZE,
+            MIN_SIZE * Math.pow(1.22, zoom - 3) // ~1.22x per zoom level
+        )));
+        const breakingSize = Math.round(markerSize * 1.25); // Breaking 25% larger
 
         // Create the marker element
         const el = document.createElement('div');
         el.className = 'map-image-marker' + (breaking ? ' map-image-marker--breaking' : '');
+        const size = breaking ? breakingSize : markerSize;
+        el.style.width = `${size}px`;
+        el.style.height = `${size}px`;
 
         if (imageUrl && imageUrl.startsWith('http')) {
             const img = document.createElement('img');
@@ -172,6 +206,7 @@ function syncImageMarkers() {
             .addTo(map);
 
         imageMarkers.push(marker);
+        rendered++;
     }
 }
 
@@ -269,6 +304,162 @@ function initMap() {
         });
 
         // --- Layers ---
+
+        // ─── Country Flag Territory Fills ────────────────────
+        // Load simplified world boundaries and color each country with its dominant flag color
+        // This creates a vibrant geopolitical backdrop behind all data layers
+        const COUNTRY_FLAG_COLORS: Record<string, string> = {
+            // Middle East & Central Asia
+            'IRN': '#00a651', 'IRQ': '#ce1126', 'SYR': '#ce1126', 'ISR': '#0038b8',
+            'PSE': '#009736', 'LBN': '#ce1126', 'JOR': '#007a3d', 'SAU': '#006c35',
+            'YEM': '#ce1126', 'OMN': '#ce1126', 'ARE': '#00732f', 'QAT': '#8a1538',
+            'KWT': '#007a3d', 'BHR': '#ce1126', 'AFG': '#009900', 'PAK': '#01411c',
+            'TUR': '#e30a17', 'AZE': '#00b5e2', 'GEO': '#ff0000', 'ARM': '#f2a800',
+            // Europe
+            'UKR': '#0057b7', 'RUS': '#d52b1e', 'BLR': '#ce1126', 'POL': '#dc143c',
+            'DEU': '#ffcc00', 'FRA': '#002395', 'GBR': '#012169', 'ITA': '#009246',
+            'ESP': '#c60b1e', 'PRT': '#006600', 'NLD': '#ae1c28', 'BEL': '#fdda24',
+            'SWE': '#006aa7', 'NOR': '#ba0c2f', 'FIN': '#003580', 'DNK': '#c60c30',
+            'ROU': '#002b7f', 'BGR': '#00966e', 'SRB': '#c6363c', 'HRV': '#171796',
+            'GRC': '#004c98', 'CZE': '#11457e', 'HUN': '#436f4d', 'SVK': '#0b4ea2',
+            'AUT': '#ed2939', 'CHE': '#ff0000', 'LTU': '#fdb913', 'LVA': '#9e3039',
+            'EST': '#0072ce', 'MDA': '#003da5', 'MNE': '#d4af37', 'MKD': '#d20000',
+            'ALB': '#e41e20', 'BIH': '#002395', 'KOS': '#003da5',
+            // Africa
+            'EGY': '#ce1126', 'LBY': '#239e46', 'TUN': '#e70013', 'DZA': '#006233',
+            'MAR': '#c1272d', 'SDN': '#007229', 'SSD': '#078930', 'ETH': '#009b3a',
+            'SOM': '#4189dd', 'KEN': '#006600', 'NGA': '#008751', 'ZAF': '#007749',
+            'COD': '#007fff', 'TZA': '#1eb53a', 'UGA': '#fcdc04', 'RWA': '#00a1de',
+            'MLI': '#14b53a', 'NER': '#e05206', 'TCD': '#002664', 'CMR': '#007a5e',
+            // Americas
+            'USA': '#3c3b6e', 'CAN': '#ff0000', 'MEX': '#006847', 'BRA': '#009c3b',
+            'ARG': '#74acdf', 'COL': '#fcd116', 'VEN': '#cf142b', 'CHL': '#d52b1e',
+            'PER': '#d91023', 'CUB': '#002a8f',
+            // Asia
+            'CHN': '#de2910', 'JPN': '#bc002d', 'KOR': '#003478', 'PRK': '#024fa2',
+            'IND': '#ff9933', 'MMR': '#fecb00', 'THA': '#241d4f', 'VNM': '#da251d',
+            'IDN': '#ff0000', 'MYS': '#010066', 'PHL': '#0038a8', 'TWN': '#000095',
+            'KAZ': '#00afca', 'UZB': '#1eb53a', 'TKM': '#1a8b42', 'KGZ': '#e8112d',
+            'TJK': '#006600',
+        };
+
+        // Load world GeoJSON and add country fill layer
+        fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+            .then(r => r.json())
+            .then(topology => {
+                // Convert TopoJSON to GeoJSON
+                // @ts-ignore - topojson bundled in page
+                const topojsonFeature = (topo: any, obj: any) => {
+                    const features: any[] = [];
+                    const arcs = topo.arcs;
+                    const transform = topo.transform;
+                    const decodeArc = (arcIdx: number) => {
+                        const arc = arcs[arcIdx < 0 ? ~arcIdx : arcIdx];
+                        const coords: [number, number][] = [];
+                        let x = 0, y = 0;
+                        for (const [dx, dy] of arc) {
+                            x += dx; y += dy;
+                            coords.push([
+                                x * transform.scale[0] + transform.translate[0],
+                                y * transform.scale[1] + transform.translate[1]
+                            ]);
+                        }
+                        return arcIdx < 0 ? coords.reverse() : coords;
+                    };
+                    const decodeRings = (rings: number[][]) => rings.map((ring: number[]) =>
+                        ring.reduce<[number, number][]>((acc, idx) => acc.concat(decodeArc(idx)), [])
+                    );
+                    for (const geom of obj.geometries) {
+                        let geometry: any;
+                        if (geom.type === 'Polygon') {
+                            geometry = { type: 'Polygon', coordinates: decodeRings(geom.arcs) };
+                        } else if (geom.type === 'MultiPolygon') {
+                            geometry = { type: 'MultiPolygon', coordinates: geom.arcs.map((p: number[][]) => decodeRings(p)) };
+                        } else continue;
+                        features.push({
+                            type: 'Feature',
+                            properties: { ...geom.properties, id: geom.id },
+                            geometry
+                        });
+                    }
+                    return { type: 'FeatureCollection', features };
+                };
+
+                const countries = topojsonFeature(topology, topology.objects.countries);
+
+                // Map numeric country IDs to ISO3 using a lookup
+                const numToIso3: Record<string, string> = {
+                    '4': 'AFG', '8': 'ALB', '12': 'DZA', '24': 'AGO', '32': 'ARG',
+                    '36': 'AUS', '40': 'AUT', '31': 'AZE', '48': 'BHR', '50': 'BGD',
+                    '56': 'BEL', '112': 'BLR', '68': 'BOL', '70': 'BIH', '72': 'BWA',
+                    '76': 'BRA', '100': 'BGR', '854': 'BFA', '104': 'MMR', '108': 'BDI',
+                    '116': 'KHM', '120': 'CMR', '124': 'CAN', '140': 'CAF', '148': 'TCD',
+                    '152': 'CHL', '156': 'CHN', '170': 'COL', '178': 'COG', '180': 'COD',
+                    '188': 'CRI', '191': 'HRV', '192': 'CUB', '196': 'CYP', '203': 'CZE',
+                    '208': 'DNK', '262': 'DJI', '214': 'DOM', '218': 'ECU', '818': 'EGY',
+                    '222': 'SLV', '226': 'GNQ', '232': 'ERI', '233': 'EST', '231': 'ETH',
+                    '246': 'FIN', '250': 'FRA', '266': 'GAB', '270': 'GMB', '268': 'GEO',
+                    '276': 'DEU', '288': 'GHA', '300': 'GRC', '320': 'GTM', '324': 'GIN',
+                    '328': 'GUY', '332': 'HTI', '340': 'HND', '348': 'HUN', '352': 'ISL',
+                    '356': 'IND', '360': 'IDN', '364': 'IRN', '368': 'IRQ', '372': 'IRL',
+                    '376': 'ISR', '380': 'ITA', '384': 'CIV', '388': 'JAM', '392': 'JPN',
+                    '400': 'JOR', '398': 'KAZ', '404': 'KEN', '408': 'PRK', '410': 'KOR',
+                    '414': 'KWT', '417': 'KGZ', '418': 'LAO', '428': 'LVA', '422': 'LBN',
+                    '426': 'LSO', '430': 'LBR', '434': 'LBY', '440': 'LTU', '442': 'LUX',
+                    '807': 'MKD', '450': 'MDG', '454': 'MWI', '458': 'MYS', '466': 'MLI',
+                    '478': 'MRT', '484': 'MEX', '498': 'MDA', '496': 'MNG', '499': 'MNE',
+                    '504': 'MAR', '508': 'MOZ', '516': 'NAM', '524': 'NPL', '528': 'NLD',
+                    '554': 'NZL', '558': 'NIC', '562': 'NER', '566': 'NGA', '578': 'NOR',
+                    '512': 'OMN', '586': 'PAK', '591': 'PAN', '598': 'PNG', '600': 'PRY',
+                    '604': 'PER', '608': 'PHL', '616': 'POL', '620': 'PRT', '634': 'QAT',
+                    '642': 'ROU', '643': 'RUS', '646': 'RWA', '682': 'SAU', '686': 'SEN',
+                    '688': 'SRB', '694': 'SLE', '702': 'SGP', '703': 'SVK', '705': 'SVN',
+                    '706': 'SOM', '710': 'ZAF', '728': 'SSD', '724': 'ESP', '144': 'LKA',
+                    '729': 'SDN', '740': 'SUR', '748': 'SWZ', '752': 'SWE', '756': 'CHE',
+                    '760': 'SYR', '158': 'TWN', '762': 'TJK', '834': 'TZA', '764': 'THA',
+                    '768': 'TGO', '780': 'TTO', '788': 'TUN', '792': 'TUR', '795': 'TKM',
+                    '800': 'UGA', '804': 'UKR', '784': 'ARE', '826': 'GBR', '840': 'USA',
+                    '858': 'URY', '860': 'UZB', '862': 'VEN', '704': 'VNM', '887': 'YEM',
+                    '894': 'ZMB', '716': 'ZWE', '-99': 'XKX',
+                };
+
+                // Add ISO3 and flag color to each feature
+                countries.features.forEach((f: any) => {
+                    const iso3 = numToIso3[String(f.properties?.id || f.id)] || '';
+                    f.properties = f.properties || {};
+                    f.properties.iso3 = iso3;
+                    f.properties.flagColor = COUNTRY_FLAG_COLORS[iso3] || '#334155';
+                });
+
+                map.addSource('countries', {
+                    type: 'geojson',
+                    data: countries
+                });
+
+                // Country fill — very low opacity for subtle flag tinting
+                map.addLayer({
+                    id: 'country-fills',
+                    type: 'fill',
+                    source: 'countries',
+                    paint: {
+                        'fill-color': ['get', 'flagColor'],
+                        'fill-opacity': 0.12,
+                    }
+                }, 'fires-heat'); // Insert BELOW fires and other data layers
+
+                // Country borders — thin glowing lines
+                map.addLayer({
+                    id: 'country-borders',
+                    type: 'line',
+                    source: 'countries',
+                    paint: {
+                        'line-color': ['get', 'flagColor'],
+                        'line-width': 0.8,
+                        'line-opacity': 0.25,
+                    }
+                }, 'fires-heat');
+            })
+            .catch(err => console.warn('[STARWAR] Country fills failed:', err));
 
         // Thermal Anomalies (Heatmap)
         map.addLayer({
