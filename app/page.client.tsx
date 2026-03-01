@@ -2449,6 +2449,28 @@ export default function mount() {
         // Refresh data freshness labels every 5s
         setInterval(updateStats, 5_000);
 
+        // Poll market cap every 30s
+        async function pollMcap() {
+            try {
+                const res = await fetch('/api/mcap');
+                const data = await res.json();
+                const val = document.getElementById('ca-value');
+                if (val && data.mcap) {
+                    const mcap = Number(data.mcap);
+                    let formatted: string;
+                    if (mcap >= 1_000_000) formatted = `$${(mcap / 1_000_000).toFixed(1)}M`;
+                    else if (mcap >= 1_000) formatted = `$${(mcap / 1_000).toFixed(1)}K`;
+                    else formatted = `$${mcap.toFixed(0)}`;
+                    const caBadge = document.getElementById('token-ca');
+                    const caStr = caBadge?.dataset.ca || '';
+                    const caShort = caStr ? `${caStr.slice(0, 4)}...${caStr.slice(-4)}` : '';
+                    val.textContent = `${formatted}${caShort ? ' · ' + caShort : ''}`;
+                }
+            } catch { }
+        }
+        pollMcap();
+        setInterval(pollMcap, 30_000);
+
         // ─── LIVE MAP ANIMATIONS ─────────────────────────────────
         if (FF.spotlight) startConflictSpotlight();
 
