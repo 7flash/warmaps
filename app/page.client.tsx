@@ -2414,6 +2414,24 @@ export default function mount() {
         measureSync('Aurebesh toggle', () => initAurebeshToggle());
         measureSync('Search modal', () => initSearchModal());
 
+        // CA click-to-copy
+        const caBadge = document.getElementById('token-ca');
+        if (caBadge) {
+            caBadge.addEventListener('click', () => {
+                const ca = caBadge.dataset.ca || '';
+                if (ca) {
+                    navigator.clipboard.writeText(ca).then(() => {
+                        const val = document.getElementById('ca-value');
+                        if (val) {
+                            const original = val.textContent;
+                            val.textContent = 'COPIED!';
+                            setTimeout(() => { val.textContent = original; }, 1500);
+                        }
+                    });
+                }
+            });
+        }
+
         // Performance monitoring
         measureSync('FPS counter', () => startFPSCounter());
         measureSync('Ping monitor', () => startPingMonitor());

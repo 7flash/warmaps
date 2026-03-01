@@ -2,6 +2,8 @@ import { Head } from 'melina/web';
 
 export default function Page() {
     const now = new Date().toUTCString();
+    const ca = process.env.WARMAPS_CA || '';
+    const caShort = ca ? `${ca.slice(0, 4)}...${ca.slice(-4)}` : '—';
 
     return (
         <>
@@ -37,7 +39,7 @@ export default function Page() {
                     <span class="tagline">GLOBAL CONFLICT MONITOR</span>
                     <span class="separator">│</span>
                     <div class="token-links">
-                        <a href="https://twitter.com/warmaps_xyz" target="_blank" rel="noopener" class="social-link" title="Twitter/X">
+                        <a href="https://x.com/i/communities/2028108812830306433" target="_blank" rel="noopener" class="social-link" title="X Community">
                             <span class="social-icon">𝕏</span>
                         </a>
                         <a href="https://pump.fun" target="_blank" rel="noopener" class="social-link pump" title="PumpFun">
@@ -46,7 +48,11 @@ export default function Page() {
                         <a href="https://dexscreener.com" target="_blank" rel="noopener" class="social-link dex" title="DexScreener">
                             <span class="social-icon">📊</span>
                         </a>
-                        <span class="token-badge" id="token-mcap" title="$WARMAPS Market Cap">$WARMAPS: <span id="mcap-value">—</span></span>
+                        <span class="token-badge" id="token-ca" title={ca || 'No CA set'}
+                            data-ca={ca}
+                            style="cursor:pointer">
+                            $WARMAPS: <span id="ca-value">{caShort}</span>
+                        </span>
                     </div>
                 </div>
                 <div class="top-bar-right">
