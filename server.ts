@@ -68,7 +68,22 @@ const server = Bun.serve({
             });
         }
 
-        // Delegate to Melina — pass `measure` as second arg
+        // Skip verbose logging for high-frequency polling routes
+        const QUIET_ROUTES = ['/api/ping', '/api/flights', '/api/news', '/api/fires',
+            '/api/markets', '/api/gdelt', '/api/seismic', '/api/acled', '/api/pumpfun',
+            '/api/mcap', '/api/telegram/status'];
+        const isQuiet = QUIET_ROUTES.includes(url.pathname);
+
+        if (isQuiet) {
+            try {
+                return await router(req, (() => { }) as any) as Response;
+            } catch (error: any) {
+                console.error('[WARMAPS Error]', url.pathname, error?.message);
+                return new Response('Internal Server Error', { status: 500 });
+            }
+        }
+
+        // Only log non-polling requests (page loads, rare API calls)
         const response = await measure(
             { label: `${req.method} ${url.pathname}` },
             async (m: any) => {

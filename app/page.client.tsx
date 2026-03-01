@@ -2520,79 +2520,129 @@ function showDataFlash(message: string) {
     setTimeout(() => flash.remove(), 3500);
 }
 
-// ─── Live Animation: Conflict Theater Spotlight ─────────────
+// ─── Live Animation: Event-Driven Spotlight ─────────────────
 
-const CONFLICT_THEATERS = [
-    { name: 'Iran Theater', lat: 32.42, lng: 53.68, zoom: 5.5 },
-    { name: 'Israel-Gaza', lat: 31.5, lng: 34.8, zoom: 7 },
-    { name: 'Ukraine Front', lat: 48.5, lng: 37.5, zoom: 6 },
-    { name: 'Syria-Iraq', lat: 35.0, lng: 40.0, zoom: 5.5 },
-    { name: 'Red Sea', lat: 15.5, lng: 42.0, zoom: 5.5 },
-    { name: 'Taiwan Strait', lat: 24.0, lng: 121.0, zoom: 5 },
-    { name: 'Korean DMZ', lat: 38.0, lng: 127.0, zoom: 6 },
-];
-
-let spotlightIndex = 0;
 let spotlightActive = true;
-let spotlightMarker: any = null;
+let spotlightPaused = false; // user toggle
+let spotlightVisited = new Set<string>();
+let activeTooltipEl: HTMLElement | null = null;
+let spotlightTimer: any = null;
 
 function startConflictSpotlight() {
-    // Don't auto-pan immediately — let user explore first
+    // Add pause/play button to header
+    const headerRight = document.querySelector('.header__right');
+    if (headerRight) {
+        const btn = document.createElement('button');
+        btn.id = 'spotlight-toggle';
+        btn.className = 'header-btn';
+        btn.title = 'Toggle auto-camera';
+        render(<span>⏸</span>, btn);
+        btn.addEventListener('click', () => {
+            spotlightPaused = !spotlightPaused;
+            render(<span>{spotlightPaused ? '▶' : '⏸'}</span>, btn);
+            btn.title = spotlightPaused ? 'Resume auto-camera' : 'Pause auto-camera';
+            if (spotlightPaused) {
+                clearActiveTooltip();
+            }
+        });
+        headerRight.insertBefore(btn, headerRight.firstChild);
+    }
+
+    // Start cycling after 15s initial delay
     setTimeout(() => {
         cycleSpotlight();
-        setInterval(cycleSpotlight, 45_000);
-    }, 30_000); // Start after 30s
+        spotlightTimer = setInterval(cycleSpotlight, 20_000);
+    }, 15_000);
 
-    // Pause spotlight when user interacts with map
+    // Pause on user map interaction, resume after 30s idle
     const mapEl = document.getElementById('map-container');
     if (mapEl) {
-        mapEl.addEventListener('mousedown', () => { spotlightActive = false; });
-        mapEl.addEventListener('wheel', () => { spotlightActive = false; });
-        // Resume after 60s of no interaction
         let resumeTimer: any;
-        const resetResume = () => {
+        const pauseFromInteraction = () => {
+            if (spotlightPaused) return; // don't override manual pause
             spotlightActive = false;
+            clearActiveTooltip();
             clearTimeout(resumeTimer);
-            resumeTimer = setTimeout(() => { spotlightActive = true; }, 60_000);
+            resumeTimer = setTimeout(() => { spotlightActive = true; }, 30_000);
         };
-        mapEl.addEventListener('mousedown', resetResume);
-        mapEl.addEventListener('wheel', resetResume);
-        mapEl.addEventListener('touchstart', resetResume);
+        mapEl.addEventListener('mousedown', pauseFromInteraction);
+        mapEl.addEventListener('wheel', pauseFromInteraction);
+        mapEl.addEventListener('touchstart', pauseFromInteraction);
+    }
+}
+
+function clearActiveTooltip() {
+    if (activeTooltipEl) {
+        activeTooltipEl.classList.remove('map-image-marker--active');
+        activeTooltipEl = null;
     }
 }
 
 function cycleSpotlight() {
-    if (!map || !spotlightActive) return;
+    if (!map || !spotlightActive || spotlightPaused) return;
 
-    const theater = CONFLICT_THEATERS[spotlightIndex % CONFLICT_THEATERS.length];
-    spotlightIndex++;
+    // Find the next unvisited GDELT event with an image and coords
+    const candidates = gdeltEvents.filter((ev: any) => {
+        if (!ev.imageUrl || !ev.lat) return false;
+        const lon = ev.lon || ev.lng;
+        if (!lon) return false;
+        const eid = ev.id || ev.url || `${ev.lat}-${lon}`;
+        return !spotlightVisited.has(eid);
+    });
 
-    // Smooth fly to the next theater
+    // If all visited, reset and try again
+    if (candidates.length === 0) {
+        spotlightVisited.clear();
+        return;
+    }
+
+    // Pick the newest event (first in array since gdeltEvents is newest-first)
+    const ev = candidates[0];
+    const lon = ev.lon || ev.lng;
+    const eid = ev.id || ev.url || `${ev.lat}-${lon}`;
+    spotlightVisited.add(eid);
+
+    // Clear previous active tooltip
+    clearActiveTooltip();
+
+    // Fly to the event
     map.flyTo({
-        center: [theater.lng, theater.lat],
-        zoom: theater.zoom,
+        center: [lon, ev.lat],
+        zoom: 6,
         duration: 3000,
         essential: false,
     });
 
-    // Show "Now Monitoring: ..." flash
-    showDataFlash(`🎯 ${theater.name.toUpperCase()}`);
+    // Show headline flash
+    const source = ev.source || ev.domain || '';
+    const title = (ev.title || '').slice(0, 50);
+    showDataFlash(`🎯 ${source ? source.toUpperCase() + ': ' : ''}${title}`);
 
-    // Spawn pings at nearby events
+    // After fly completes, activate the marker's tooltip
     setTimeout(() => {
-        const nearbyEvents = gdeltEvents.filter((e: any) => {
-            const eLat = e.lat || e.latitude;
-            const eLng = e.lng || e.longitude || e.lon;
+        // Find the marker element for this event
+        const markerData = IMAGE_MARKERS.get(eid);
+        if (markerData?.el) {
+            markerData.el.classList.add('map-image-marker--active');
+            activeTooltipEl = markerData.el;
+
+            // Auto-hide after 12 seconds
+            setTimeout(() => {
+                if (activeTooltipEl === markerData.el) {
+                    clearActiveTooltip();
+                }
+            }, 12_000);
+        }
+
+        // Spawn radar pings around the event
+        const nearby = gdeltEvents.filter((e: any) => {
+            const eLat = e.lat;
+            const eLng = e.lng || e.lon;
             if (!eLat || !eLng) return false;
-            return Math.abs(eLat - theater.lat) < 8 && Math.abs(eLng - theater.lng) < 12;
+            return Math.abs(eLat - ev.lat) < 5 && Math.abs(eLng - lon) < 5;
         });
-        if (nearbyEvents.length > 0) {
-            const BREAKING_KW = ['breaking', 'missile', 'strike', 'bomb', 'explosion', 'attack', 'drone', 'killed', 'dead', 'war'];
-            const hasBreaking = nearbyEvents.some((e: any) => {
-                const t = (e.title || '').toLowerCase();
-                return BREAKING_KW.some(kw => t.includes(kw));
-            });
-            spawnRadarPings(nearbyEvents, hasBreaking ? 'radar-ping--red' : '');
+        if (nearby.length > 0) {
+            spawnRadarPings(nearby.slice(0, 6));
         }
     }, 3500);
 }

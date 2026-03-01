@@ -3197,6 +3197,52 @@ body::before {
     display: block;
 }
 
+/* Spotlight-activated marker — auto-shows tooltip without hover */
+.map-image-marker--active {
+    z-index: 50 !important;
+    transform: scale(1.3) !important;
+    filter: drop-shadow(0 0 20px rgba(34, 197, 94, 0.6));
+}
+
+.map-image-marker--active .map-image-marker__tooltip {
+    display: block;
+    animation: tooltipFadeIn 0.4s ease-out;
+}
+
+.map-image-marker--active img {
+    border-color: var(--accent) !important;
+}
+
+@keyframes tooltipFadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+/* Pause/play header button */
+.header-btn {
+    background: none;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: var(--accent);
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    line-height: 1;
+}
+
+.header-btn:hover {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: var(--accent);
+}
+
 .map-image-marker__tooltip-title {
     font-size: 11px;
     font-weight: 600;
