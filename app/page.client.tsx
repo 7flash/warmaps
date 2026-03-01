@@ -442,26 +442,26 @@ function initMap() {
                     data: countries
                 });
 
-                // Country fill — very low opacity for subtle flag tinting
+                // Country fill — vivid flag-inspired territory coloring
                 map.addLayer({
                     id: 'country-fills',
                     type: 'fill',
                     source: 'countries',
                     paint: {
                         'fill-color': ['get', 'flagColor'],
-                        'fill-opacity': 0.18,
+                        'fill-opacity': 0.35,
                     }
                 }, 'fires-heat'); // Insert BELOW fires and other data layers
 
-                // Country borders — thin glowing lines
+                // Country borders — bright glowing lines
                 map.addLayer({
                     id: 'country-borders',
                     type: 'line',
                     source: 'countries',
                     paint: {
                         'line-color': ['get', 'flagColor'],
-                        'line-width': 1.0,
-                        'line-opacity': 0.40,
+                        'line-width': 1.5,
+                        'line-opacity': 0.65,
                     }
                 }, 'fires-heat');
             })
@@ -505,7 +505,7 @@ function initMap() {
             }
         });
 
-        // Event Clusters (zoomed out)
+        // Event Clusters (zoomed out) — bright pulsing nodes
         map.addLayer({
             id: 'events-clusters',
             type: 'circle',
@@ -513,10 +513,10 @@ function initMap() {
             filter: ['has', 'point_count'],
             paint: {
                 'circle-color': '#eab308',
-                'circle-radius': ['step', ['get', 'point_count'], 15, 10, 20, 50, 30],
-                'circle-opacity': 0.7,
-                'circle-stroke-width': 2,
-                'circle-stroke-color': 'rgba(234, 179, 8, 0.3)'
+                'circle-radius': ['step', ['get', 'point_count'], 18, 10, 24, 50, 35, 100, 45],
+                'circle-opacity': 0.85,
+                'circle-stroke-width': 3,
+                'circle-stroke-color': 'rgba(234, 179, 8, 0.5)'
             }
         });
 
