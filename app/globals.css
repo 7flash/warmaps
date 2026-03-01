@@ -2217,10 +2217,10 @@ body::before {
     height: 40px;
     border-radius: 6px;
     border: 1.5px solid rgba(0, 200, 255, 0.5);
-    overflow: hidden;
+    overflow: visible;
     cursor: pointer;
     position: relative;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, filter 0.3s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, filter 0.3s ease, width 0.25s ease, height 0.25s ease;
     box-shadow:
         0 0 6px rgba(0, 200, 255, 0.2),
         0 1px 6px rgba(0, 0, 0, 0.6);
@@ -2257,6 +2257,7 @@ body::before {
 
 .map-image-marker:hover img {
     filter: none;
+    border-radius: 6px;
 }
 
 .map-image-marker:hover::after {
@@ -3163,7 +3164,8 @@ body::before {
 
 .map-image-marker:hover {
     z-index: 30;
-    transform: scale(1.15) !important;
+    width: 160px;
+    height: 110px;
 }
 
 .map-image-marker img {
@@ -3187,16 +3189,18 @@ body::before {
     top: 100%;
     left: 50%;
     transform: translateX(-50%);
-    margin-top: 4px;
+    margin-top: 6px;
     background: rgba(5, 9, 19, 0.95);
     border: 1px solid rgba(34, 197, 94, 0.3);
     border-radius: 6px;
     padding: 6px 10px;
     min-width: 160px;
-    max-width: 240px;
+    max-width: 260px;
     pointer-events: none;
-    z-index: 100;
+    z-index: 200;
     backdrop-filter: blur(10px);
+    white-space: normal;
+    transition: opacity 0.15s ease;
 }
 
 .map-image-marker:hover .map-image-marker__tooltip {
