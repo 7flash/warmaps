@@ -76,6 +76,7 @@ export default function Page() {
                         <span class="separator">│</span>
                         <span>📷: <strong id="webcam-count">—</strong></span>
                     </div>
+                    <div id="data-freshness" class="data-freshness"></div>
                 </div>
 
                 {/* Threat Alert Banner */}

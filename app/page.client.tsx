@@ -33,6 +33,18 @@ let cryptoData: any = null;
 let webcamData: any[] = [];
 let currentFilter = 'all';
 
+// Data freshness tracking
+const dataFreshness: Record<string, number> = {};
+function markFresh(source: string) { dataFreshness[source] = Date.now(); }
+function getFreshnessLabel(source: string): string {
+    const ts = dataFreshness[source];
+    if (!ts) return '—';
+    const age = Math.floor((Date.now() - ts) / 1000);
+    if (age < 60) return `${age}s`;
+    if (age < 3600) return `${Math.floor(age / 60)}m`;
+    return `${Math.floor(age / 3600)}h`;
+}
+
 // Image marker pool — HTML markers with actual article thumbnails
 let imageMarkers: any[] = [];
 
@@ -92,11 +104,50 @@ function syncImageMarkers() {
         }
 
         // Create tooltip
-        el.title = title;
+        el.title = '';
+
+        // Hover preview — larger image preview with title
+        if (imageUrl && imageUrl !== 'null' && imageUrl.startsWith('http')) {
+            el.addEventListener('mouseenter', () => {
+                // Remove any existing preview
+                document.querySelectorAll('.marker-hover-preview').forEach(p => p.remove());
+                const preview = document.createElement('div');
+                preview.className = 'marker-hover-preview';
+                preview.innerHTML = `
+                    <img src="${imageUrl}" alt="" />
+                    <div class="marker-hover-title">${title.length > 80 ? title.slice(0, 80) + '…' : title}</div>
+                    <div class="marker-hover-source">${props.source || 'OSINT'} · ${props.type || 'Event'}</div>
+                `;
+                document.body.appendChild(preview);
+
+                // Position near the marker element
+                const rect = el.getBoundingClientRect();
+                preview.style.left = `${rect.right + 12}px`;
+                preview.style.top = `${rect.top - 20}px`;
+
+                // If it overflows right edge, put it left of marker
+                requestAnimationFrame(() => {
+                    const pr = preview.getBoundingClientRect();
+                    if (pr.right > window.innerWidth - 10) {
+                        preview.style.left = `${rect.left - pr.width - 12}px`;
+                    }
+                    if (pr.bottom > window.innerHeight - 10) {
+                        preview.style.top = `${window.innerHeight - pr.height - 10}px`;
+                    }
+                });
+            });
+
+            el.addEventListener('mouseleave', () => {
+                document.querySelectorAll('.marker-hover-preview').forEach(p => p.remove());
+            });
+        }
 
         // Click handler — show popup with article info
         el.addEventListener('click', (e) => {
             e.stopPropagation();
+            // Remove hover preview
+            document.querySelectorAll('.marker-hover-preview').forEach(p => p.remove());
+
             const popup = new maplibregl.Popup({
                 className: 'tactical-popup',
                 closeButton: true,
@@ -105,10 +156,10 @@ function syncImageMarkers() {
                 .setLngLat(coords as [number, number])
                 .setHTML(`
                     <div class="intel-card">
-                        ${imageUrl && imageUrl !== 'null' ? `<img src="${imageUrl}" style="width:100%;height:120px;object-fit:cover;border-bottom:1px solid rgba(34,197,94,0.1);" />` : ''}
+                        ${imageUrl && imageUrl !== 'null' ? `<img src="${imageUrl}" style="width:100%;height:140px;object-fit:cover;border-bottom:1px solid rgba(34,197,94,0.1);" />` : ''}
                         <div class="intel-card-body" style="padding:10px;">
                             <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px;line-height:1.3;">${title}</div>
-                            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">📍 ${props.date || 'Recent'} · ${props.type || 'Event'}</div>
+                            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">📍 ${props.date || 'Recent'} · ${props.source || props.type || 'Event'}</div>
                             ${props.url ? `<a href="${props.url}" target="_blank" rel="noopener" style="font-size:10px;color:var(--accent);text-decoration:none;">Read Article →</a>` : ''}
                         </div>
                     </div>
@@ -460,6 +511,43 @@ function initMap() {
             }
         });
 
+        // Click cluster → zoom in to break it apart
+        map.on('click', 'events-clusters', (e: any) => {
+            const features = map.queryRenderedFeatures(e.point, { layers: ['events-clusters'] });
+            if (!features.length) return;
+            const clusterId = features[0].properties.cluster_id;
+            map.getSource('events').getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
+                if (err) return;
+                map.flyTo({
+                    center: features[0].geometry.coordinates,
+                    zoom: zoom + 0.5,
+                    speed: 1.5,
+                    curve: 1.2,
+                });
+            });
+        });
+
+        map.on('click', 'fires-cluster', (e: any) => {
+            const features = map.queryRenderedFeatures(e.point, { layers: ['fires-cluster'] });
+            if (!features.length) return;
+            const clusterId = features[0].properties.cluster_id;
+            map.getSource('fires').getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
+                if (err) return;
+                map.flyTo({
+                    center: features[0].geometry.coordinates,
+                    zoom: zoom + 0.5,
+                    speed: 1.5,
+                    curve: 1.2,
+                });
+            });
+        });
+
+        // Cursor pointer on clusters
+        map.on('mouseenter', 'events-clusters', () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', 'events-clusters', () => { map.getCanvas().style.cursor = ''; });
+        map.on('mouseenter', 'fires-cluster', () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', 'fires-cluster', () => { map.getCanvas().style.cursor = ''; });
+
         // Initialize panel toggle system
         initPanelToggles();
 
@@ -666,6 +754,7 @@ async function fetchNews() {
         const res = await fetch(`/api/news?source=${currentFilter}`);
         const data = await res.json();
         newsItems = data.items || [];
+        markFresh('news');
         renderNewsFeed();
     } catch (e) {
         console.error('[STARWAR] News fetch failed:', e);
@@ -677,6 +766,7 @@ async function fetchGdelt() {
         const res = await fetch('/api/gdelt?region=conflict');
         const data = await res.json();
         gdeltEvents = data.events || [];
+        markFresh('gdelt');
         renderGdeltFeed();
         updateMapSources();
         const el = document.getElementById('gdelt-count');
@@ -691,6 +781,7 @@ async function fetchFires() {
         const res = await fetch('/api/fires');
         const data = await res.json();
         firePoints = data.fires || [];
+        markFresh('fires');
         renderFiresFeed();
         updateMapSources();
         const el = document.getElementById('firms-count');
@@ -750,6 +841,7 @@ async function fetchFlights() {
         const data = await res.json();
         flightData = data.flights || [];
         flightStats = data.stats || {};
+        markFresh('flights');
         updateMapSources(); // Update map features
 
         // Update flight count in stats
@@ -1182,6 +1274,17 @@ function updateStats() {
     if (fireEl) fireEl.textContent = String(firePoints.length);
     if (flightEl) flightEl.textContent = String(flightData.length);
     if (webcamEl) webcamEl.textContent = String(webcamData.length);
+
+    // Data freshness display
+    const freshnessEl = document.getElementById('data-freshness');
+    if (freshnessEl) {
+        const sources = ['gdelt', 'fires', 'flights', 'news'];
+        freshnessEl.innerHTML = sources.map(s => {
+            const label = getFreshnessLabel(s);
+            const color = label === '—' ? 'var(--text-muted)' : (parseInt(label) > 5 && label.endsWith('m') ? 'var(--amber)' : 'var(--accent)');
+            return `<span style="color:${color}">${s.toUpperCase()}: ${label}</span>`;
+        }).join(' · ');
+    }
 }
 
 // ─── TV Channel Switching ───────────────────────────────────
@@ -1608,6 +1711,9 @@ export default function mount() {
 
     // Medium loop (Crypto premium chart — accumulate data points)
     setInterval(fetchCrypto, 30_000);
+
+    // Refresh data freshness labels every 10s
+    setInterval(updateStats, 10_000);
 
     // Click on feed items opens link
     document.addEventListener('click', (e) => {

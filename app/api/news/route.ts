@@ -14,6 +14,7 @@ interface NewsItem {
     pubDate: string;
     description: string;
     category?: string;
+    imageUrl?: string;
 }
 
 const RSS_FEEDS: Record<string, string[]> = {
@@ -56,6 +57,30 @@ function extractTag(xml: string, tag: string): string {
     return match ? match[1].trim() : '';
 }
 
+// Extract article image URL from RSS item XML
+function extractImageUrl(itemXml: string): string | undefined {
+    // media:content url="..." or media:thumbnail url="..."
+    const mediaMatch = itemXml.match(/<media:(?:content|thumbnail)[^>]*url=["']([^"']+)["']/i);
+    if (mediaMatch) return mediaMatch[1];
+
+    // <enclosure url="..." type="image/..."
+    const encMatch = itemXml.match(/<enclosure[^>]*url=["']([^"']+)["'][^>]*type=["']image\//i);
+    if (encMatch) return encMatch[1];
+
+    // <image><url>...</url></image>
+    const imgTag = extractTag(itemXml, 'image');
+    if (imgTag) {
+        const urlInImg = extractTag(imgTag, 'url');
+        if (urlInImg) return urlInImg;
+    }
+
+    // img src in description
+    const imgSrc = itemXml.match(/<img[^>]*src=["']([^"']+)["']/i);
+    if (imgSrc) return imgSrc[1];
+
+    return undefined;
+}
+
 function extractItems(xml: string): string[] {
     const items: string[] = [];
     let pos = 0;
@@ -86,6 +111,7 @@ async function fetchFeed(source: string, url: string): Promise<NewsItem[]> {
             const description = extractTag(itemXml, 'description')
                 .replace(/<[^>]*>/g, '')
                 .slice(0, 200);
+            const imageUrl = extractImageUrl(itemXml);
 
             return {
                 id: `${source}-${idx}-${Date.now()}`,
@@ -94,6 +120,7 @@ async function fetchFeed(source: string, url: string): Promise<NewsItem[]> {
                 source,
                 pubDate,
                 description,
+                imageUrl,
             };
         }).filter(item => item.title);
     } catch {

@@ -2236,3 +2236,78 @@ body::before {
     scrollbar-width: thin;
     scrollbar-color: rgba(34, 197, 94, 0.2) transparent;
 }
+
+/* ─── Marker Hover Preview ────────────────────────────────── */
+
+.marker-hover-preview {
+    position: fixed;
+    z-index: 9999;
+    width: 260px;
+    background: rgba(8, 12, 22, 0.95);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(34, 197, 94, 0.08);
+    pointer-events: none;
+    animation: previewFadeIn 0.15s ease-out;
+}
+
+@keyframes previewFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.marker-hover-preview img {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    display: block;
+    border-bottom: 1px solid rgba(34, 197, 94, 0.1);
+}
+
+.marker-hover-title {
+    padding: 8px 10px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.35;
+}
+
+.marker-hover-source {
+    padding: 0 10px 8px;
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ─── Data Freshness Indicator ────────────────────────────── */
+
+.data-freshness {
+    font-size: 9px;
+    margin-top: 4px;
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    opacity: 0.7;
+    font-family: var(--font-mono);
+    letter-spacing: 0.3px;
+}
+
+/* Map overlay container — stacked rows */
+.map-overlay {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
