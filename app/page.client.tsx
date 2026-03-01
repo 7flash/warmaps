@@ -350,88 +350,13 @@ function initMap() {
         };
 
         // Load world GeoJSON and add country fill layer
-        fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+        // Using Natural Earth GeoJSON (pre-split at antimeridian, no wrapping artifacts)
+        fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
             .then(r => r.json())
-            .then(topology => {
-                // Convert TopoJSON to GeoJSON
-                // @ts-ignore - topojson bundled in page
-                const topojsonFeature = (topo: any, obj: any) => {
-                    const features: any[] = [];
-                    const arcs = topo.arcs;
-                    const transform = topo.transform;
-                    const decodeArc = (arcIdx: number) => {
-                        const arc = arcs[arcIdx < 0 ? ~arcIdx : arcIdx];
-                        const coords: [number, number][] = [];
-                        let x = 0, y = 0;
-                        for (const [dx, dy] of arc) {
-                            x += dx; y += dy;
-                            coords.push([
-                                x * transform.scale[0] + transform.translate[0],
-                                y * transform.scale[1] + transform.translate[1]
-                            ]);
-                        }
-                        return arcIdx < 0 ? coords.reverse() : coords;
-                    };
-                    const decodeRings = (rings: number[][]) => rings.map((ring: number[]) =>
-                        ring.reduce<[number, number][]>((acc, idx) => acc.concat(decodeArc(idx)), [])
-                    );
-                    for (const geom of obj.geometries) {
-                        let geometry: any;
-                        if (geom.type === 'Polygon') {
-                            geometry = { type: 'Polygon', coordinates: decodeRings(geom.arcs) };
-                        } else if (geom.type === 'MultiPolygon') {
-                            geometry = { type: 'MultiPolygon', coordinates: geom.arcs.map((p: number[][]) => decodeRings(p)) };
-                        } else continue;
-                        features.push({
-                            type: 'Feature',
-                            properties: { ...geom.properties, id: geom.id },
-                            geometry
-                        });
-                    }
-                    return { type: 'FeatureCollection', features };
-                };
-
-                const countries = topojsonFeature(topology, topology.objects.countries);
-
-                // Map numeric country IDs to ISO3 using a lookup
-                const numToIso3: Record<string, string> = {
-                    '4': 'AFG', '8': 'ALB', '12': 'DZA', '24': 'AGO', '32': 'ARG',
-                    '36': 'AUS', '40': 'AUT', '31': 'AZE', '48': 'BHR', '50': 'BGD',
-                    '56': 'BEL', '112': 'BLR', '68': 'BOL', '70': 'BIH', '72': 'BWA',
-                    '76': 'BRA', '100': 'BGR', '854': 'BFA', '104': 'MMR', '108': 'BDI',
-                    '116': 'KHM', '120': 'CMR', '124': 'CAN', '140': 'CAF', '148': 'TCD',
-                    '152': 'CHL', '156': 'CHN', '170': 'COL', '178': 'COG', '180': 'COD',
-                    '188': 'CRI', '191': 'HRV', '192': 'CUB', '196': 'CYP', '203': 'CZE',
-                    '208': 'DNK', '262': 'DJI', '214': 'DOM', '218': 'ECU', '818': 'EGY',
-                    '222': 'SLV', '226': 'GNQ', '232': 'ERI', '233': 'EST', '231': 'ETH',
-                    '246': 'FIN', '250': 'FRA', '266': 'GAB', '270': 'GMB', '268': 'GEO',
-                    '276': 'DEU', '288': 'GHA', '300': 'GRC', '320': 'GTM', '324': 'GIN',
-                    '328': 'GUY', '332': 'HTI', '340': 'HND', '348': 'HUN', '352': 'ISL',
-                    '356': 'IND', '360': 'IDN', '364': 'IRN', '368': 'IRQ', '372': 'IRL',
-                    '376': 'ISR', '380': 'ITA', '384': 'CIV', '388': 'JAM', '392': 'JPN',
-                    '400': 'JOR', '398': 'KAZ', '404': 'KEN', '408': 'PRK', '410': 'KOR',
-                    '414': 'KWT', '417': 'KGZ', '418': 'LAO', '428': 'LVA', '422': 'LBN',
-                    '426': 'LSO', '430': 'LBR', '434': 'LBY', '440': 'LTU', '442': 'LUX',
-                    '807': 'MKD', '450': 'MDG', '454': 'MWI', '458': 'MYS', '466': 'MLI',
-                    '478': 'MRT', '484': 'MEX', '498': 'MDA', '496': 'MNG', '499': 'MNE',
-                    '504': 'MAR', '508': 'MOZ', '516': 'NAM', '524': 'NPL', '528': 'NLD',
-                    '554': 'NZL', '558': 'NIC', '562': 'NER', '566': 'NGA', '578': 'NOR',
-                    '512': 'OMN', '586': 'PAK', '591': 'PAN', '598': 'PNG', '600': 'PRY',
-                    '604': 'PER', '608': 'PHL', '616': 'POL', '620': 'PRT', '634': 'QAT',
-                    '642': 'ROU', '643': 'RUS', '646': 'RWA', '682': 'SAU', '686': 'SEN',
-                    '688': 'SRB', '694': 'SLE', '702': 'SGP', '703': 'SVK', '705': 'SVN',
-                    '706': 'SOM', '710': 'ZAF', '728': 'SSD', '724': 'ESP', '144': 'LKA',
-                    '729': 'SDN', '740': 'SUR', '748': 'SWZ', '752': 'SWE', '756': 'CHE',
-                    '760': 'SYR', '158': 'TWN', '762': 'TJK', '834': 'TZA', '764': 'THA',
-                    '768': 'TGO', '780': 'TTO', '788': 'TUN', '792': 'TUR', '795': 'TKM',
-                    '800': 'UGA', '804': 'UKR', '784': 'ARE', '826': 'GBR', '840': 'USA',
-                    '858': 'URY', '860': 'UZB', '862': 'VEN', '704': 'VNM', '887': 'YEM',
-                    '894': 'ZMB', '716': 'ZWE', '-99': 'XKX',
-                };
-
-                // Add ISO3 and flag color to each feature
+            .then(countries => {
+                // Map ISO3166-1-Alpha-3 property to our flag colors
                 countries.features.forEach((f: any) => {
-                    const iso3 = numToIso3[String(f.properties?.id || f.id)] || '';
+                    const iso3 = f.properties?.['ISO3166-1-Alpha-3'] || f.properties?.ISO_A3 || f.properties?.iso_a3 || '';
                     f.properties = f.properties || {};
                     f.properties.iso3 = iso3;
                     f.properties.flagColor = COUNTRY_FLAG_COLORS[iso3] || '#334155';
@@ -449,9 +374,9 @@ function initMap() {
                     source: 'countries',
                     paint: {
                         'fill-color': ['get', 'flagColor'],
-                        'fill-opacity': 0.35,
+                        'fill-opacity': 0.30,
                     }
-                }, 'fires-heat'); // Insert BELOW fires and other data layers
+                }, 'fires-heat');
 
                 // Country borders — bright glowing lines
                 map.addLayer({
@@ -460,12 +385,96 @@ function initMap() {
                     source: 'countries',
                     paint: {
                         'line-color': ['get', 'flagColor'],
-                        'line-width': 1.5,
-                        'line-opacity': 0.65,
+                        'line-width': 1.2,
+                        'line-opacity': 0.55,
                     }
                 }, 'fires-heat');
             })
-            .catch(err => console.warn('[STARWAR] Country fills failed:', err));
+            .catch(err => {
+                console.warn('[STARWAR] Primary GeoJSON failed, trying TopoJSON fallback:', err);
+                // Fallback to TopoJSON with coordinate clamping
+                fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+                    .then(r => r.json())
+                    .then(topology => {
+                        // @ts-ignore
+                        const topojsonFeature = (topo: any, obj: any) => {
+                            const features: any[] = [];
+                            const arcs = topo.arcs;
+                            const transform = topo.transform;
+                            const decodeArc = (arcIdx: number) => {
+                                const arc = arcs[arcIdx < 0 ? ~arcIdx : arcIdx];
+                                const coords: [number, number][] = [];
+                                let x = 0, y = 0;
+                                for (const [dx, dy] of arc) {
+                                    x += dx; y += dy;
+                                    const lon = Math.max(-180, Math.min(180, x * transform.scale[0] + transform.translate[0]));
+                                    const lat = Math.max(-90, Math.min(90, y * transform.scale[1] + transform.translate[1]));
+                                    coords.push([lon, lat]);
+                                }
+                                return arcIdx < 0 ? coords.reverse() : coords;
+                            };
+                            const decodeRings = (rings: number[][]) => rings.map((ring: number[]) =>
+                                ring.reduce<[number, number][]>((acc, idx) => acc.concat(decodeArc(idx)), [])
+                            );
+                            for (const geom of obj.geometries) {
+                                let geometry: any;
+                                if (geom.type === 'Polygon') {
+                                    geometry = { type: 'Polygon', coordinates: decodeRings(geom.arcs) };
+                                } else if (geom.type === 'MultiPolygon') {
+                                    geometry = { type: 'MultiPolygon', coordinates: geom.arcs.map((p: number[][]) => decodeRings(p)) };
+                                } else continue;
+                                features.push({ type: 'Feature', properties: { ...geom.properties, id: geom.id }, geometry });
+                            }
+                            return { type: 'FeatureCollection', features };
+                        };
+
+                        const countries = topojsonFeature(topology, topology.objects.countries);
+                        const numToIso3: Record<string, string> = {
+                            '4': 'AFG', '8': 'ALB', '12': 'DZA', '24': 'AGO', '32': 'ARG',
+                            '36': 'AUS', '40': 'AUT', '31': 'AZE', '48': 'BHR', '50': 'BGD',
+                            '56': 'BEL', '112': 'BLR', '68': 'BOL', '70': 'BIH', '72': 'BWA',
+                            '76': 'BRA', '100': 'BGR', '854': 'BFA', '104': 'MMR', '108': 'BDI',
+                            '116': 'KHM', '120': 'CMR', '124': 'CAN', '140': 'CAF', '148': 'TCD',
+                            '152': 'CHL', '156': 'CHN', '170': 'COL', '178': 'COG', '180': 'COD',
+                            '188': 'CRI', '191': 'HRV', '192': 'CUB', '196': 'CYP', '203': 'CZE',
+                            '208': 'DNK', '262': 'DJI', '214': 'DOM', '218': 'ECU', '818': 'EGY',
+                            '222': 'SLV', '226': 'GNQ', '232': 'ERI', '233': 'EST', '231': 'ETH',
+                            '246': 'FIN', '250': 'FRA', '266': 'GAB', '270': 'GMB', '268': 'GEO',
+                            '276': 'DEU', '288': 'GHA', '300': 'GRC', '320': 'GTM', '324': 'GIN',
+                            '328': 'GUY', '332': 'HTI', '340': 'HND', '348': 'HUN', '352': 'ISL',
+                            '356': 'IND', '360': 'IDN', '364': 'IRN', '368': 'IRQ', '372': 'IRL',
+                            '376': 'ISR', '380': 'ITA', '384': 'CIV', '388': 'JAM', '392': 'JPN',
+                            '400': 'JOR', '398': 'KAZ', '404': 'KEN', '408': 'PRK', '410': 'KOR',
+                            '414': 'KWT', '417': 'KGZ', '418': 'LAO', '428': 'LVA', '422': 'LBN',
+                            '426': 'LSO', '430': 'LBR', '434': 'LBY', '440': 'LTU', '442': 'LUX',
+                            '807': 'MKD', '450': 'MDG', '454': 'MWI', '458': 'MYS', '466': 'MLI',
+                            '478': 'MRT', '484': 'MEX', '498': 'MDA', '496': 'MNG', '499': 'MNE',
+                            '504': 'MAR', '508': 'MOZ', '516': 'NAM', '524': 'NPL', '528': 'NLD',
+                            '554': 'NZL', '558': 'NIC', '562': 'NER', '566': 'NGA', '578': 'NOR',
+                            '512': 'OMN', '586': 'PAK', '591': 'PAN', '598': 'PNG', '600': 'PRY',
+                            '604': 'PER', '608': 'PHL', '616': 'POL', '620': 'PRT', '634': 'QAT',
+                            '642': 'ROU', '643': 'RUS', '646': 'RWA', '682': 'SAU', '686': 'SEN',
+                            '688': 'SRB', '694': 'SLE', '702': 'SGP', '703': 'SVK', '705': 'SVN',
+                            '706': 'SOM', '710': 'ZAF', '728': 'SSD', '724': 'ESP', '144': 'LKA',
+                            '729': 'SDN', '740': 'SUR', '748': 'SWZ', '752': 'SWE', '756': 'CHE',
+                            '760': 'SYR', '158': 'TWN', '762': 'TJK', '834': 'TZA', '764': 'THA',
+                            '768': 'TGO', '780': 'TTO', '788': 'TUN', '792': 'TUR', '795': 'TKM',
+                            '800': 'UGA', '804': 'UKR', '784': 'ARE', '826': 'GBR', '840': 'USA',
+                            '858': 'URY', '860': 'UZB', '862': 'VEN', '704': 'VNM', '887': 'YEM',
+                            '894': 'ZMB', '716': 'ZWE', '-99': 'XKX',
+                        };
+                        countries.features.forEach((f: any) => {
+                            const iso3 = numToIso3[String(f.properties?.id || f.id)] || '';
+                            f.properties = f.properties || {};
+                            f.properties.iso3 = iso3;
+                            f.properties.flagColor = COUNTRY_FLAG_COLORS[iso3] || '#334155';
+                        });
+                        map.addSource('countries', { type: 'geojson', data: countries });
+                        map.addLayer({ id: 'country-fills', type: 'fill', source: 'countries', paint: { 'fill-color': ['get', 'flagColor'], 'fill-opacity': 0.25 } }, 'fires-heat');
+                        map.addLayer({ id: 'country-borders', type: 'line', source: 'countries', paint: { 'line-color': ['get', 'flagColor'], 'line-width': 1.2, 'line-opacity': 0.55 } }, 'fires-heat');
+                    })
+                    .catch(err2 => console.error('[STARWAR] Both country sources failed:', err2));
+            });
 
         // Thermal Anomalies (Heatmap)
         map.addLayer({
