@@ -1657,14 +1657,23 @@ function showThreatBanner(alert: any) {
 
 let _mapUpdatePending = false;
 let _mapUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+let _lastMapUpdate = 0;
 
-/** Debounced map update — coalesces rapid calls into one update per 500ms */
+/** Throttled map update — first call is immediate, subsequent calls within 500ms are coalesced */
 function updateMapSources() {
-    if (_mapUpdateTimer) return; // already scheduled
-    _mapUpdateTimer = setTimeout(() => {
-        _mapUpdateTimer = null;
+    const now = Date.now();
+    if (now - _lastMapUpdate > 500) {
+        // Enough time passed — update immediately
+        _lastMapUpdate = now;
         _updateMapSourcesNow();
-    }, 500);
+    } else if (!_mapUpdateTimer) {
+        // Too soon — schedule a trailing update
+        _mapUpdateTimer = setTimeout(() => {
+            _mapUpdateTimer = null;
+            _lastMapUpdate = Date.now();
+            _updateMapSourcesNow();
+        }, 500 - (now - _lastMapUpdate));
+    }
 }
 
 function _updateMapSourcesNow() {
