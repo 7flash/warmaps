@@ -45,6 +45,12 @@ function getFreshnessLabel(source: string): string {
     return `${Math.floor(age / 3600)}h`;
 }
 
+// Proxy external images through our server to bypass CORS
+function proxyImg(url: string | null | undefined): string {
+    if (!url || !url.startsWith('http')) return '';
+    return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+}
+
 // Image marker pool — HTML markers with actual article thumbnails
 let imageMarkers: any[] = [];
 
@@ -135,7 +141,7 @@ function syncImageMarkers() {
 
         if (imageUrl && imageUrl.startsWith('http')) {
             const img = document.createElement('img');
-            img.src = imageUrl;
+            img.src = proxyImg(imageUrl);
             img.alt = title;
             img.loading = 'lazy';
             img.onerror = () => {
@@ -155,7 +161,7 @@ function syncImageMarkers() {
                 const preview = document.createElement('div');
                 preview.className = 'marker-hover-preview';
                 preview.innerHTML = `
-                    <img src="${imageUrl}" alt="" />
+                    <img src="${proxyImg(imageUrl)}" alt="" />
                     <div class="marker-hover-title">${title.length > 80 ? title.slice(0, 80) + '…' : title}</div>
                     <div class="marker-hover-source">${e.source || 'OSINT'} · ${breaking ? '🔴 BREAKING' : 'Event'}</div>
                 `;
@@ -190,7 +196,7 @@ function syncImageMarkers() {
                 .setLngLat(coords)
                 .setHTML(`
                     <div class="intel-card">
-                        ${imageUrl ? `<img src="${imageUrl}" style="width:100%;height:140px;object-fit:cover;border-bottom:1px solid rgba(34,197,94,0.1);" />` : ''}
+                        ${imageUrl ? `<img src="${proxyImg(imageUrl)}" style="width:100%;height:140px;object-fit:cover;border-bottom:1px solid rgba(34,197,94,0.1);" />` : ''}
                         <div class="intel-card-body" style="padding:10px;">
                             <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px;line-height:1.3;">${title}</div>
                             <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">📍 ${e.date || 'Recent'} · ${e.source || 'GDELT'}</div>
@@ -1020,8 +1026,10 @@ async function fetchGdelt() {
         markFresh('gdelt');
         renderGdeltFeed();
         updateMapSources();
+        syncImageMarkers(); // Immediately render image markers — don't wait for map move
         const el = document.getElementById('gdelt-count');
         if (el) el.textContent = String(gdeltEvents.length);
+        console.log(`[STARWAR] GDELT loaded: ${gdeltEvents.length} events, ${gdeltEvents.filter((e: any) => e.imageUrl).length} with images`);
     } catch (e) {
         console.error('[STARWAR] GDELT fetch failed:', e);
     }
@@ -2013,7 +2021,8 @@ export default function mount() {
     fetchAllData();
 
     // Slow data loops (News, Fire, GDELT)
-    setInterval(fetchAllData, 120_000);
+    // Refresh all data every 60 seconds for realtime feel
+    setInterval(fetchAllData, 60_000);
 
     // Fast data loops (Live Aircraft Telemetry / Movements)
     setInterval(fetchFlights, 15_000);
