@@ -133,10 +133,10 @@ export default function Page() {
                         <button class="panel-close-btn" data-panel="pulse-panel">×</button>
                     </div>
                     <div class="pulse-filters" id="feed-filters">
-                        <button class="pf-pill hot active" data-source="all">🔥 HIGH</button>
-                        <button class="pf-pill med" data-source="reuters">⚡ MED</button>
-                        <button class="pf-pill std" data-source="bbc">24H</button>
-                        <button class="pf-pill esc" data-source="aljazeera">↗ ESC</button>
+                        <button class="pf-pill hot active" data-filter="all">🔥 ALL</button>
+                        <button class="pf-pill med" data-filter="intense">⚡ INTENSE</button>
+                        <button class="pf-pill std" data-filter="recent">24H</button>
+                        <button class="pf-pill esc" data-filter="escalation">↗ ESC</button>
                     </div>
                     <div class="pulse-search">
                         <input type="text" id="pulse-search-input" placeholder="Search..." />

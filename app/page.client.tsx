@@ -69,9 +69,9 @@ const eventQueue: any[] = [];  // queue of events waiting to appear on map
 let queueDrainTimer: ReturnType<typeof setInterval> | null = null;
 const IMAGE_MARKERS: Map<string, any> = new Map();         // ordered by insertion (Map preserves order)
 const IMAGE_MARKER_ORDER: string[] = [];                    // ordered list of marker IDs (newest last)
-const MAX_VISIBLE_IMAGES = 15;    // max images on map at once
-const FADE_PER_RANK = 0.07;      // each rank step reduces opacity by this much
-const IMAGE_APPEAR_INTERVAL = 3_000; // new image appears every 3s
+const MAX_VISIBLE_IMAGES = 25;    // max images on map at once
+const FADE_PER_RANK = 0.04;      // each rank step reduces opacity by this much
+const IMAGE_APPEAR_INTERVAL = 1_000; // new image appears every 1s
 
 // Data freshness tracking
 const dataFreshness: Record<string, number> = {};
@@ -1370,9 +1370,12 @@ function renderNewsFeed() {
         const time = ev.date ? formatTime(ev.date) : '';
         const title = (ev.title || '').slice(0, 80);
         const imgUrl = proxyImg(ev.imageUrl);
+        const tone = ev.tone || 0;
+        const themes = (ev.themes || []).join(',').toLowerCase();
 
         return `
-            <div class="pulse-card" data-lat="${lat}" data-lon="${lon}" data-idx="${idx}">
+            <div class="pulse-card" data-lat="${lat}" data-lon="${lon}" data-idx="${idx}" 
+                 data-tone="${tone}" data-themes="${escHtml(themes)}" data-date="${ev.date || ''}">
                 <img class="pulse-card__img" src="${imgUrl}" 
                      onerror="this.style.display='none'" alt="" loading="lazy" />
                 <div class="pulse-card__body">
@@ -1393,7 +1396,6 @@ function renderNewsFeed() {
             const lon = parseFloat(el.dataset.lon || '0');
             if (!map || isNaN(lat) || isNaN(lon)) return;
 
-            // Fly to the event location
             map.flyTo({
                 center: [lon, lat],
                 zoom: 6,
@@ -1401,15 +1403,22 @@ function renderNewsFeed() {
                 curve: 1.2,
             });
 
-            // Highlight the clicked card
             container.querySelectorAll('.pulse-card--active').forEach(c => c.classList.remove('pulse-card--active'));
             el.classList.add('pulse-card--active');
         });
     });
 
-    // Wire up search bar
+    // Wire up search bar (preserve value across re-renders)
     const searchInput = document.getElementById('pulse-search-input') as HTMLInputElement;
     if (searchInput) {
+        // Re-apply existing search query after re-render
+        const existingQuery = searchInput.value.toLowerCase().trim();
+        if (existingQuery) {
+            container.querySelectorAll('.pulse-card').forEach((card: any) => {
+                const text = (card.textContent || '').toLowerCase();
+                card.style.display = text.includes(existingQuery) ? '' : 'none';
+            });
+        }
         searchInput.oninput = () => {
             const q = searchInput.value.toLowerCase().trim();
             container.querySelectorAll('.pulse-card').forEach((card: any) => {
@@ -1418,6 +1427,57 @@ function renderNewsFeed() {
             });
         };
     }
+
+    // Wire up filter pills
+    const filterBtns = document.querySelectorAll('#feed-filters .pf-pill');
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            filterBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const filter = (btn as HTMLElement).dataset.filter || 'all';
+            applyFeedFilter(filter);
+        });
+    });
+
+    // Re-apply active filter
+    const activeFilter = document.querySelector('#feed-filters .pf-pill.active') as HTMLElement;
+    if (activeFilter && activeFilter.dataset.filter !== 'all') {
+        applyFeedFilter(activeFilter.dataset.filter || 'all');
+    }
+}
+
+function applyFeedFilter(filter: string) {
+    const container = document.getElementById('news-feed');
+    if (!container) return;
+
+    const ESCALATION_THEMES = ['kill', 'terror', 'armedconflict', 'wound', 'wmd'];
+    const now = Date.now();
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    container.querySelectorAll('.pulse-card').forEach((card: any) => {
+        if (filter === 'all') {
+            card.style.display = '';
+            return;
+        }
+
+        const tone = parseFloat(card.dataset.tone || '0');
+        const themes = (card.dataset.themes || '').toLowerCase();
+        const date = card.dataset.date || '';
+        let show = true;
+
+        if (filter === 'intense') {
+            show = tone < -3; // Very negative tone = intense
+        } else if (filter === 'recent') {
+            if (date) {
+                const evTime = new Date(date).getTime();
+                show = !isNaN(evTime) && (now - evTime) < DAY_MS;
+            }
+        } else if (filter === 'escalation') {
+            show = ESCALATION_THEMES.some(t => themes.includes(t));
+        }
+
+        card.style.display = show ? '' : 'none';
+    });
 }
 
 function renderGdeltFeed() {
@@ -1777,13 +1837,18 @@ function spawnImageMarker(ev: any, eid: string) {
         if (finalLon < -180) finalLon += 360;
     }
 
-    // Create the marker element — rectangular image card
+    // Create the marker element — rectangular image card with hover tooltip
     const el = document.createElement('div');
     el.className = 'map-image-marker';
-    const label = (ev.title || '').slice(0, 50);
+    const title = (ev.title || '').slice(0, 60);
+    const source = ev.source || '';
+    const time = ev.date ? formatTime(ev.date) : '';
     el.innerHTML = `
         ${imgWithFallback(ev.imageUrl, ev.source || ev.title || '')}
-        <div class="map-image-marker__label">${escHtml(label)}</div>
+        <div class="map-image-marker__tooltip">
+            <div class="map-image-marker__tooltip-title">${escHtml(title)}</div>
+            <div class="map-image-marker__tooltip-meta">${escHtml(source)}${time ? ' · ' + time : ''}</div>
+        </div>
     `;
 
     const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
