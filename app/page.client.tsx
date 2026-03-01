@@ -1308,58 +1308,60 @@ function showTokenPopup(token: any) {
 
 // ─── Render PF Tokens Feed in Sidebar Panel ─────────────────
 
+function TokenCard({ token, idx, onFly }: { token: any; idx: number; onFly: (t: any) => void }) {
+    const keywords = (token.matchedKeywords || []).slice(0, 4);
+    const pfUrl = token.url || `https://pump.fun/coin/${token.mint || ''}`;
+    const imgSrc = token.imageUrl ? proxyImg(token.imageUrl) : '';
+    return (
+        <div className="token-card" data-token-idx={idx} onClick={(e: any) => {
+            if ((e.target as HTMLElement).closest('.token-card__link')) return;
+            onFly(token);
+        }}>
+            <div className="token-card__header">
+                {imgSrc
+                    ? <img className="token-card__thumb" src={imgSrc} onError={(e: any) => e.currentTarget.style.display = 'none'} />
+                    : <div className="token-card__icon">💰</div>}
+                <div className="token-card__info">
+                    <div className="token-card__symbol">{(token.symbol || '???').slice(0, 12)}</div>
+                    <div className="token-card__name">{(token.name || 'Unknown').slice(0, 30)}</div>
+                </div>
+                <a href={pfUrl} target="_blank" rel="noopener" className="token-card__link" title="Open on DexScreener">↗</a>
+            </div>
+            <div className="token-card__meta">
+                {token.country && <span className="token-card__country">📍 {token.country}</span>}
+                {token.boostAmount && <span className="token-card__boost">🚀 {token.boostAmount} SOL</span>}
+            </div>
+            {keywords.length > 0 && <div className="token-card__keywords">
+                {keywords.map((k: string) => <span className="token-card__keyword">{k}</span>)}
+            </div>}
+        </div>
+    );
+}
+
 function renderTokensFeed() {
     const container = document.getElementById('tokens-feed');
     const countEl = document.getElementById('tokens-count');
     if (!container) return;
     if (countEl) countEl.textContent = String(pumpfunTokens.length);
 
+    const flyToToken = (token: any) => {
+        if (token?.lat && token?.lng && map) {
+            map.flyTo({ center: [token.lng, token.lat], zoom: 6, duration: 1500 });
+        }
+    };
+
     if (pumpfunTokens.length === 0) {
-        container.innerHTML = `<div class="loading-state"><span>No conflict tokens found</span></div>`;
+        render(<div className="loading-state"><span>No conflict tokens found</span></div>, container);
         return;
     }
 
-    container.innerHTML = pumpfunTokens.map((token, i) => {
-        const keywords = (token.matchedKeywords || []).slice(0, 4).map((k: string) =>
-            `<span class="token-card__keyword">${escHtml(k)}</span>`
-        ).join('');
+    render(
+        <>{pumpfunTokens.map((token: any, i: number) =>
+            <TokenCard token={token} idx={i} onFly={flyToToken} />
+        )}</>,
+        container
+    );
 
-        const pfUrl = token.url || `https://pump.fun/coin/${token.mint || ''}`;
-        const imgSrc = token.imageUrl ? proxyImg(token.imageUrl) : '';
-
-        return `
-            <div class="token-card" data-token-idx="${i}">
-                <div class="token-card__header">
-                    ${imgSrc
-                ? `<img class="token-card__thumb" src="${escHtml(imgSrc)}" onerror="this.style.display='none'" />`
-                : `<div class="token-card__icon">💰</div>`}
-                    <div class="token-card__info">
-                        <div class="token-card__symbol">${escHtml((token.symbol || '???').slice(0, 12))}</div>
-                        <div class="token-card__name">${escHtml((token.name || 'Unknown').slice(0, 30))}</div>
-                    </div>
-                    <a href="${escHtml(pfUrl)}" target="_blank" rel="noopener" class="token-card__link" title="Open on DexScreener">↗</a>
-                </div>
-                <div class="token-card__meta">
-                    ${token.country ? `<span class="token-card__country">📍 ${escHtml(token.country)}</span>` : ''}
-                    ${token.boostAmount ? `<span class="token-card__boost">🚀 ${token.boostAmount} SOL</span>` : ''}
-                </div>
-                ${keywords ? `<div class="token-card__keywords">${keywords}</div>` : ''}
-            </div>
-        `;
-    }).join('');
-
-    // Fly to token location on card click
-    container.querySelectorAll('.token-card').forEach(card => {
-        card.addEventListener('click', (e) => {
-            // Don't interfere with the external link button
-            if ((e.target as HTMLElement).closest('.token-card__link')) return;
-            const idx = parseInt((card as HTMLElement).dataset.tokenIdx || '0');
-            const token = pumpfunTokens[idx];
-            if (token && token.lat && token.lng && map) {
-                map.flyTo({ center: [token.lng, token.lat], zoom: 6, duration: 1500 });
-            }
-        });
-    });
 }
 
 // ─── Rendering ──────────────────────────────────────────────
@@ -1375,43 +1377,53 @@ function renderNewsFeed() {
         .slice(0, 40);
 
     if (feedEvents.length === 0 && newsItems.length === 0) {
-        container.innerHTML = `<div class="loading-state"><span class="spinner"></span><span>Establishing secure feed...</span></div>`;
+        render(<div className="loading-state"><span className="spinner"></span><span>Establishing secure feed...</span></div>, container);
         return;
     }
 
-    // If no GDELT yet, show RSS items as fallback (no click-to-fly)
     if (feedEvents.length === 0) {
-        container.innerHTML = newsItems.slice(0, 15).map(item => `
-            <div class="pulse-card">
-                <div class="pulse-card__title">${escHtml(item.title)}</div>
-                <div class="pulse-card__meta">${escHtml(item.source || '')} · ${formatTime(item.pubDate)}</div>
-            </div>
-        `).join('');
+        render(
+            <>{newsItems.slice(0, 15).map((item: any) =>
+                <div className="pulse-card">
+                    <div className="pulse-card__title">{item.title}</div>
+                    <div className="pulse-card__meta">{item.source || ''} · {formatTime(item.pubDate)}</div>
+                </div>
+            )}</>,
+            container
+        );
         return;
     }
 
-    container.innerHTML = feedEvents.map((ev: any, idx: number) => {
-        const lat = ev.lat;
-        const lon = ev.lon || ev.lng;
-        const source = ev.source || ev.domain || '';
-        const time = ev.date ? formatTime(ev.date) : '';
-        const title = (ev.title || '').slice(0, 80);
-        const imgUrl = proxyImg(ev.imageUrl);
-        const tone = ev.tone || 0;
-        const themes = (ev.themes || []).join(',').toLowerCase();
+    const flyToEv = (lat: number, lon: number) => {
+        if (!map || isNaN(lat) || isNaN(lon)) return;
+        map.flyTo({ center: [lon, lat], zoom: 6, speed: 1.5, curve: 1.2 });
+    };
 
-        return `
-            <div class="pulse-card" data-lat="${lat}" data-lon="${lon}" data-idx="${idx}" 
-                 data-tone="${tone}" data-themes="${escHtml(themes)}" data-date="${ev.date || ''}">
-                <img class="pulse-card__img" src="${imgUrl}" 
-                     onerror="this.style.display='none'" alt="" loading="lazy" />
-                <div class="pulse-card__body">
-                    <div class="pulse-card__title">${escHtml(title)}</div>
-                    <div class="pulse-card__meta">${escHtml(source)} · ${time}</div>
+    render(
+        <>{feedEvents.map((ev: any, idx: number) => {
+            const lat = ev.lat;
+            const lon = ev.lon || ev.lng;
+            const source = ev.source || ev.domain || '';
+            const time = ev.date ? formatTime(ev.date) : '';
+            const title = (ev.title || '').slice(0, 80);
+            const imgUrl = proxyImg(ev.imageUrl);
+            const tone = ev.tone || 0;
+            const themes = (ev.themes || []).join(',').toLowerCase();
+            return (
+                <div className="pulse-card" data-lat={lat} data-lon={lon} data-idx={idx}
+                    data-tone={tone} data-themes={themes} data-date={ev.date || ''}
+                    onClick={() => flyToEv(lat, lon)}>
+                    <img className="pulse-card__img" src={imgUrl}
+                        onError={(e: any) => e.currentTarget.style.display = 'none'} alt="" loading="lazy" />
+                    <div className="pulse-card__body">
+                        <div className="pulse-card__title">{title}</div>
+                        <div className="pulse-card__meta">{source} · {time}</div>
+                    </div>
                 </div>
-            </div>
-        `;
-    }).join('');
+            );
+        })}</>,
+        container
+    );
 
     // Click handler: fly to location on map
     container.querySelectorAll('.pulse-card[data-lat]').forEach(card => {
@@ -1518,38 +1530,73 @@ function renderFiresFeed() {
     if (!container) return;
 
     if (firePoints.length === 0) {
-        container.innerHTML = `<div class="loading-state"><span>No thermal anomalies</span></div>`;
+        render(<div className="loading-state"><span>No thermal anomalies</span></div>, container);
         return;
     }
 
-    container.innerHTML = firePoints.slice(0, 10).map(fire => `
-        <div class="feed-item feed-item--fire">
-            <div class="feed-item-source firms">🔥 THERMAL ANOMALY</div>
-            <div class="feed-item-title">
-                ${fire.country || 'Unknown Region'} — ${fire.lat.toFixed(2)}°, ${fire.lon.toFixed(2)}°
+    render(
+        <>{firePoints.slice(0, 10).map((fire: any) =>
+            <div className="feed-item feed-item--fire">
+                <div className="feed-item-source firms">🔥 THERMAL ANOMALY</div>
+                <div className="feed-item-title">
+                    {fire.country || 'Unknown Region'} — {fire.lat.toFixed(2)}°, {fire.lon.toFixed(2)}°
+                </div>
+                <div className="feed-item-meta">
+                    <span className="feed-item-time">{fire.acq_date} {fire.acq_time}</span>
+                    <span>Brightness: {fire.brightness.toFixed(0)}K</span>
+                    <span>Confidence: {fire.confidence}</span>
+                </div>
             </div>
-            <div class="feed-item-meta">
-                <span class="feed-item-time">${fire.acq_date} ${fire.acq_time}</span>
-                <span>Brightness: ${fire.brightness.toFixed(0)}K</span>
-                <span>Confidence: ${fire.confidence}</span>
+        )}</>
+        ,
+        container
+    );
+}
+
+function renderMarketCards(markets: any[]) {
+    return markets.map((market: any) => {
+        const probClass = market.probability >= 70 ? 'prob--hot' :
+            market.probability >= 50 ? 'prob--warm' : 'prob--cool';
+        const catIcon = getCategoryIcon(market.category);
+        const velocity = market.velocityPct ? (market.velocityPct > 0 ? `▲${market.velocityPct.toFixed(1)}%` : `▼${Math.abs(market.velocityPct).toFixed(1)}%`) : '';
+        const velocityClass = market.velocityPct > 5 ? 'velocity--up' : market.velocityPct < -5 ? 'velocity--down' : '';
+        return (
+            <div className="radar-market" data-link={market.url}>
+                <div className="radar-market-header">
+                    <span className="radar-market-cat">{catIcon} {market.category.toUpperCase()}</span>
+                    <span className="radar-market-platform">{market.platform === 'polymarket' ? 'PM' : 'KA'}</span>
+                </div>
+                <div className="radar-market-title">{market.title}</div>
+                <div className="radar-market-stats">
+                    <span className={`radar-market-prob ${probClass}`}>{market.probability}%</span>
+                    {velocity && <span className={`radar-market-velocity ${velocityClass}`}>{velocity}</span>}
+                    <span className="radar-market-vol">${formatVolume(market.volume)}</span>
+                    {market.region && <span className="radar-market-region">📍 {market.region}</span>}
+                </div>
+                <div className="radar-market-bar">
+                    <div className={`radar-market-bar-fill ${probClass}`} style={{ width: `${market.probability}%` }}></div>
+                </div>
             </div>
-        </div>
-    `).join('');
+        );
+    });
 }
 
 function renderTelegramFeed(alerts: any[]) {
     const container = document.getElementById('tg-feed');
     if (!container) return;
 
-    container.innerHTML = alerts.slice(0, 15).map(alert => `
-        <div class="feed-item feed-item--telegram">
-            <div class="feed-item-source telegram">📡 ${escHtml(alert.channelTitle)}</div>
-            <div class="feed-item-title">${escHtml(alert.text.slice(0, 200))}</div>
-            <div class="feed-item-meta">
-                <span class="feed-item-time">${formatTime(new Date(alert.date * 1000).toISOString())}</span>
+    render(
+        <>{alerts.slice(0, 15).map((alert: any) =>
+            <div className="feed-item feed-item--telegram">
+                <div className="feed-item-source telegram">📡 {alert.channelTitle}</div>
+                <div className="feed-item-title">{alert.text.slice(0, 200)}</div>
+                <div className="feed-item-meta">
+                    <span className="feed-item-time">{formatTime(new Date(alert.date * 1000).toISOString())}</span>
+                </div>
             </div>
-        </div>
-    `).join('');
+        )}</>,
+        container
+    );
 }
 
 // ─── Threat Radar Rendering ─────────────────────────────────
@@ -1559,99 +1606,42 @@ function renderRadarFeed() {
     if (!container) return;
 
     if (marketData.length === 0 && threatAlerts.length === 0) {
-        container.innerHTML = `<div class="loading-state"><span>No prediction market data available</span></div>`;
+        render(<div className="loading-state"><span>No prediction market data available</span></div>, container);
         return;
     }
 
-    // Render alerts first, then markets
-    let html = '';
-
-    // Show active threat alerts
-    for (const alert of threatAlerts.slice(0, 5)) {
-        const levelClass = `radar-alert--${alert.level}`;
-        const icon = alert.level === 'critical' ? '🚨' : alert.level === 'high' ? '⚠️' : '📊';
-        html += `
-            <div class="radar-alert ${levelClass}">
-                <div class="radar-alert-header">
-                    <span class="radar-alert-icon">${icon}</span>
-                    <span class="radar-alert-level">${alert.level.toUpperCase()}</span>
-                    <span class="radar-alert-time">${formatTime(alert.timestamp || alert.created_at || '')}</span>
-                </div>
-                <div class="radar-alert-title">${escHtml(alert.title.replace(/^[🚨⚠📊️\s]+/, ''))}</div>
-                <div class="radar-alert-desc">${escHtml(alert.description)}</div>
-            </div>
-        `;
-    }
-
-    // Show top prediction markets
-    for (const market of marketData.slice(0, 8)) {
-        const probClass = market.probability >= 70 ? 'prob--hot' :
-            market.probability >= 50 ? 'prob--warm' : 'prob--cool';
-        const catIcon = getCategoryIcon(market.category);
-        const velocity = market.velocityPct ? (market.velocityPct > 0 ? `▲${market.velocityPct.toFixed(1)}%` : `▼${Math.abs(market.velocityPct).toFixed(1)}%`) : '';
-        const velocityClass = market.velocityPct > 5 ? 'velocity--up' : market.velocityPct < -5 ? 'velocity--down' : '';
-
-        html += `
-            <div class="radar-market" data-link="${escHtml(market.url)}">
-                <div class="radar-market-header">
-                    <span class="radar-market-cat">${catIcon} ${market.category.toUpperCase()}</span>
-                    <span class="radar-market-platform">${market.platform === 'polymarket' ? 'PM' : 'KA'}</span>
-                </div>
-                <div class="radar-market-title">${escHtml(market.title)}</div>
-                <div class="radar-market-stats">
-                    <span class="radar-market-prob ${probClass}">${market.probability}%</span>
-                    ${velocity ? `<span class="radar-market-velocity ${velocityClass}">${velocity}</span>` : ''}
-                    <span class="radar-market-vol">$${formatVolume(market.volume)}</span>
-                    ${market.region ? `<span class="radar-market-region">📍 ${market.region}</span>` : ''}
-                </div>
-                <div class="radar-market-bar">
-                    <div class="radar-market-bar-fill ${probClass}" style="width:${market.probability}%"></div>
-                </div>
-            </div>
-        `;
-    }
-
-    container.innerHTML = html;
+    render(
+        <>
+            {threatAlerts.slice(0, 5).map((alert: any) => {
+                const levelClass = `radar-alert--${alert.level}`;
+                const icon = alert.level === 'critical' ? '🚨' : alert.level === 'high' ? '⚠️' : '📊';
+                return (
+                    <div className={`radar-alert ${levelClass}`}>
+                        <div className="radar-alert-header">
+                            <span className="radar-alert-icon">{icon}</span>
+                            <span className="radar-alert-level">{alert.level.toUpperCase()}</span>
+                            <span className="radar-alert-time">{formatTime(alert.timestamp || alert.created_at || '')}</span>
+                        </div>
+                        <div className="radar-alert-title">{alert.title.replace(/^[🚨⚠📊️\s]+/, '')}</div>
+                        <div className="radar-alert-desc">{alert.description}</div>
+                    </div>
+                );
+            })}
+            {renderMarketCards(marketData.slice(0, 8))}
+        </>,
+        container
+    );
 
     // Also populate the dedicated Markets panel (shows ALL markets)
     const marketsContainer = document.getElementById('markets-feed');
     const marketsCount = document.getElementById('markets-alert-count');
     if (marketsContainer) {
         if (marketData.length === 0) {
-            marketsContainer.innerHTML = `<div class="loading-state"><span>No prediction market data available</span></div>`;
+            render(<div className="loading-state"><span>No prediction market data available</span></div>, marketsContainer);
         } else {
-            // Get active category filter
             const activeFilter = document.querySelector('#market-filters .pf-pill.active')?.getAttribute('data-market-cat') || 'all';
             const filtered = activeFilter === 'all' ? marketData : marketData.filter(m => m.category === activeFilter);
-
-            let marketsHtml = '';
-            for (const market of filtered) {
-                const probClass = market.probability >= 70 ? 'prob--hot' :
-                    market.probability >= 50 ? 'prob--warm' : 'prob--cool';
-                const catIcon = getCategoryIcon(market.category);
-                const velocity = market.velocityPct ? (market.velocityPct > 0 ? `▲${market.velocityPct.toFixed(1)}%` : `▼${Math.abs(market.velocityPct).toFixed(1)}%`) : '';
-                const velocityClass = market.velocityPct > 5 ? 'velocity--up' : market.velocityPct < -5 ? 'velocity--down' : '';
-
-                marketsHtml += `
-                    <div class="radar-market" data-link="${escHtml(market.url)}">
-                        <div class="radar-market-header">
-                            <span class="radar-market-cat">${catIcon} ${market.category.toUpperCase()}</span>
-                            <span class="radar-market-platform">${market.platform === 'polymarket' ? 'PM' : 'KA'}</span>
-                        </div>
-                        <div class="radar-market-title">${escHtml(market.title)}</div>
-                        <div class="radar-market-stats">
-                            <span class="radar-market-prob ${probClass}">${market.probability}%</span>
-                            ${velocity ? `<span class="radar-market-velocity ${velocityClass}">${velocity}</span>` : ''}
-                            <span class="radar-market-vol">$${formatVolume(market.volume)}</span>
-                            ${market.region ? `<span class="radar-market-region">📍 ${market.region}</span>` : ''}
-                        </div>
-                        <div class="radar-market-bar">
-                            <div class="radar-market-bar-fill ${probClass}" style="width:${market.probability}%"></div>
-                        </div>
-                    </div>
-                `;
-            }
-            marketsContainer.innerHTML = marketsHtml;
+            render(<>{renderMarketCards(filtered)}</>, marketsContainer);
         }
         if (marketsCount) marketsCount.textContent = String(marketData.length);
     }
@@ -1679,10 +1669,13 @@ function showThreatBanner(alert: any) {
     const content = document.getElementById('threat-banner-content');
     if (!banner || !content) return;
 
-    content.innerHTML = `
-        <div class="threat-banner-title">${escHtml(alert.title)}</div>
-        <div class="threat-banner-desc">${escHtml(alert.description)}</div>
-    `;
+    render(
+        <>
+            <div className="threat-banner-title">{alert.title}</div>
+            <div className="threat-banner-desc">{alert.description}</div>
+        </>,
+        content
+    );
     banner.style.display = 'flex';
 
     // Auto-hide after 15 seconds
@@ -2013,11 +2006,14 @@ function updateStats() {
     const freshnessEl = document.getElementById('data-freshness');
     if (freshnessEl) {
         const sources = ['gdelt', 'fires', 'flights', 'news'];
-        freshnessEl.innerHTML = sources.map(s => {
-            const label = getFreshnessLabel(s);
-            const color = label === '—' ? 'var(--text-muted)' : (parseInt(label) > 5 && label.endsWith('m') ? 'var(--amber)' : 'var(--accent)');
-            return `<span style="color:${color}">${s.toUpperCase()}: ${label}</span>`;
-        }).join(' · ');
+        render(
+            <>{sources.map((s, i) => {
+                const label = getFreshnessLabel(s);
+                const color = label === '—' ? 'var(--text-muted)' : (parseInt(label) > 5 && label.endsWith('m') ? 'var(--amber)' : 'var(--accent)');
+                return <>{i > 0 && ' · '}<span style={{ color }}>{s.toUpperCase()}: {label}</span></>;
+            })}</>,
+            freshnessEl
+        );
     }
     updatePerfDisplay();
 }
@@ -2056,16 +2052,15 @@ async function fetchYouTubeStreams() {
         if (!container) return;
 
         // Clear and rebuild buttons with live status
-        container.innerHTML = '';
         const channels = data.streams as { key: string; label: string; isLive: boolean }[];
-
-        channels.forEach((ch: any, i: number) => {
-            const btn = document.createElement('button');
-            btn.className = `channel-btn${i === 0 ? ' active' : ''}`;
-            btn.dataset.channel = ch.key;
-            btn.innerHTML = `${ch.label}${ch.isLive ? ' <span style="color:#ef4444;font-size:8px;">● LIVE</span>' : ''}`;
-            container.appendChild(btn);
-        });
+        render(
+            <>{channels.map((ch: any, i: number) =>
+                <button className={`channel-btn${i === 0 ? ' active' : ''}`} data-channel={ch.key}>
+                    {ch.label}{ch.isLive && <span style={{ color: '#ef4444', fontSize: '8px' }}> ● LIVE</span>}
+                </button>
+            )}</>,
+            container
+        );
 
         console.log(`[WARMAPS] YouTube: ${channels.filter((c: any) => c.isLive).length}/${channels.length} channels live`);
     } catch (e) {
@@ -2082,9 +2077,16 @@ function loadTVChannel(channelKey: string) {
     const embedUrl = stream?.embedUrl || FALLBACK_URLS[channelKey];
 
     if (embedUrl) {
-        player.innerHTML = `<iframe id="tv-iframe" src="${embedUrl}" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:none;"></iframe>`;
+        render(
+            <iframe id="tv-iframe" src={embedUrl} allow="autoplay; encrypted-media" allowFullScreen
+                style={{ width: '100%', height: '100%', border: 'none' }} />,
+            player
+        );
     } else {
-        player.innerHTML = `<div class="loading-state" style="height:100%"><span>No live stream found for ${channelKey}</span></div>`;
+        render(
+            <div className="loading-state" style={{ height: '100%' }}><span>No live stream found for {channelKey}</span></div>,
+            player
+        );
     }
 }
 
@@ -2312,11 +2314,14 @@ function appendChatMessage(msg: { user: string; text: string; time: string }) {
 
     const div = document.createElement('div');
     div.className = 'chat-msg';
-    div.innerHTML = `
-        <span class="chat-msg-time">${timeStr}</span>
-        <span class="chat-msg-user">${escHtml(msg.user)}:</span>
-        <span class="chat-msg-text">${escHtml(msg.text)}</span>
-    `;
+    render(
+        <>
+            <span className="chat-msg-time">{timeStr}</span>
+            <span className="chat-msg-user">{msg.user}:</span>
+            <span className="chat-msg-text">{msg.text}</span>
+        </>,
+        div
+    );
     messagesEl.appendChild(div);
 }
 
@@ -2384,19 +2389,18 @@ function initSearchModal() {
     });
 
     const renderResults = (locs: typeof GLOBE_LOCATIONS) => {
-        resultsContainer.innerHTML = '';
-        locs.forEach(loc => {
-            const div = document.createElement('div');
-            div.className = 'search-result-item';
-            div.innerHTML = `<span>${loc.name}</span><span style="opacity:0.5">${loc.lat}, ${loc.lng}</span>`;
-            div.addEventListener('click', () => {
-                if (map) {
-                    map.flyTo({ center: [loc.lng, loc.lat], zoom: 6, essential: true });
-                }
-                modal.style.display = 'none';
-            });
-            resultsContainer.appendChild(div);
-        });
+        render(
+            <>{locs.map(loc =>
+                <div className="search-result-item" onClick={() => {
+                    if (map) map.flyTo({ center: [loc.lng, loc.lat], zoom: 6, essential: true });
+                    modal!.style.display = 'none';
+                }}>
+                    <span>{loc.name}</span>
+                    <span style={{ opacity: 0.5 }}>{loc.lat}, {loc.lng}</span>
+                </div>
+            )}</>,
+            resultsContainer
+        );
     };
 
     input.addEventListener('input', () => {
