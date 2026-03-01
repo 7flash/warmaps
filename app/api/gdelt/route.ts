@@ -121,6 +121,22 @@ const KNOWN_LOCATIONS: Record<string, [number, number]> = {
     'pyongyang': [39.02, 125.75],
     'nato': [50.88, 4.32],
     'pentagon': [38.87, -77.06],
+    'dubai': [25.20, 55.27],
+    'abu dhabi': [24.45, 54.65],
+    'qatar': [25.29, 51.53],
+    'doha': [25.29, 51.53],
+    'bahrain': [26.07, 50.55],
+    'kuwait': [29.38, 47.99],
+    'riyadh': [24.71, 46.67],
+    'jeddah': [21.49, 39.19],
+    'houthis': [15.37, 44.19],
+    'hormuz': [26.60, 56.25],
+    'natanz': [33.51, 51.92],
+    'kherson': [46.64, 32.62],
+    'mariupol': [47.10, 37.55],
+    'burj': [25.14, 55.19],
+    'united arab emirates': [24.45, 54.65],
+    'uae': [24.45, 54.65],
 };
 
 function extractLocations(title: string): Array<{ name: string; lat: number; lon: number }> {

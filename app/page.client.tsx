@@ -48,6 +48,14 @@ function getFreshnessLabel(source: string): string {
 // Image marker pool — HTML markers with actual article thumbnails
 let imageMarkers: any[] = [];
 
+// Breaking news keywords for special pulsing markers
+const BREAKING_KEYWORDS = ['breaking', 'missile', 'strike', 'bomb', 'explosion', 'attack', 'drone', 'killed', 'dead', 'war', 'invasion', 'aircraft', 'shot down'];
+
+function isBreaking(title: string): boolean {
+    const lower = title.toLowerCase();
+    return BREAKING_KEYWORDS.some(kw => lower.includes(kw));
+}
+
 function syncImageMarkers() {
     if (!map) return;
 
@@ -55,77 +63,72 @@ function syncImageMarkers() {
     imageMarkers.forEach(m => m.remove());
     imageMarkers = [];
 
-    // Get the current source data
-    const src = map.getSource('events');
-    if (!src) return;
-
-    // Query rendered features for unclustered points
-    const features = map.queryRenderedFeatures({ layers: ['events-point'] });
-    if (!features || features.length === 0) return;
-
-    // Deduplicate by coordinate (avoid stacking)
+    // Render directly from gdeltEvents data — NOT from clustered layer
+    // This ensures markers are always visible regardless of zoom/clustering
+    const bounds = map.getBounds();
     const seen = new Set<string>();
 
-    for (const f of features) {
-        const coords = f.geometry.coordinates;
-        const key = `${coords[0].toFixed(3)},${coords[1].toFixed(3)}`;
+    // Only render events with images (or breaking events)
+    const eventsWithImages = gdeltEvents.filter(e => {
+        if (!e.lat || !e.lon) return false;
+        // Check within map bounds
+        if (e.lon < bounds.getWest() || e.lon > bounds.getEast()) return false;
+        if (e.lat < bounds.getSouth() || e.lat > bounds.getNorth()) return false;
+        return e.imageUrl || isBreaking(e.title || '');
+    });
+
+    console.log(`[STARWAR] syncImageMarkers: ${gdeltEvents.length} total events, ${eventsWithImages.length} with images/breaking in view`);
+
+    // Limit to 60 markers for performance
+    const maxMarkers = 60;
+    const toRender = eventsWithImages.slice(0, maxMarkers);
+
+    for (const e of toRender) {
+        // Add small jitter to prevent stacking when multiple events share exact coordinates
+        const jitter = () => (Math.random() - 0.5) * 0.3;
+        const coords: [number, number] = [e.lon + jitter(), e.lat + jitter()];
+        const key = `${e.lon.toFixed(1)},${e.lat.toFixed(1)},${(e.title || '').slice(0, 20)}`;
         if (seen.has(key)) continue;
         seen.add(key);
 
-        const props = f.properties || {};
-        const imageUrl = props.imageUrl;
-        const title = props.title || '';
-        const opacity = props.opacity || 1;
+        const imageUrl = e.imageUrl;
+        const title = e.title || '';
+        const breaking = isBreaking(title);
 
         // Create the marker element
         const el = document.createElement('div');
-        el.className = 'map-image-marker';
-        el.style.opacity = String(opacity);
+        el.className = 'map-image-marker' + (breaking ? ' map-image-marker--breaking' : '');
 
-        if (imageUrl && imageUrl !== 'null' && imageUrl.startsWith('http')) {
-            // Image marker
+        if (imageUrl && imageUrl.startsWith('http')) {
             const img = document.createElement('img');
             img.src = imageUrl;
             img.alt = title;
             img.loading = 'lazy';
             img.onerror = () => {
-                // Fallback to colored dot on image load failure
                 el.innerHTML = '';
                 el.classList.add('map-image-marker--fallback');
             };
             el.appendChild(img);
         } else {
-            // Colored dot fallback (no image available)
             el.classList.add('map-image-marker--fallback');
-            const type = props.type || 'gdelt';
-            if (type === 'market-hot') el.style.background = '#ef4444';
-            else if (type === 'market') el.style.background = '#22d3ee';
-            else el.style.background = '#22c55e';
+            el.style.background = breaking ? '#ef4444' : '#22c55e';
         }
 
-        // Create tooltip
-        el.title = '';
-
-        // Hover preview — larger image preview with title
-        if (imageUrl && imageUrl !== 'null' && imageUrl.startsWith('http')) {
+        // Hover preview
+        if (imageUrl && imageUrl.startsWith('http')) {
             el.addEventListener('mouseenter', () => {
-                // Remove any existing preview
                 document.querySelectorAll('.marker-hover-preview').forEach(p => p.remove());
                 const preview = document.createElement('div');
                 preview.className = 'marker-hover-preview';
                 preview.innerHTML = `
                     <img src="${imageUrl}" alt="" />
                     <div class="marker-hover-title">${title.length > 80 ? title.slice(0, 80) + '…' : title}</div>
-                    <div class="marker-hover-source">${props.source || 'OSINT'} · ${props.type || 'Event'}</div>
+                    <div class="marker-hover-source">${e.source || 'OSINT'} · ${breaking ? '🔴 BREAKING' : 'Event'}</div>
                 `;
                 document.body.appendChild(preview);
-
-                // Position near the marker element
                 const rect = el.getBoundingClientRect();
                 preview.style.left = `${rect.right + 12}px`;
                 preview.style.top = `${rect.top - 20}px`;
-
-                // If it overflows right edge, put it left of marker
                 requestAnimationFrame(() => {
                     const pr = preview.getBoundingClientRect();
                     if (pr.right > window.innerWidth - 10) {
@@ -136,31 +139,28 @@ function syncImageMarkers() {
                     }
                 });
             });
-
             el.addEventListener('mouseleave', () => {
                 document.querySelectorAll('.marker-hover-preview').forEach(p => p.remove());
             });
         }
 
-        // Click handler — show popup with article info
-        el.addEventListener('click', (e) => {
-            e.stopPropagation();
-            // Remove hover preview
+        // Click popup
+        el.addEventListener('click', (ev) => {
+            ev.stopPropagation();
             document.querySelectorAll('.marker-hover-preview').forEach(p => p.remove());
-
             const popup = new maplibregl.Popup({
                 className: 'tactical-popup',
                 closeButton: true,
-                maxWidth: '300px',
+                maxWidth: '320px',
             })
-                .setLngLat(coords as [number, number])
+                .setLngLat(coords)
                 .setHTML(`
                     <div class="intel-card">
-                        ${imageUrl && imageUrl !== 'null' ? `<img src="${imageUrl}" style="width:100%;height:140px;object-fit:cover;border-bottom:1px solid rgba(34,197,94,0.1);" />` : ''}
+                        ${imageUrl ? `<img src="${imageUrl}" style="width:100%;height:140px;object-fit:cover;border-bottom:1px solid rgba(34,197,94,0.1);" />` : ''}
                         <div class="intel-card-body" style="padding:10px;">
                             <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px;line-height:1.3;">${title}</div>
-                            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">📍 ${props.date || 'Recent'} · ${props.source || props.type || 'Event'}</div>
-                            ${props.url ? `<a href="${props.url}" target="_blank" rel="noopener" style="font-size:10px;color:var(--accent);text-decoration:none;">Read Article →</a>` : ''}
+                            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">📍 ${e.date || 'Recent'} · ${e.source || 'GDELT'}</div>
+                            ${e.url ? `<a href="${e.url}" target="_blank" rel="noopener" style="font-size:10px;color:var(--accent);text-decoration:none;">Read Article →</a>` : ''}
                         </div>
                     </div>
                 `)
@@ -168,7 +168,7 @@ function syncImageMarkers() {
         });
 
         const marker = new maplibregl.Marker({ element: el })
-            .setLngLat(coords as [number, number])
+            .setLngLat(coords)
             .addTo(map);
 
         imageMarkers.push(marker);
@@ -194,6 +194,36 @@ function initMap() {
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
     map.on('load', () => {
+        // Create airplane icon for flights
+        const planeSize = 24;
+        const planeCanvas = document.createElement('canvas');
+        planeCanvas.width = planeSize;
+        planeCanvas.height = planeSize;
+        const ctx = planeCanvas.getContext('2d')!;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        // Simple airplane silhouette pointing UP
+        ctx.moveTo(12, 2);   // nose
+        ctx.lineTo(14, 10);
+        ctx.lineTo(22, 12);  // right wing
+        ctx.lineTo(22, 14);
+        ctx.lineTo(14, 13);
+        ctx.lineTo(14, 19);  // tail right
+        ctx.lineTo(17, 21);
+        ctx.lineTo(17, 22);
+        ctx.lineTo(12, 20);
+        ctx.lineTo(7, 22);   // tail left
+        ctx.lineTo(7, 21);
+        ctx.lineTo(10, 19);
+        ctx.lineTo(10, 13);
+        ctx.lineTo(2, 14);   // left wing
+        ctx.lineTo(2, 12);
+        ctx.lineTo(10, 10);
+        ctx.closePath();
+        ctx.fill();
+
+        const imageData = ctx.getImageData(0, 0, planeSize, planeSize);
+        map.addImage('airplane-icon', imageData, { sdf: true });
         // --- Sources ---
 
         map.addSource('fires', {
@@ -259,17 +289,22 @@ function initMap() {
             }
         });
 
-        // Aircraft (Points)
+        // Aircraft (Symbol layer with rotated airplane icons)
         map.addLayer({
             id: 'flights-point',
-            type: 'circle',
+            type: 'symbol',
             source: 'flights',
+            layout: {
+                'icon-image': 'airplane-icon',
+                'icon-size': ['match', ['get', 'type'], 'military', 0.85, 'sigint', 1.0, 'government', 0.75, 0.55],
+                'icon-rotate': ['get', 'heading'],
+                'icon-rotation-alignment': 'map',
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+            },
             paint: {
-                'circle-radius': ['match', ['get', 'type'], 'military', 4, 'sigint', 5, 2],
-                'circle-color': ['match', ['get', 'type'], 'military', '#ef4444', 'sigint', '#a855f7', '#22d3ee'],
-                'circle-opacity': 0.8,
-                'circle-stroke-width': 1,
-                'circle-stroke-color': '#000'
+                'icon-color': ['match', ['get', 'type'], 'military', '#ef4444', 'sigint', '#a855f7', 'government', '#f59e0b', '#22d3ee'],
+                'icon-opacity': ['match', ['get', 'type'], 'military', 1, 'sigint', 1, 0.7],
             }
         });
 
@@ -547,6 +582,31 @@ function initMap() {
         map.on('mouseleave', 'events-clusters', () => { map.getCanvas().style.cursor = ''; });
         map.on('mouseenter', 'fires-cluster', () => { map.getCanvas().style.cursor = 'pointer'; });
         map.on('mouseleave', 'fires-cluster', () => { map.getCanvas().style.cursor = ''; });
+
+        // Flight airplane click popup
+        map.on('mouseenter', 'flights-point', () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', 'flights-point', () => { map.getCanvas().style.cursor = ''; });
+        map.on('click', 'flights-point', (e: any) => {
+            if (!e.features || e.features.length === 0) return;
+            const f = e.features[0];
+            const p = f.properties;
+            const coords = f.geometry.coordinates;
+            const typeLabel = p.type === 'military' ? '🔴 MILITARY' : p.type === 'sigint' ? '🟣 SIGINT' : p.type === 'government' ? '🟡 GOV' : '🔵 CIVILIAN';
+            new maplibregl.Popup({ className: 'tactical-popup', closeButton: true, maxWidth: '260px' })
+                .setLngLat(coords)
+                .setHTML(`
+                    <div style="padding:10px;">
+                        <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:6px;font-family:var(--font-mono);">${p.callsign || 'N/A'}</div>
+                        <div style="font-size:10px;color:var(--text-secondary);line-height:1.6;">
+                            ${typeLabel}<br/>
+                            🏳️ ${p.country || '??'}<br/>
+                            📏 ${p.alt ? p.alt.toLocaleString() + ' ft' : 'N/A'}<br/>
+                            💨 ${p.velocity || 0} kts · HDG ${Math.round(p.heading || 0)}°
+                        </div>
+                    </div>
+                `)
+                .addTo(map);
+        });
 
         // Initialize panel toggle system
         initPanelToggles();
@@ -1140,7 +1200,14 @@ function updateMapSources() {
         features: flightData.map((f: any) => ({
             type: 'Feature',
             geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
-            properties: { type: f.type, callsign: f.callsign }
+            properties: {
+                type: f.type,
+                callsign: f.callsign,
+                heading: f.heading || 0,
+                alt: Math.round((f.alt || 0) * 3.281), // meters → feet
+                velocity: Math.round((f.velocity || 0) * 1.944), // m/s → knots
+                country: f.country || '??',
+            }
         }))
     };
     const flSrc = map.getSource('flights');
@@ -1196,7 +1263,7 @@ function updateMapSources() {
 // ─── Panel Toggle System ────────────────────────────────────
 
 function initPanelToggles() {
-    // Panel tabs toggle panels
+    // Panel tabs toggle panels — all right-side now
     document.querySelectorAll('.panel-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             const panelId = (tab as HTMLElement).dataset.panel;
@@ -1205,16 +1272,13 @@ function initPanelToggles() {
             const panel = document.getElementById(panelId);
             if (!panel) return;
 
-            // For right panels, close others first
-            if (panel.classList.contains('overlay-panel--right')) {
-                document.querySelectorAll('.overlay-panel--right.open').forEach(p => {
-                    if (p.id !== panelId) {
-                        p.classList.remove('open');
-                        // Deactivate its tab
-                        document.querySelector(`.panel-tab[data-panel="${p.id}"]`)?.classList.remove('active');
-                    }
-                });
-            }
+            // Close all other panels first
+            document.querySelectorAll('.overlay-panel--right.open').forEach(p => {
+                if (p.id !== panelId) {
+                    p.classList.remove('open');
+                    document.querySelector(`.panel-tab[data-panel="${p.id}"]`)?.classList.remove('active');
+                }
+            });
 
             const isOpen = panel.classList.toggle('open');
             tab.classList.toggle('active', isOpen);
@@ -1230,15 +1294,6 @@ function initPanelToggles() {
             document.querySelector(`.panel-tab[data-panel="${panelId}"]`)?.classList.remove('active');
         });
     });
-
-    // Legend toggle
-    const legendToggle = document.getElementById('legend-toggle');
-    const legendFloat = document.getElementById('legend-float');
-    if (legendToggle && legendFloat) {
-        legendToggle.addEventListener('click', () => {
-            legendFloat.classList.toggle('collapsed');
-        });
-    }
 }
 
 // ─── Ticker ─────────────────────────────────────────────────

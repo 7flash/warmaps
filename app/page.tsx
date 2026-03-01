@@ -94,21 +94,21 @@ export default function Page() {
                     </div>
                 </div>
 
-                {/* ─── Panel Toggle Tabs ───────────────── */}
-                <div class="panel-tabs panel-tabs--left">
-                    <button class="panel-tab active" data-panel="news-panel" title="Pulse Feed">📡</button>
-                </div>
+                {/* ─── Right-side Tab Bar ───────────────── */}
                 <div class="panel-tabs panel-tabs--right">
-                    <button class="panel-tab active" data-panel="intel-panel" title="Intel">🎯</button>
-                    <button class="panel-tab" data-panel="tv-panel" title="Live TV">📺</button>
-                    <button class="panel-tab" data-panel="feeds-panel" title="Data Feeds">📊</button>
+                    <button class="panel-tab active" data-panel="pulse-panel" title="News Feed">📡</button>
+                    <button class="panel-tab" data-panel="intel-panel" title="Intel & Threats">🎯</button>
+                    <button class="panel-tab" data-panel="signal-panel" title="Telegram">💬</button>
+                    <button class="panel-tab" data-panel="live-panel" title="Live TV">📺</button>
+                    <button class="panel-tab" data-panel="data-panel" title="Data & Stats">📊</button>
+                    <button class="panel-tab" data-panel="layers-panel" title="Map Layers">🗺️</button>
                 </div>
 
-                {/* ─── Left Panel: Pulse Feed (Overlay) ─── */}
-                <aside id="news-panel" class="overlay-panel overlay-panel--left open">
+                {/* ─── Tab: PULSE FEED ─────────────────────── */}
+                <aside id="pulse-panel" class="overlay-panel overlay-panel--right open">
                     <div class="panel-drag-header">
                         <span class="icon">📡</span> PULSE FEED
-                        <button class="panel-close-btn" data-panel="news-panel">×</button>
+                        <button class="panel-close-btn" data-panel="pulse-panel">×</button>
                     </div>
                     <div class="pulse-filters" id="feed-filters">
                         <button class="pf-pill hot active" data-source="all">🔥 HIGH</button>
@@ -127,8 +127,8 @@ export default function Page() {
                     </div>
                 </aside>
 
-                {/* ─── Right Panel: Intel (Overlay) ──────── */}
-                <aside id="intel-panel" class="overlay-panel overlay-panel--right open">
+                {/* ─── Tab: INTEL ───────────────────────────── */}
+                <aside id="intel-panel" class="overlay-panel overlay-panel--right">
                     <div class="panel-drag-header">
                         <span>🎯</span> INTEL
                         <button class="panel-close-btn" data-panel="intel-panel">×</button>
@@ -161,25 +161,31 @@ export default function Page() {
                             <canvas id="crypto-chart"></canvas>
                         </div>
                     </div>
+                </aside>
 
-                    {/* Telegram OSINT */}
+                {/* ─── Tab: SIGNAL (Telegram) ──────────────── */}
+                <aside id="signal-panel" class="overlay-panel overlay-panel--right">
+                    <div class="panel-drag-header">
+                        <span>💬</span> SIGNAL
+                        <button class="panel-close-btn" data-panel="signal-panel">×</button>
+                    </div>
                     <div class="panel-section">
                         <div class="panel-header">
-                            <h2>📡 TELEGRAM</h2>
+                            <h2>📡 TELEGRAM OSINT</h2>
                             <span class="badge" id="tg-count">0</span>
                         </div>
                         <div id="tg-status" class="tg-status">Connecting...</div>
-                        <div id="tg-feed" class="feed-list feed-list--short">
+                        <div id="tg-feed" class="feed-list">
                             <div class="loading-state"><span class="spinner"></span><span>Connecting channels...</span></div>
                         </div>
                     </div>
                 </aside>
 
-                {/* ─── Right Panel: TV (Overlay, hidden by default) ─ */}
-                <aside id="tv-panel" class="overlay-panel overlay-panel--right">
+                {/* ─── Tab: LIVE TV ─────────────────────────── */}
+                <aside id="live-panel" class="overlay-panel overlay-panel--right">
                     <div class="panel-drag-header">
                         <span>📺</span> LIVE TV
-                        <button class="panel-close-btn" data-panel="tv-panel">×</button>
+                        <button class="panel-close-btn" data-panel="live-panel">×</button>
                     </div>
                     <div id="tv-channels" class="tv-channels">
                         <button class="channel-btn active" data-channel="aljazeeraenglish">AL JAZEERA</button>
@@ -199,11 +205,11 @@ export default function Page() {
                     </div>
                 </aside>
 
-                {/* ─── Right Panel: Data Feeds (Overlay, hidden by default) ─ */}
-                <aside id="feeds-panel" class="overlay-panel overlay-panel--right">
+                {/* ─── Tab: DATA FEEDS ──────────────────────── */}
+                <aside id="data-panel" class="overlay-panel overlay-panel--right">
                     <div class="panel-drag-header">
                         <span>📊</span> DATA FEEDS
-                        <button class="panel-close-btn" data-panel="feeds-panel">×</button>
+                        <button class="panel-close-btn" data-panel="data-panel">×</button>
                     </div>
 
                     <div class="panel-section">
@@ -239,13 +245,13 @@ export default function Page() {
                     </div>
                 </aside>
 
-                {/* ─── Floating Legend (Compact, top-left on map) ─── */}
-                <div id="legend-float" class="legend-float">
-                    <div class="legend-float-header" id="legend-toggle">
-                        <span>LAYERS</span>
-                        <span class="legend-chevron">▼</span>
+                {/* ─── Tab: LAYERS ──────────────────────────── */}
+                <aside id="layers-panel" class="overlay-panel overlay-panel--right">
+                    <div class="panel-drag-header">
+                        <span>🗺️</span> MAP LAYERS
+                        <button class="panel-close-btn" data-panel="layers-panel">×</button>
                     </div>
-                    <div class="legend-float-body" id="legend-body">
+                    <div class="panel-section" style="padding: 12px;">
                         <label class="legend-filter"><input type="checkbox" id="filter-protest" checked /><span class="legend-dot bg-orange"></span> Events</label>
                         <label class="legend-filter"><input type="checkbox" id="filter-base" checked /><span class="legend-dot bg-blue"></span> Bases</label>
                         <label class="legend-filter"><input type="checkbox" id="filter-nuclear" checked /><span class="legend-dot bg-cyan"></span> Nuclear</label>
@@ -254,7 +260,7 @@ export default function Page() {
                         <label class="legend-filter"><input type="checkbox" id="filter-flights" checked /><span class="legend-dot bg-blue" style="border-radius:0;"></span> Flights</label>
                         <label class="legend-filter"><input type="checkbox" id="filter-webcams" checked /><span class="legend-dot" style="background:#fff; border:2px solid #6366f1;"></span> Webcams</label>
                     </div>
-                </div>
+                </aside>
 
             </div>
         </>
