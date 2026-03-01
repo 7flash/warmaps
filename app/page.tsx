@@ -7,7 +7,7 @@ export default function Page() {
         GIT_HASH = proc.stdout.toString().trim();
     } catch { }
     const now = new Date().toUTCString();
-    const ca = process.env.WARMAPS_CA || '';
+    const ca = process.env.WARMAPS_CA || 'CQm5FE2dSAdxCCt159EY7eGVfu425nBTCfxjZYjXpump';
     const caShort = ca ? `${ca.slice(0, 4)}...${ca.slice(-4)}` : '—';
 
     return (
@@ -47,10 +47,10 @@ export default function Page() {
                         <a href="https://x.com/i/communities/2028108812830306433" target="_blank" rel="noopener" class="social-link" title="X Community">
                             <span class="social-icon">𝕏</span>
                         </a>
-                        <a href="https://pump.fun" target="_blank" rel="noopener" class="social-link pump" title="PumpFun">
+                        <a href={`https://pump.fun/coin/${ca}`} target="_blank" rel="noopener" class="social-link pump" title="PumpFun">
                             <span class="social-icon">🟢</span>
                         </a>
-                        <a href="https://dexscreener.com" target="_blank" rel="noopener" class="social-link dex" title="DexScreener">
+                        <a href={`https://dexscreener.com/solana/${ca}`} target="_blank" rel="noopener" class="social-link dex" title="DexScreener">
                             <span class="social-icon">📊</span>
                         </a>
                         <span class="token-badge" id="token-ca" title={ca || 'No CA set'}
