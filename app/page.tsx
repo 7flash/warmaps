@@ -1,12 +1,11 @@
 import { Head } from 'melina/web';
 
-let GIT_HASH = '';
-try {
-    const proc = Bun.spawnSync(['git', 'rev-parse', '--short', 'HEAD'], { cwd: import.meta.dir });
-    GIT_HASH = proc.stdout.toString().trim();
-} catch { }
-
 export default function Page() {
+    let GIT_HASH = '';
+    try {
+        const proc = Bun.spawnSync(['git', 'rev-parse', '--short', 'HEAD'], { cwd: import.meta.dir });
+        GIT_HASH = proc.stdout.toString().trim();
+    } catch { }
     const now = new Date().toUTCString();
     const ca = process.env.WARMAPS_CA || '';
     const caShort = ca ? `${ca.slice(0, 4)}...${ca.slice(-4)}` : '—';
