@@ -196,6 +196,15 @@ function proxyImg(url: string | null | undefined): string {
     return `/api/image-proxy?url=${encodeURIComponent(url)}`;
 }
 
+// Build an img tag that tries direct first, then proxy, then fallback
+function imgWithFallback(url: string, fallbackText: string = ''): string {
+    const proxyUrl = proxyImg(url);
+    const initials = fallbackText.slice(0, 2).toUpperCase();
+    return `<img src="${url}" 
+        onerror="if(!this.dataset.retried){this.dataset.retried='1';this.src='${proxyUrl}'}else{this.style.display='none';this.parentElement.querySelector('.map-marker-fb')&&(this.parentElement.querySelector('.map-marker-fb').style.display='flex')}" 
+        alt="" /><div class="map-marker-fb" style="display:none">${initials}</div>`;
+}
+
 // Image markers removed — all rendering is GPU-native MapLibre layers now
 // GDELT events render via the 'events' source (circles + clusters)
 // Click popups are handled via native layer click handlers
@@ -1153,33 +1162,36 @@ function updateTokenMapSource() {
         if (!token.imageUrl) continue;
 
         // Try to find a nearby GDELT event matching this token's keywords
-        let placeLat = token.lat;
-        let placeLon = token.lng;
+        let placeLat = parseFloat(token.lat);
+        let placeLon = parseFloat(token.lng);
         const keywords = (token.matchedKeywords || []).map((k: string) => k.toLowerCase());
 
         if (keywords.length > 0 && gdeltEvents.length > 0) {
-            // Find a GDELT event whose title or country matches token keywords
             const match = gdeltEvents.find((ev: any) => {
                 const evText = ((ev.title || '') + ' ' + (ev.country || '')).toLowerCase();
                 return keywords.some((kw: string) => evText.includes(kw));
             });
             if (match && match.lat && (match.lon || match.lng)) {
-                // Offset slightly from the event so they don't stack
                 const offsetLon = (Math.random() - 0.5) * 3;
                 const offsetLat = (Math.random() - 0.5) * 2;
-                placeLat = match.lat + offsetLat;
-                placeLon = (match.lon || match.lng) + offsetLon;
+                placeLat = parseFloat(match.lat) + offsetLat;
+                placeLon = parseFloat(match.lon || match.lng) + offsetLon;
             }
         }
 
-        if (!placeLat || !placeLon) continue;
+        // Validate coordinates
+        if (isNaN(placeLat) || isNaN(placeLon) ||
+            placeLat < -90 || placeLat > 90 || placeLon < -180 || placeLon > 180) {
+            continue;
+        }
 
         // Create token image element
         const el = document.createElement('div');
         el.className = 'map-token-marker';
+        const symbol = (token.symbol || '??').slice(0, 10);
         el.innerHTML = `
-            <img src="${proxyImg(token.imageUrl)}" onerror="this.parentElement.style.display='none'" alt="" />
-            <div class="map-token-marker__label">${escHtml((token.symbol || '').slice(0, 10))}</div>
+            ${imgWithFallback(token.imageUrl, symbol)}
+            <div class="map-token-marker__label">${escHtml(symbol)}</div>
         `;
         el.addEventListener('click', () => showTokenPopup(token));
 
@@ -1768,11 +1780,10 @@ function spawnImageMarker(ev: any, eid: string) {
     // Create the marker element — rectangular image card
     const el = document.createElement('div');
     el.className = 'map-image-marker';
+    const label = (ev.title || '').slice(0, 50);
     el.innerHTML = `
-        <img src="${proxyImg(ev.imageUrl)}" 
-             onerror="this.parentElement.style.display='none'" 
-             alt="" />
-        <div class="map-image-marker__label">${escHtml((ev.title || '').slice(0, 50))}</div>
+        ${imgWithFallback(ev.imageUrl, ev.source || ev.title || '')}
+        <div class="map-image-marker__label">${escHtml(label)}</div>
     `;
 
     const marker = new maplibregl.Marker({ element: el, anchor: 'center' })

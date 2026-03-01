@@ -3157,6 +3157,29 @@ body::before {
     transform: scale(1);
 }
 
+/* Image fallback — shown when both direct and proxy fail */
+.map-marker-fb {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(5, 9, 19, 0.9));
+    border-radius: 8px;
+    border: 2px solid rgba(34, 197, 94, 0.3);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(34, 197, 94, 0.7);
+}
+
+.map-token-marker .map-marker-fb {
+    border-radius: 50%;
+    border-color: #ffd700;
+    color: #ffd700;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(5, 9, 19, 0.9));
+}
+
 /* ─── Token Markers (Pump.fun coins) ─────────────────────── */
 
 .map-token-marker {
