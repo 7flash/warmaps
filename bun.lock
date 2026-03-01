@@ -8,7 +8,7 @@
         "fflate": "^0.8.2",
         "maplibre-gl": "^5.19.0",
         "maplibre-gl-temporal-control": "^1.2.0",
-        "measure-fn": "^3.8.1",
+        "measure-fn": "3.9.0",
         "melina": "^2.3.1",
         "sqlite-zod-orm": "^3.26.0",
         "telegram": "^2.26.22",
@@ -208,7 +208,7 @@
 
     "maplibre-gl-temporal-control": ["maplibre-gl-temporal-control@1.2.0", "", {}, "sha512-tBkiQhikUEOAxhQvNSgeEc4ZkAvkX1pE6XiGZDmWwlRt0LyhK6zdSYM7g8QvQB/5fjtZkzhTOzv1AcCXUspFnQ=="],
 
-    "measure-fn": ["measure-fn@3.8.1", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-ZIrqFRLsgar0XGIyGbpPhs114s+H0TE4mnaRjeIbHdd/Xb3mBHJpOtVAUXaumP4NADh6hWfkxczC7gmm5LD4sA=="],
+    "measure-fn": ["measure-fn@3.9.0", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-G7bqLUDJS8Dijd3WwWO0bK44h3xRwMZEK3YbVqyBRSlOx/SgQMhL4SPjpkeCgBjDQEytsn6NB7/x43VeWFEkIg=="],
 
     "melina": ["melina@2.3.1", "", { "dependencies": { "@tailwindcss/postcss": "^4.1.10", "autoprefixer": "^10.4.21", "measure-fn": "3.5.0", "postcss": "^8.5.6", "ts-dedent": "^2.2.0" }, "bin": { "melina": "bin/melina.ts" } }, "sha512-LBPx10OOEnZ9O1F+CwnO0VHD08lCidBMx1Pj3Ts5yOLpx/4wlHSF+o+m+DmNcZH2xJykNe1zGN/6CwCVDuiJGw=="],
 

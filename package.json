@@ -13,7 +13,7 @@
     "fflate": "^0.8.2",
     "maplibre-gl": "^5.19.0",
     "maplibre-gl-temporal-control": "^1.2.0",
-    "measure-fn": "^3.8.1",
+    "measure-fn": "3.9.0",
     "melina": "^2.3.1",
     "sqlite-zod-orm": "^3.26.0",
     "telegram": "^2.26.22"

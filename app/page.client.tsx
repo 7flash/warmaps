@@ -62,6 +62,8 @@ let cryptoData: any = null;
 let webcamData: any[] = [];
 let pumpfunTokens: any[] = [];
 let currentFilter = 'all';
+let dataPaused = false; // Global pause toggle — stops all fetching & map updates
+(window as any).dataPaused = false;
 
 // ─── Real-Time Image Marker System ───────────────────────────
 // Rank-based fade: each new image causes all previous ones to fade a bit.
@@ -73,7 +75,7 @@ const IMAGE_MARKERS: Map<string, any> = new Map();         // ordered by inserti
 const IMAGE_MARKER_ORDER: string[] = [];                    // ordered list of marker IDs (newest last)
 const MAX_VISIBLE_IMAGES = 25;    // max images on map at once
 const FADE_PER_RANK = 0.04;      // each rank step reduces opacity by this much
-const IMAGE_APPEAR_INTERVAL = 1_000; // new image appears every 1s
+const IMAGE_APPEAR_INTERVAL = 2_000; // new image appears every 2s
 
 // Data freshness tracking
 const dataFreshness: Record<string, number> = {};
@@ -116,16 +118,20 @@ function startContinuousRepaint() {
     // Count actual render frames for the FPS display
     map.on('render', () => { _fpsFrames++; });
 
-    // Zoom-responsive image markers: update --marker-scale on zoom change
+    // Zoom-responsive image markers: update scale on zoom change (throttled)
+    let _zoomScaleTimer: ReturnType<typeof setTimeout> | null = null;
     const updateMarkerScale = () => {
-        const zoom = map.getZoom();
-        const scale = Math.min(1.3, Math.max(0.3, (zoom - 2) * 0.15 + 0.3));
-        document.querySelectorAll('.map-image-marker').forEach((el: any) => {
-            el.style.setProperty('--marker-scale', String(scale));
-        });
+        if (_zoomScaleTimer) return;
+        _zoomScaleTimer = setTimeout(() => {
+            _zoomScaleTimer = null;
+            const zoom = map.getZoom();
+            const scale = Math.min(1.3, Math.max(0.3, (zoom - 2) * 0.15 + 0.3));
+            for (const [, data] of IMAGE_MARKERS) {
+                data.el.style.setProperty('--marker-scale', String(scale));
+            }
+        }, 200);
     };
     map.on('zoom', updateMarkerScale);
-    updateMarkerScale();
 }
 
 function startPingMonitor() {
@@ -137,7 +143,7 @@ function startPingMonitor() {
         } catch { _pingMs = -1; }
     };
     measure();
-    setInterval(measure, 5000);
+    setInterval(measure, 30_000);
 }
 
 function updatePerfDisplay() {
@@ -1649,8 +1655,20 @@ function showThreatBanner(alert: any) {
 
 // ─── Tactical Map Updating ──────────────────────────────────
 
+let _mapUpdatePending = false;
+let _mapUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Debounced map update — coalesces rapid calls into one update per 500ms */
 function updateMapSources() {
-    if (!map || !map.isStyleLoaded()) return;
+    if (_mapUpdateTimer) return; // already scheduled
+    _mapUpdateTimer = setTimeout(() => {
+        _mapUpdateTimer = null;
+        _updateMapSourcesNow();
+    }, 500);
+}
+
+function _updateMapSourcesNow() {
+    if (!map || !map.isStyleLoaded() || dataPaused) return;
 
     const now = Date.now();
 
@@ -1760,7 +1778,7 @@ function queueNewEvents(events: any[]) {
 
 /** Place one event from the queue onto the map as a floating image */
 function drainOneEvent() {
-    if (!map) return;
+    if (!map || dataPaused) return;
 
     const ev = eventQueue.shift();
     if (!ev) {
@@ -1792,12 +1810,11 @@ function spawnImageMarker(ev: any, eid: string) {
     eventArrivalTime.set(eid, arrivedAt);
 
     // Simple geo-jitter to prevent exact overlaps
-    // Check if any existing marker is within ~2° — if so, offset this one
     let finalLon = lon;
     let finalLat = lat;
-    const GEO_MIN_DIST = 2.5; // min degrees apart
+    const GEO_MIN_DIST = 0.3; // min degrees apart (~33km)
 
-    for (let attempt = 0; attempt < 8; attempt++) {
+    for (let attempt = 0; attempt < 4; attempt++) {
         let tooClose = false;
         for (const [, data] of IMAGE_MARKERS) {
             const other = data.marker.getLngLat();
@@ -1810,14 +1827,10 @@ function spawnImageMarker(ev: any, eid: string) {
         }
         if (!tooClose) break;
 
-        // Golden angle spiral offset in degrees
-        const angle = (attempt * 137.5) * Math.PI / 180;
-        const r = GEO_MIN_DIST * (1 + attempt * 0.5);
-        finalLon = lon + Math.cos(angle) * r;
-        finalLat = lat + Math.sin(angle) * r * 0.7;
+        // Small random offset
+        finalLon = lon + (Math.random() - 0.5) * GEO_MIN_DIST * 2;
+        finalLat = lat + (Math.random() - 0.5) * GEO_MIN_DIST * 2;
         finalLat = Math.max(-80, Math.min(80, finalLat));
-        if (finalLon > 180) finalLon -= 360;
-        if (finalLon < -180) finalLon += 360;
     }
 
     // Create the marker element — rectangular image card with hover tooltip
@@ -1871,7 +1884,8 @@ function updateImageMarkerRanks() {
         const scale = 0.7 + 0.3 * opacity; // shrink as it fades
 
         data.el.style.opacity = String(opacity);
-        data.el.style.transform = `scale(${scale})`;
+        // Use CSS 'scale' property — NOT 'transform' which would overwrite MapLibre's translate positioning
+        data.el.style.scale = String(scale);
 
         // Remove markers that have faded out completely
         if (opacity <= 0 || rank >= MAX_VISIBLE_IMAGES) {
@@ -1889,6 +1903,18 @@ function updateImageMarkerRanks() {
 // ─── Panel Toggle System ────────────────────────────────────
 
 function initPanelToggles() {
+    // Helper: kill YouTube iframe to stop background playback
+    function stopTVIfHidden() {
+        const tvPanel = document.getElementById('tv-panel');
+        if (tvPanel && !tvPanel.classList.contains('open')) {
+            const player = document.getElementById('tv-player');
+            if (player) {
+                const iframe = player.querySelector('iframe');
+                if (iframe) iframe.src = '';
+            }
+        }
+    }
+
     // Panel tabs toggle panels — all right-side now
     document.querySelectorAll('.panel-tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -1908,6 +1934,9 @@ function initPanelToggles() {
 
             const isOpen = panel.classList.toggle('open');
             tab.classList.toggle('active', isOpen);
+
+            // Stop YouTube if TV panel just closed or another panel opened
+            stopTVIfHidden();
         });
     });
 
@@ -1918,6 +1947,9 @@ function initPanelToggles() {
             if (!panelId) return;
             document.getElementById(panelId)?.classList.remove('open');
             document.querySelector(`.panel-tab[data-panel="${panelId}"]`)?.classList.remove('active');
+
+            // Stop YouTube if it was the TV panel that closed
+            stopTVIfHidden();
         });
     });
 
@@ -2433,18 +2465,58 @@ export default function mount() {
         measureSync('FPS counter', () => startFPSCounter());
         measureSync('Ping monitor', () => startPingMonitor());
 
+        // Pause button — stops all data polling
+        function initPauseButton() {
+            const pauseBtn = document.createElement('button');
+            pauseBtn.id = 'data-pause-btn';
+            pauseBtn.className = 'pause-btn';
+            pauseBtn.title = 'Pause all data polling (P)';
+            pauseBtn.textContent = '⏸';
+            pauseBtn.addEventListener('click', toggleDataPause);
+            document.getElementById('map-stats')?.appendChild(pauseBtn);
+
+            // Keyboard shortcut: P to toggle
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'p' || e.key === 'P') {
+                    if (document.activeElement?.tagName === 'INPUT') return;
+                    toggleDataPause();
+                }
+            });
+        }
+
+        function toggleDataPause() {
+            dataPaused = !dataPaused;
+            (window as any).dataPaused = dataPaused;
+            const btn = document.getElementById('data-pause-btn');
+            if (btn) {
+                btn.textContent = dataPaused ? '▶' : '⏸';
+                btn.title = dataPaused ? 'Resume data polling (P)' : 'Pause all data polling (P)';
+                btn.classList.toggle('paused', dataPaused);
+            }
+            // Update the LIVE indicator
+            const liveEl = document.querySelector('.status-indicator');
+            if (liveEl) {
+                if (dataPaused) {
+                    liveEl.innerHTML = '<span style="color:#f59e0b">⏸ PAUSED</span>';
+                } else {
+                    liveEl.innerHTML = '<span class="pulse-dot"></span> LIVE';
+                }
+            }
+        }
+        initPauseButton();
+
         // Start data fetching immediately
         await m('Initial data fetch', () => fetchAllData());
 
-        // Refresh all data every 10 seconds for realtime feel
-        setInterval(fetchAllData, 10_000);
+        // All intervals guard with dataPaused
+        setInterval(() => { if (!dataPaused) fetchAllData(); }, 30_000);
 
         // Fast data loops (gated by feature flags)
-        if (FF.flights) setInterval(fetchFlights, 5_000);
-        if (FF.crypto) setInterval(fetchCrypto, 15_000);
+        if (FF.flights) setInterval(() => { if (!dataPaused) fetchFlights(); }, 15_000);
+        if (FF.crypto) setInterval(() => { if (!dataPaused) fetchCrypto(); }, 30_000);
 
-        // Refresh data freshness labels every 5s
-        setInterval(updateStats, 5_000);
+        // Refresh data freshness labels every 15s
+        setInterval(() => { if (!dataPaused) updateStats(); }, 15_000);
 
         // Poll market cap every 30s
         async function pollMcap() {
