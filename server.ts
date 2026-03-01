@@ -75,8 +75,11 @@ const server = Bun.serve({
         const isQuiet = QUIET_ROUTES.includes(url.pathname);
 
         if (isQuiet) {
+            // No-op measure that still executes and returns the fn result
+            const noopMeasure: any = (_label: any, fn?: any) => fn ? fn(noopMeasure) : undefined;
+            noopMeasure.assert = (_label: any, fn: any) => fn ? fn(noopMeasure) : undefined;
             try {
-                return await router(req, (() => { }) as any) as Response;
+                return await router(req, noopMeasure) as Response;
             } catch (error: any) {
                 console.error('[WARMAPS Error]', url.pathname, error?.message);
                 return new Response('Internal Server Error', { status: 500 });
