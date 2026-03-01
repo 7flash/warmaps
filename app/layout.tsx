@@ -4,10 +4,10 @@ export default function RootLayout({ children }: { children: any }) {
             <head>
                 <meta charSet="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-                <title>STARWAR — Global Conflict Monitor</title>
-                <meta name="description" content="STARWAR — Real-time global conflict monitoring. Live satellite fire data, OSINT intelligence, and 3D globe visualization. $STARWAR on Solana." />
+                <title>WARMAPS — Global Conflict Monitor</title>
+                <meta name="description" content="WARMAPS — Real-time global conflict monitoring. Live satellite fire data, OSINT intelligence, and 3D globe visualization. $WARMAPS on Solana." />
                 <meta name="theme-color" content="#050913" />
-                <meta property="og:title" content="STARWAR — Global Conflict Monitor" />
+                <meta property="og:title" content="WARMAPS — Global Conflict Monitor" />
                 <meta property="og:description" content="Real-time OSINT intelligence dashboard with 3D globe, satellite fire tracking, and live news feeds." />
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />

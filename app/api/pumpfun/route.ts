@@ -133,6 +133,31 @@ async function scanTokens(): Promise<ConflictToken[]> {
         console.error('[PUMPFUN] Boost scan failed:', e);
     }
 
+    // 1b. Resolve symbols for boosted tokens (boost API lacks symbol/name)
+    const needsSymbol = results.filter(t => !t.symbol);
+    if (needsSymbol.length > 0) {
+        // Batch up to 30 addresses (DexScreener limit)
+        const addresses = needsSymbol.map(t => t.tokenAddress).slice(0, 30);
+        try {
+            const res = await fetch(`https://api.dexscreener.com/tokens/v1/solana/${addresses.join(',')}`);
+            const pairs = await res.json() as any[];
+            if (Array.isArray(pairs)) {
+                for (const pair of pairs) {
+                    const addr = pair.baseToken?.address;
+                    if (!addr) continue;
+                    const token = results.find(t => t.tokenAddress === addr);
+                    if (token && !token.symbol) {
+                        token.symbol = pair.baseToken?.symbol || '';
+                        if (pair.baseToken?.name) token.name = pair.baseToken.name;
+                        if (!token.imageUrl && pair.info?.imageUrl) token.imageUrl = pair.info.imageUrl;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('[PUMPFUN] Symbol resolve failed:', e);
+        }
+    }
+
     // 2. DexScreener keyword searches
     const searchTerms = ['iran', 'trump iran', 'war', 'ww3', 'khamenei', 'missile', 'ukraine', 'israel'];
     for (const term of searchTerms) {

@@ -6,14 +6,14 @@ export default function Page() {
     return (
         <>
             <Head>
-                <title>STARWAR — Global Conflict Monitor</title>
+                <title>WARMAPS — Global Conflict Monitor</title>
                 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@^5.0.0/dist/maplibre-gl.css" />
             </Head>
 
             {/* ─── Cinematic Boot Sequence ───────────────── */}
             <div id="boot-sequence" class="boot-sequence">
                 <div class="boot-content">
-                    <div class="boot-logo">◆ STARWAR</div>
+                    <div class="boot-logo">◆ WARMAPS</div>
                     <div id="boot-text" class="boot-text">INITIALIZING PROTOCOL...</div>
                     <div class="boot-progress">
                         <div id="boot-bar" class="boot-bar"></div>
@@ -32,12 +32,12 @@ export default function Page() {
             {/* ─── Top Bar ─────────────────────────────── */}
             <header id="top-bar">
                 <div class="top-bar-left">
-                    <span class="logo">◆ STARWAR</span>
+                    <span class="logo">◆ WARMAPS</span>
                     <span class="separator">│</span>
                     <span class="tagline">GLOBAL CONFLICT MONITOR</span>
                     <span class="separator">│</span>
                     <div class="token-links">
-                        <a href="https://twitter.com/starwar_xyz" target="_blank" rel="noopener" class="social-link" title="Twitter/X">
+                        <a href="https://twitter.com/warmaps_xyz" target="_blank" rel="noopener" class="social-link" title="Twitter/X">
                             <span class="social-icon">𝕏</span>
                         </a>
                         <a href="https://pump.fun" target="_blank" rel="noopener" class="social-link pump" title="PumpFun">
@@ -46,7 +46,7 @@ export default function Page() {
                         <a href="https://dexscreener.com" target="_blank" rel="noopener" class="social-link dex" title="DexScreener">
                             <span class="social-icon">📊</span>
                         </a>
-                        <span class="token-badge" id="token-mcap" title="$STARWAR Market Cap">$STARWAR: <span id="mcap-value">—</span></span>
+                        <span class="token-badge" id="token-mcap" title="$WARMAPS Market Cap">$WARMAPS: <span id="mcap-value">—</span></span>
                     </div>
                 </div>
                 <div class="top-bar-right">
@@ -77,6 +77,7 @@ export default function Page() {
                         <span>📷: <strong id="webcam-count">—</strong></span>
                     </div>
                     <div id="data-freshness" class="data-freshness"></div>
+                    <div id="perf-hud" class="perf-hud"></div>
                 </div>
 
                 {/* Threat Alert Banner */}
@@ -94,15 +95,35 @@ export default function Page() {
                     </div>
                 </div>
 
+                {/* ─── Left-side Layer Filters ─────────────── */}
+                <div id="layer-filters" class="layer-filters">
+                    <div class="layer-filters__header" id="layer-filters-toggle">
+                        <span>🗺️ LAYERS</span>
+                        <span class="legend-chevron">▼</span>
+                    </div>
+                    <div class="layer-filters__body" id="layer-filters-body">
+                        <label class="layer-toggle"><input type="checkbox" id="filter-events" checked /><span class="lt-dot" style="background:#eab308"></span> Events</label>
+                        <label class="layer-toggle"><input type="checkbox" id="filter-fires" checked /><span class="lt-dot" style="background:#f97316"></span> Fires</label>
+                        <label class="layer-toggle"><input type="checkbox" id="filter-flights" checked /><span class="lt-dot" style="background:#22d3ee"></span> Flights</label>
+                        <label class="layer-toggle"><input type="checkbox" id="filter-tokens" checked /><span class="lt-dot" style="background:#22c55e"></span> Tokens</label>
+                        <label class="layer-toggle"><input type="checkbox" id="filter-acled" checked /><span class="lt-dot" style="background:#ef4444"></span> Strikes</label>
+                        <label class="layer-toggle"><input type="checkbox" id="filter-assets" checked /><span class="lt-dot" style="background:#3b82f6"></span> Assets</label>
+                        <label class="layer-toggle"><input type="checkbox" id="filter-seismic" checked /><span class="lt-dot" style="background:#fbbf24"></span> Seismic</label>
+                        <label class="layer-toggle"><input type="checkbox" id="filter-webcams" checked /><span class="lt-dot" style="background:#6366f1"></span> Webcams</label>
+                        <label class="layer-toggle"><input type="checkbox" id="filter-flags" checked /><span class="lt-dot" style="background:#94a3b8"></span> Flags</label>
+                    </div>
+                </div>
+
                 {/* ─── Right-side Tab Bar ───────────────── */}
                 <div class="panel-tabs panel-tabs--right">
                     <button class="panel-tab active" data-panel="pulse-panel" title="News Feed">📡</button>
-                    <button class="panel-tab" data-panel="intel-panel" title="Intel & Threats">🎯</button>
+                    <button class="panel-tab" data-panel="intel-panel" title="Intel &amp; Threats">🎯</button>
                     <button class="panel-tab" data-panel="signal-panel" title="Telegram">💬</button>
+                    <button class="panel-tab" data-panel="chat-panel" title="Global Chat">🗨️</button>
+                    <button class="panel-tab" data-panel="tokens-panel" title="PF Tokens">🪙</button>
                     <button class="panel-tab" data-panel="markets-panel" title="Prediction Markets">💎</button>
                     <button class="panel-tab" data-panel="live-panel" title="Live TV">📺</button>
-                    <button class="panel-tab" data-panel="data-panel" title="Data & Stats">📊</button>
-                    <button class="panel-tab" data-panel="layers-panel" title="Map Layers">🗺️</button>
+                    <button class="panel-tab" data-panel="data-panel" title="Data &amp; Stats">📊</button>
                 </div>
 
                 {/* ─── Tab: PULSE FEED ─────────────────────── */}
@@ -258,16 +279,40 @@ export default function Page() {
                             <div class="loading-state"><span class="spinner"></span><span>Scanning NASA FIRMS...</span></div>
                         </div>
                     </div>
+                </aside>
 
+                {/* ─── Tab: GLOBAL CHAT ──────────────────────── */}
+                <aside id="chat-panel" class="overlay-panel overlay-panel--right">
+                    <div class="panel-drag-header">
+                        <span>🗨️</span> GLOBAL CHAT
+                        <button class="panel-close-btn" data-panel="chat-panel">×</button>
+                    </div>
                     <div class="panel-section panel-section--chat">
                         <div class="panel-header">
-                            <h2>GLOBAL CHAT</h2>
+                            <h2>LIVE CHAT</h2>
                             <span class="badge" id="chat-online">0</span>
                         </div>
                         <div id="chat-messages" class="chat-messages"></div>
                         <div class="chat-input-row">
                             <input type="text" id="chat-input" class="chat-input" placeholder="Type message..." maxLength={500} autoComplete="off" />
                             <button id="chat-send" class="chat-send-btn">SEND</button>
+                        </div>
+                    </div>
+                </aside>
+
+                {/* ─── Tab: PF TOKENS ────────────────────────── */}
+                <aside id="tokens-panel" class="overlay-panel overlay-panel--right">
+                    <div class="panel-drag-header">
+                        <span>🪙</span> PF TOKENS
+                        <button class="panel-close-btn" data-panel="tokens-panel">×</button>
+                    </div>
+                    <div class="panel-section">
+                        <div class="panel-header">
+                            <h2>💰 PUMP.FUN CONFLICT TOKENS</h2>
+                            <span class="badge" id="tokens-count">0</span>
+                        </div>
+                        <div id="tokens-feed" class="feed-list tokens-list">
+                            <div class="loading-state"><span class="spinner"></span><span>Scanning Pump.fun...</span></div>
                         </div>
                     </div>
                 </aside>

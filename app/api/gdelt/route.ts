@@ -187,9 +187,27 @@ async function fetchLatestGKG(): Promise<GdeltEvent[]> {
                 .map(t => t.split(',')[0]?.replace(/^TAX_/i, '') || t)
                 .slice(0, 5);
 
+            // Build a human-readable title from theme + country
+            const THEME_LABELS: Record<string, string> = {
+                'KILL': 'Attack', 'TERROR': 'Terror Incident', 'PROTEST': 'Protest',
+                'MILITARY': 'Military Activity', 'ARREST': 'Arrest', 'WOUND': 'Casualties',
+                'ARMEDCONFLICT': 'Armed Conflict', 'CRISISLEX': 'Crisis',
+                'WMD': 'WMD Threat', 'FNCACT_KILL': 'Killing',
+                'ECON_SANCTIONS': 'Sanctions', 'REFUGEE': 'Refugee Crisis',
+                'HUMANITARIAN': 'Humanitarian Crisis', 'POLITICAL_TURMOIL': 'Political Turmoil',
+            };
+            const readableTheme = themeLabels.reduce((acc: string, t: string) => {
+                if (acc !== 'Conflict Event') return acc;
+                for (const [key, label] of Object.entries(THEME_LABELS)) {
+                    if (t.toUpperCase().includes(key)) return label;
+                }
+                return acc;
+            }, 'Conflict Event');
+            const location = country || source;
+
             events.push({
                 id: `gkg-${date}-${events.length}`,
-                title: `[${source}] ${themeLabels[0] || 'Conflict Event'}`,
+                title: `${readableTheme}${location ? ' — ' + location : ''}`,
                 url: articleUrl,
                 source,
                 date: formatGkgDate(date),

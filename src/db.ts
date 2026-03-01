@@ -1,5 +1,5 @@
 /**
- * STARWAR Database — persistent storage for all intelligence data
+ * WARMAPS Database — persistent storage for all intelligence data
  * 
  * Tables:
  * - market_snapshots: Polymarket/Kalshi market data over time (velocity detection)
@@ -102,7 +102,7 @@ export const db = new Database(dbPath, {
     },
 });
 
-console.log(`[db] STARWAR database initialized at ${dbPath}`);
+console.log(`[db] WARMAPS database initialized at ${dbPath}`);
 
 // ─── Helper functions ────────────────────────────────────────
 

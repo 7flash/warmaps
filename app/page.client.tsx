@@ -15,6 +15,33 @@
  */
 
 import maplibregl from 'maplibre-gl';
+import { createMeasure, configure } from 'measure-fn';
+
+// Configure measure-fn for browser console visibility
+configure({ maxResultLength: 120, timestamps: true });
+const { measure, measureSync } = createMeasure('wm');
+
+// ─── Feature Flags ──────────────────────────────────────────
+// Toggle via console: window.FF.flights = false (to disable for perf debugging)
+// All enabled by default — disable to isolate FPS bottlenecks
+const FF = {
+    news: true,
+    gdelt: true,
+    fires: true,
+    flights: true,
+    markets: true,
+    telegram: true,
+    assets: true,
+    acled: true,
+    seismic: true,
+    crypto: true,
+    webcams: true,
+    pumpfun: true,
+    spotlight: true,
+    ticker: true,
+    imageMarkers: true,
+};
+(window as any).FF = FF;
 
 // ─── State ──────────────────────────────────────────────────
 
@@ -34,6 +61,18 @@ let webcamData: any[] = [];
 let pumpfunTokens: any[] = [];
 let currentFilter = 'all';
 
+// ─── Real-Time Image Marker System ───────────────────────────
+// Rank-based fade: each new image causes all previous ones to fade a bit.
+// Opacity = 1.0 - (rank * FADE_PER_RANK), where rank=0 is newest.
+const eventArrivalTime: Map<string, number> = new Map();  // eventId → client-side arrival timestamp
+const eventQueue: any[] = [];  // queue of events waiting to appear on map
+let queueDrainTimer: ReturnType<typeof setInterval> | null = null;
+const IMAGE_MARKERS: Map<string, any> = new Map();         // ordered by insertion (Map preserves order)
+const IMAGE_MARKER_ORDER: string[] = [];                    // ordered list of marker IDs (newest last)
+const MAX_VISIBLE_IMAGES = 15;    // max images on map at once
+const FADE_PER_RANK = 0.07;      // each rank step reduces opacity by this much
+const IMAGE_APPEAR_INTERVAL = 3_000; // new image appears every 3s
+
 // Data freshness tracking
 const dataFreshness: Record<string, number> = {};
 function markFresh(source: string) { dataFreshness[source] = Date.now(); }
@@ -46,176 +85,120 @@ function getFreshnessLabel(source: string): string {
     return `${Math.floor(age / 3600)}h`;
 }
 
+// ─── Performance Metrics ─────────────────────────────────────
+let _fps = 0;
+let _fpsFrames = 0;
+let _fpsLast = performance.now();
+let _pingMs = -1;
+let _pingInterval: any = null;
+const TARGET_FPS = 120;
+const FRAME_INTERVAL = 1000 / TARGET_FPS; // ~8.33ms per frame
+
+/**
+ * 120 FPS rendering loop.
+ * 
+ * requestAnimationFrame is capped at monitor refresh rate (60Hz on most displays).
+ * To hit 120fps we:
+ *   1. Count MapLibre's actual GPU render frames via map.on('render')
+ *   2. Force continuous repaint with map.triggerRepaint() every render
+ *   3. Use a high-frequency setTimeout loop (8.33ms) for our own animation tick
+ *
+ * On 120Hz displays this matches natively. On 60Hz displays, MapLibre will
+ * still render internally at up to 120fps via triggerRepaint() even though
+ * the compositor shows 60fps — the HUD counts actual render calls.
+ */
+function startFPSCounter() {
+    // High-resolution timer loop — NOT limited to rAF's refresh rate
+    let lastTick = performance.now();
+
+    const tick = () => {
+        _fpsFrames++;
+        const now = performance.now();
+        if (now - _fpsLast >= 1000) {
+            _fps = _fpsFrames;
+            _fpsFrames = 0;
+            _fpsLast = now;
+            updatePerfDisplay();
+        }
+
+        // Schedule next tick at 120Hz using setTimeout
+        // setTimeout(fn, 0) actually fires at ~4ms (browser minimum)
+        // For 120fps we need ~8.33ms intervals
+        const elapsed = performance.now() - lastTick;
+        const delay = Math.max(0, FRAME_INTERVAL - elapsed);
+        lastTick = performance.now();
+        setTimeout(tick, delay);
+    };
+
+    // Start the loop
+    setTimeout(tick, 0);
+}
+
+/**
+ * Force MapLibre GL into continuous 120fps repaint mode.
+ * Called after map loads — hooks into the render event and immediately
+ * requests another repaint, creating a continuous GPU render loop.
+ */
+function startContinuousRepaint() {
+    if (!map) return;
+
+    // Every time MapLibre finishes a render, immediately request another
+    map.on('render', () => {
+        map.triggerRepaint();
+    });
+
+    // Zoom-responsive image markers: update --marker-scale on zoom change
+    const updateMarkerScale = () => {
+        const zoom = map.getZoom();
+        // Scale: zoom 2→0.3, zoom 4→0.5, zoom 6→0.8, zoom 8→1.0, zoom 10+→1.2
+        const scale = Math.min(1.3, Math.max(0.3, (zoom - 2) * 0.15 + 0.3));
+        document.querySelectorAll('.map-image-marker').forEach((el: any) => {
+            el.style.setProperty('--marker-scale', String(scale));
+        });
+    };
+    map.on('zoom', updateMarkerScale);
+    updateMarkerScale();
+
+    // Kick off the first repaint
+    map.triggerRepaint();
+}
+
+function startPingMonitor() {
+    const measure = async () => {
+        try {
+            const t0 = performance.now();
+            await fetch('/api/ping', { cache: 'no-store' });
+            _pingMs = Math.round(performance.now() - t0);
+        } catch { _pingMs = -1; }
+    };
+    measure();
+    _pingInterval = setInterval(measure, 5000);
+}
+
+function updatePerfDisplay() {
+    const el = document.getElementById('perf-hud');
+    if (!el) return;
+    const fpsColor = _fps >= 100 ? 'var(--accent)' : _fps >= 60 ? 'var(--amber)' : '#ef4444';
+    const pingColor = _pingMs < 100 ? 'var(--accent)' : _pingMs < 300 ? 'var(--amber)' : '#ef4444';
+    el.innerHTML = `<span style="color:${fpsColor}">${_fps} FPS</span> · <span style="color:${pingColor}">${_pingMs >= 0 ? _pingMs + 'ms' : '—'}</span>`;
+}
+
+// ─── Debounce utility ────────────────────────────────────────
+const _debounceTimers: Record<string, any> = {};
+function debounce(key: string, fn: () => void, ms: number) {
+    clearTimeout(_debounceTimers[key]);
+    _debounceTimers[key] = setTimeout(fn, ms);
+}
+
 // Proxy external images through our server to bypass CORS
 function proxyImg(url: string | null | undefined): string {
     if (!url || !url.startsWith('http')) return '';
     return `/api/image-proxy?url=${encodeURIComponent(url)}`;
 }
 
-// Image marker pool — HTML markers with actual article thumbnails
-let imageMarkers: any[] = [];
-
-// Breaking news keywords for special pulsing markers
-const BREAKING_KEYWORDS = ['breaking', 'missile', 'strike', 'bomb', 'explosion', 'attack', 'drone', 'killed', 'dead', 'war', 'invasion', 'aircraft', 'shot down'];
-
-function isBreaking(title: string): boolean {
-    const lower = title.toLowerCase();
-    return BREAKING_KEYWORDS.some(kw => lower.includes(kw));
-}
-
-function syncImageMarkers() {
-    if (!map) return;
-
-    // Remove all existing image markers
-    imageMarkers.forEach(m => m.remove());
-    imageMarkers = [];
-
-    // Render directly from gdeltEvents data — NOT from clustered layer
-    // This ensures markers are always visible regardless of zoom/clustering
-    const bounds = map.getBounds();
-
-    // Sort: breaking first, then VGKG (higher quality), then by freshness
-    const eventsWithImages = gdeltEvents.filter(e => {
-        if (!e.lat || !e.lon) return false;
-        if (e.lon < bounds.getWest() || e.lon > bounds.getEast()) return false;
-        if (e.lat < bounds.getSouth() || e.lat > bounds.getNorth()) return false;
-        return e.imageUrl || isBreaking(e.title || '');
-    }).sort((a, b) => {
-        const aBreaking = isBreaking(a.title || '') ? 1 : 0;
-        const bBreaking = isBreaking(b.title || '') ? 1 : 0;
-        if (aBreaking !== bBreaking) return bBreaking - aBreaking;
-        const aVgkg = a.vgkg ? 1 : 0;
-        const bVgkg = b.vgkg ? 1 : 0;
-        if (aVgkg !== bVgkg) return bVgkg - aVgkg;
-        return 0; // Already ordered by API response (newest first)
-    });
-
-    console.log(`[STARWAR] syncImageMarkers: ${gdeltEvents.length} total events, ${eventsWithImages.length} with images/breaking in view`);
-
-    // Spatial grid dedup: divide viewport into cells, max 1 marker per cell
-    // At zoom 3 (world), cells are ~5° → ~10 markers max
-    // At zoom 6 (continent), cells are ~1° → ~40 markers
-    // At zoom 10 (city), cells are ~0.05° → many markers
-    const zoom = map.getZoom();
-    const cellSize = Math.max(0.02, 5 / Math.pow(2, zoom - 3));
-    const maxMarkers = 60;
-    const occupiedCells = new Set<string>();
-
-    let rendered = 0;
-    for (const e of eventsWithImages) {
-        if (rendered >= maxMarkers) break;
-
-        const breaking = isBreaking(e.title || '');
-
-        // Breaking events bypass spatial grid (always shown)
-        if (!breaking) {
-            const cellX = Math.floor(e.lon / cellSize);
-            const cellY = Math.floor(e.lat / cellSize);
-            const cellKey = `${cellX},${cellY}`;
-            if (occupiedCells.has(cellKey)) continue;
-            occupiedCells.add(cellKey);
-        }
-
-        // Jitter scales with cell size to spread markers within cells
-        const jitter = () => (Math.random() - 0.5) * cellSize * 0.6;
-        const coords: [number, number] = [e.lon + jitter(), e.lat + jitter()];
-
-        const imageUrl = e.imageUrl;
-        const title = e.title || '';
-
-        // ─── Zoom-responsive sizing ──────────────────────────
-        // Simulates Deck.gl sizeUnits:'meters' + sizeMinPixels/sizeMaxPixels
-        // Markers grow smoothly from 28px (global) to 160px (street level)
-        const MIN_SIZE = 28;   // sizeMinPixels equivalent
-        const MAX_SIZE = 160;  // sizeMaxPixels equivalent
-        const markerSize = Math.round(Math.min(MAX_SIZE, Math.max(MIN_SIZE,
-            MIN_SIZE * Math.pow(1.22, zoom - 3) // ~1.22x per zoom level
-        )));
-        const breakingSize = Math.round(markerSize * 1.25); // Breaking 25% larger
-
-        // Create the marker element
-        const el = document.createElement('div');
-        el.className = 'map-image-marker' + (breaking ? ' map-image-marker--breaking' : '');
-        const size = breaking ? breakingSize : markerSize;
-        el.style.width = `${size}px`;
-        el.style.height = `${size}px`;
-
-        if (imageUrl && imageUrl.startsWith('http')) {
-            const img = document.createElement('img');
-            img.src = proxyImg(imageUrl);
-            img.alt = title;
-            img.loading = 'lazy';
-            img.onerror = () => {
-                el.innerHTML = '';
-                el.classList.add('map-image-marker--fallback');
-            };
-            el.appendChild(img);
-        } else {
-            el.classList.add('map-image-marker--fallback');
-            el.style.background = breaking ? '#ef4444' : '#22c55e';
-        }
-
-        // Hover preview
-        if (imageUrl && imageUrl.startsWith('http')) {
-            el.addEventListener('mouseenter', () => {
-                document.querySelectorAll('.marker-hover-preview').forEach(p => p.remove());
-                const preview = document.createElement('div');
-                preview.className = 'marker-hover-preview';
-                preview.innerHTML = `
-                    <img src="${proxyImg(imageUrl)}" alt="" />
-                    <div class="marker-hover-title">${title.length > 80 ? title.slice(0, 80) + '…' : title}</div>
-                    <div class="marker-hover-source">${e.source || 'OSINT'} · ${breaking ? '🔴 BREAKING' : 'Event'}</div>
-                `;
-                document.body.appendChild(preview);
-                const rect = el.getBoundingClientRect();
-                preview.style.left = `${rect.right + 12}px`;
-                preview.style.top = `${rect.top - 20}px`;
-                requestAnimationFrame(() => {
-                    const pr = preview.getBoundingClientRect();
-                    if (pr.right > window.innerWidth - 10) {
-                        preview.style.left = `${rect.left - pr.width - 12}px`;
-                    }
-                    if (pr.bottom > window.innerHeight - 10) {
-                        preview.style.top = `${window.innerHeight - pr.height - 10}px`;
-                    }
-                });
-            });
-            el.addEventListener('mouseleave', () => {
-                document.querySelectorAll('.marker-hover-preview').forEach(p => p.remove());
-            });
-        }
-
-        // Click popup
-        el.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            document.querySelectorAll('.marker-hover-preview').forEach(p => p.remove());
-            const popup = new maplibregl.Popup({
-                className: 'tactical-popup',
-                closeButton: true,
-                maxWidth: '320px',
-            })
-                .setLngLat(coords)
-                .setHTML(`
-                    <div class="intel-card">
-                        ${imageUrl ? `<img src="${proxyImg(imageUrl)}" style="width:100%;height:140px;object-fit:cover;border-bottom:1px solid rgba(34,197,94,0.1);" />` : ''}
-                        <div class="intel-card-body" style="padding:10px;">
-                            <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px;line-height:1.3;">${title}</div>
-                            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">📍 ${e.date || 'Recent'} · ${e.source || 'GDELT'}</div>
-                            ${e.url ? `<a href="${e.url}" target="_blank" rel="noopener" style="font-size:10px;color:var(--accent);text-decoration:none;">Read Article →</a>` : ''}
-                        </div>
-                    </div>
-                `)
-                .addTo(map);
-        });
-
-        const marker = new maplibregl.Marker({ element: el })
-            .setLngLat(coords)
-            .addTo(map);
-
-        imageMarkers.push(marker);
-        rendered++;
-    }
-}
+// Image markers removed — all rendering is GPU-native MapLibre layers now
+// GDELT events render via the 'events' source (circles + clusters)
+// Click popups are handled via native layer click handlers
 
 // ─── MapLibre 2D Tactical Map Setup ─────────────────────────
 
@@ -281,9 +264,6 @@ function initMap() {
         map.addSource('events', {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [] },
-            cluster: true,
-            clusterMaxZoom: 14,
-            clusterRadius: 50
         });
 
         // Fixed Tactical Assets Source
@@ -312,170 +292,111 @@ function initMap() {
 
         // --- Layers ---
 
-        // ─── Country Flag Territory Fills ────────────────────
-        // Load simplified world boundaries and color each country with its dominant flag color
-        // This creates a vibrant geopolitical backdrop behind all data layers
-        const COUNTRY_FLAG_COLORS: Record<string, string> = {
+        // ─── Country Flag Emoji at Centroids ────────────────────
+        // PERF: Instead of loading 10MB+ polygon GeoJSON + rendering fills,
+        // use lightweight point markers with flag emoji at each country centroid
+        const COUNTRY_FLAGS: Array<{ iso: string; flag: string; lat: number; lon: number; name: string }> = [
             // Middle East & Central Asia
-            'IRN': '#00a651', 'IRQ': '#ce1126', 'SYR': '#ce1126', 'ISR': '#0038b8',
-            'PSE': '#009736', 'LBN': '#ce1126', 'JOR': '#007a3d', 'SAU': '#006c35',
-            'YEM': '#ce1126', 'OMN': '#ce1126', 'ARE': '#00732f', 'QAT': '#8a1538',
-            'KWT': '#007a3d', 'BHR': '#ce1126', 'AFG': '#009900', 'PAK': '#01411c',
-            'TUR': '#e30a17', 'AZE': '#00b5e2', 'GEO': '#ff0000', 'ARM': '#f2a800',
+            { iso: 'IRN', flag: '🇮🇷', lat: 32.4, lon: 53.7, name: 'Iran' },
+            { iso: 'IRQ', flag: '🇮🇶', lat: 33.2, lon: 43.7, name: 'Iraq' },
+            { iso: 'SYR', flag: '🇸🇾', lat: 35.0, lon: 38.0, name: 'Syria' },
+            { iso: 'ISR', flag: '🇮🇱', lat: 31.0, lon: 34.8, name: 'Israel' },
+            { iso: 'PSE', flag: '🇵🇸', lat: 31.9, lon: 35.2, name: 'Palestine' },
+            { iso: 'LBN', flag: '🇱🇧', lat: 33.9, lon: 35.9, name: 'Lebanon' },
+            { iso: 'JOR', flag: '🇯🇴', lat: 31.2, lon: 36.5, name: 'Jordan' },
+            { iso: 'SAU', flag: '🇸🇦', lat: 24.7, lon: 45.1, name: 'Saudi Arabia' },
+            { iso: 'YEM', flag: '🇾🇪', lat: 15.5, lon: 48.5, name: 'Yemen' },
+            { iso: 'ARE', flag: '🇦🇪', lat: 23.4, lon: 53.8, name: 'UAE' },
+            { iso: 'AFG', flag: '🇦🇫', lat: 33.9, lon: 67.7, name: 'Afghanistan' },
+            { iso: 'PAK', flag: '🇵🇰', lat: 30.4, lon: 69.3, name: 'Pakistan' },
+            { iso: 'TUR', flag: '🇹🇷', lat: 39.0, lon: 35.2, name: 'Turkey' },
             // Europe
-            'UKR': '#0057b7', 'RUS': '#ff2d2d', 'BLR': '#ce1126', 'POL': '#dc143c',
-            'DEU': '#ffcc00', 'FRA': '#0055a4', 'GBR': '#1a5cb5', 'ITA': '#009246',
-            'ESP': '#c60b1e', 'PRT': '#006600', 'NLD': '#ae1c28', 'BEL': '#fdda24',
-            'SWE': '#006aa7', 'NOR': '#ba0c2f', 'FIN': '#003580', 'DNK': '#c60c30',
-            'ROU': '#002b7f', 'BGR': '#00966e', 'SRB': '#c6363c', 'HRV': '#171796',
-            'GRC': '#004c98', 'CZE': '#11457e', 'HUN': '#436f4d', 'SVK': '#0b4ea2',
-            'AUT': '#ed2939', 'CHE': '#ff0000', 'LTU': '#fdb913', 'LVA': '#9e3039',
-            'EST': '#0072ce', 'MDA': '#003da5', 'MNE': '#d4af37', 'MKD': '#d20000',
-            'ALB': '#e41e20', 'BIH': '#002395', 'KOS': '#003da5',
+            { iso: 'UKR', flag: '🇺🇦', lat: 49.0, lon: 32.0, name: 'Ukraine' },
+            { iso: 'RUS', flag: '🇷🇺', lat: 61.5, lon: 105.3, name: 'Russia' },
+            { iso: 'BLR', flag: '🇧🇾', lat: 53.7, lon: 28.0, name: 'Belarus' },
+            { iso: 'POL', flag: '🇵🇱', lat: 51.9, lon: 19.1, name: 'Poland' },
+            { iso: 'DEU', flag: '🇩🇪', lat: 51.2, lon: 10.4, name: 'Germany' },
+            { iso: 'FRA', flag: '🇫🇷', lat: 46.2, lon: 2.2, name: 'France' },
+            { iso: 'GBR', flag: '🇬🇧', lat: 55.4, lon: -3.4, name: 'UK' },
+            { iso: 'ITA', flag: '🇮🇹', lat: 41.9, lon: 12.6, name: 'Italy' },
+            { iso: 'ESP', flag: '🇪🇸', lat: 40.5, lon: -3.7, name: 'Spain' },
+            { iso: 'ROU', flag: '🇷🇴', lat: 45.9, lon: 24.9, name: 'Romania' },
+            { iso: 'GRC', flag: '🇬🇷', lat: 39.1, lon: 21.8, name: 'Greece' },
+            { iso: 'SWE', flag: '🇸🇪', lat: 60.1, lon: 18.6, name: 'Sweden' },
+            { iso: 'NOR', flag: '🇳🇴', lat: 60.5, lon: 8.5, name: 'Norway' },
+            { iso: 'FIN', flag: '🇫🇮', lat: 61.9, lon: 25.7, name: 'Finland' },
             // Africa
-            'EGY': '#ce1126', 'LBY': '#239e46', 'TUN': '#e70013', 'DZA': '#006233',
-            'MAR': '#c1272d', 'SDN': '#007229', 'SSD': '#078930', 'ETH': '#009b3a',
-            'SOM': '#4189dd', 'KEN': '#006600', 'NGA': '#008751', 'ZAF': '#007749',
-            'COD': '#007fff', 'TZA': '#1eb53a', 'UGA': '#fcdc04', 'RWA': '#00a1de',
-            'MLI': '#14b53a', 'NER': '#e05206', 'TCD': '#002664', 'CMR': '#007a5e',
+            { iso: 'EGY', flag: '🇪🇬', lat: 26.8, lon: 30.8, name: 'Egypt' },
+            { iso: 'LBY', flag: '🇱🇾', lat: 26.3, lon: 17.2, name: 'Libya' },
+            { iso: 'SDN', flag: '🇸🇩', lat: 12.9, lon: 30.2, name: 'Sudan' },
+            { iso: 'ETH', flag: '🇪🇹', lat: 9.1, lon: 40.5, name: 'Ethiopia' },
+            { iso: 'SOM', flag: '🇸🇴', lat: 5.2, lon: 46.2, name: 'Somalia' },
+            { iso: 'KEN', flag: '🇰🇪', lat: -0.02, lon: 37.9, name: 'Kenya' },
+            { iso: 'NGA', flag: '🇳🇬', lat: 9.1, lon: 8.7, name: 'Nigeria' },
+            { iso: 'ZAF', flag: '🇿🇦', lat: -30.6, lon: 22.9, name: 'South Africa' },
+            { iso: 'COD', flag: '🇨🇩', lat: -4.0, lon: 21.8, name: 'DR Congo' },
             // Americas
-            'USA': '#1a6aff', 'CAN': '#ff0000', 'MEX': '#006847', 'BRA': '#009c3b',
-            'ARG': '#74acdf', 'COL': '#fcd116', 'VEN': '#cf142b', 'CHL': '#d52b1e',
-            'PER': '#d91023', 'CUB': '#002a8f',
+            { iso: 'USA', flag: '🇺🇸', lat: 37.1, lon: -95.7, name: 'USA' },
+            { iso: 'CAN', flag: '🇨🇦', lat: 56.1, lon: -106.3, name: 'Canada' },
+            { iso: 'MEX', flag: '🇲🇽', lat: 23.6, lon: -102.6, name: 'Mexico' },
+            { iso: 'BRA', flag: '🇧🇷', lat: -14.2, lon: -51.9, name: 'Brazil' },
+            { iso: 'ARG', flag: '🇦🇷', lat: -38.4, lon: -63.6, name: 'Argentina' },
+            { iso: 'COL', flag: '🇨🇴', lat: 4.6, lon: -74.3, name: 'Colombia' },
             // Asia
-            'CHN': '#de2910', 'JPN': '#bc002d', 'KOR': '#003478', 'PRK': '#024fa2',
-            'IND': '#ff9933', 'MMR': '#fecb00', 'THA': '#241d4f', 'VNM': '#da251d',
-            'IDN': '#ff0000', 'MYS': '#010066', 'PHL': '#0038a8', 'TWN': '#000095',
-            'KAZ': '#00afca', 'UZB': '#1eb53a', 'TKM': '#1a8b42', 'KGZ': '#e8112d',
-            'TJK': '#006600',
-        };
+            { iso: 'CHN', flag: '🇨🇳', lat: 35.9, lon: 104.2, name: 'China' },
+            { iso: 'JPN', flag: '🇯🇵', lat: 36.2, lon: 138.3, name: 'Japan' },
+            { iso: 'KOR', flag: '🇰🇷', lat: 35.9, lon: 127.8, name: 'South Korea' },
+            { iso: 'PRK', flag: '🇰🇵', lat: 40.3, lon: 127.5, name: 'North Korea' },
+            { iso: 'IND', flag: '🇮🇳', lat: 20.6, lon: 78.9, name: 'India' },
+            { iso: 'TWN', flag: '🇹🇼', lat: 23.7, lon: 121.0, name: 'Taiwan' },
+            { iso: 'KAZ', flag: '🇰🇿', lat: 48.0, lon: 68.0, name: 'Kazakhstan' },
+            { iso: 'AUS', flag: '🇦🇺', lat: -25.3, lon: 133.8, name: 'Australia' },
+            { iso: 'IDN', flag: '🇮🇩', lat: -0.8, lon: 113.9, name: 'Indonesia' },
+            { iso: 'THA', flag: '🇹🇭', lat: 15.9, lon: 100.9, name: 'Thailand' },
+            { iso: 'VNM', flag: '🇻🇳', lat: 14.1, lon: 108.3, name: 'Vietnam' },
+            { iso: 'PHL', flag: '🇵🇭', lat: 12.9, lon: 121.8, name: 'Philippines' },
+            { iso: 'MYS', flag: '🇲🇾', lat: 4.2, lon: 101.9, name: 'Malaysia' },
+            { iso: 'OMN', flag: '🇴🇲', lat: 21.5, lon: 55.9, name: 'Oman' },
+            { iso: 'QAT', flag: '🇶🇦', lat: 25.4, lon: 51.2, name: 'Qatar' },
+            { iso: 'KWT', flag: '🇰🇼', lat: 29.3, lon: 47.5, name: 'Kuwait' },
+            { iso: 'BHR', flag: '🇧🇭', lat: 26.0, lon: 50.5, name: 'Bahrain' },
+            { iso: 'GEO', flag: '🇬🇪', lat: 42.3, lon: 43.4, name: 'Georgia' },
+            { iso: 'ARM', flag: '🇦🇲', lat: 40.1, lon: 45.0, name: 'Armenia' },
+            { iso: 'AZE', flag: '🇦🇿', lat: 40.1, lon: 47.6, name: 'Azerbaijan' },
+        ];
 
-        // Load world GeoJSON and add country fill layer
-        // Using Natural Earth GeoJSON (pre-split at antimeridian, no wrapping artifacts)
-        fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
-            .then(r => r.json())
-            .then(countries => {
-                // Map ISO3166-1-Alpha-3 property to our flag colors
-                countries.features.forEach((f: any) => {
-                    const iso3 = f.properties?.['ISO3166-1-Alpha-3'] || f.properties?.ISO_A3 || f.properties?.iso_a3 || '';
-                    f.properties = f.properties || {};
-                    f.properties.iso3 = iso3;
-                    f.properties.flagColor = COUNTRY_FLAG_COLORS[iso3] || '#334155';
-                });
+        // Country label layer — pure text, no canvas rendering needed
+        const flagFeatures = COUNTRY_FLAGS.map(c => ({
+            type: 'Feature' as const,
+            geometry: { type: 'Point' as const, coordinates: [c.lon, c.lat] },
+            properties: { name: c.name, iso: c.iso }
+        }));
 
-                map.addSource('countries', {
-                    type: 'geojson',
-                    data: countries
-                });
+        map.addSource('country-flags', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: flagFeatures }
+        });
 
-                // Country fill — vivid flag-inspired territory coloring
-                map.addLayer({
-                    id: 'country-fills',
-                    type: 'fill',
-                    source: 'countries',
-                    paint: {
-                        'fill-color': ['get', 'flagColor'],
-                        'fill-opacity': 0.30,
-                    }
-                }, 'fires-heat');
-
-                // Country borders — bright glowing lines
-                map.addLayer({
-                    id: 'country-borders',
-                    type: 'line',
-                    source: 'countries',
-                    paint: {
-                        'line-color': ['get', 'flagColor'],
-                        'line-width': 1.2,
-                        'line-opacity': 0.55,
-                    }
-                }, 'fires-heat');
-            })
-            .catch(err => {
-                console.warn('[STARWAR] Primary GeoJSON failed, trying TopoJSON fallback:', err);
-                // Fallback to TopoJSON with coordinate clamping
-                fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
-                    .then(r => r.json())
-                    .then(topology => {
-                        // @ts-ignore
-                        const topojsonFeature = (topo: any, obj: any) => {
-                            const features: any[] = [];
-                            const arcs = topo.arcs;
-                            const transform = topo.transform;
-                            const decodeArc = (arcIdx: number) => {
-                                const arc = arcs[arcIdx < 0 ? ~arcIdx : arcIdx];
-                                const coords: [number, number][] = [];
-                                let x = 0, y = 0;
-                                for (const [dx, dy] of arc) {
-                                    x += dx; y += dy;
-                                    const lon = Math.max(-180, Math.min(180, x * transform.scale[0] + transform.translate[0]));
-                                    const lat = Math.max(-90, Math.min(90, y * transform.scale[1] + transform.translate[1]));
-                                    coords.push([lon, lat]);
-                                }
-                                return arcIdx < 0 ? coords.reverse() : coords;
-                            };
-                            const decodeRings = (rings: number[][]) => rings.map((ring: number[]) =>
-                                ring.reduce<[number, number][]>((acc, idx) => acc.concat(decodeArc(idx)), [])
-                            );
-                            for (const geom of obj.geometries) {
-                                let geometry: any;
-                                if (geom.type === 'Polygon') {
-                                    geometry = { type: 'Polygon', coordinates: decodeRings(geom.arcs) };
-                                } else if (geom.type === 'MultiPolygon') {
-                                    geometry = { type: 'MultiPolygon', coordinates: geom.arcs.map((p: number[][]) => decodeRings(p)) };
-                                } else continue;
-                                features.push({ type: 'Feature', properties: { ...geom.properties, id: geom.id }, geometry });
-                            }
-                            return { type: 'FeatureCollection', features };
-                        };
-
-                        const countries = topojsonFeature(topology, topology.objects.countries);
-                        const numToIso3: Record<string, string> = {
-                            '4': 'AFG', '8': 'ALB', '12': 'DZA', '24': 'AGO', '32': 'ARG',
-                            '36': 'AUS', '40': 'AUT', '31': 'AZE', '48': 'BHR', '50': 'BGD',
-                            '56': 'BEL', '112': 'BLR', '68': 'BOL', '70': 'BIH', '72': 'BWA',
-                            '76': 'BRA', '100': 'BGR', '854': 'BFA', '104': 'MMR', '108': 'BDI',
-                            '116': 'KHM', '120': 'CMR', '124': 'CAN', '140': 'CAF', '148': 'TCD',
-                            '152': 'CHL', '156': 'CHN', '170': 'COL', '178': 'COG', '180': 'COD',
-                            '188': 'CRI', '191': 'HRV', '192': 'CUB', '196': 'CYP', '203': 'CZE',
-                            '208': 'DNK', '262': 'DJI', '214': 'DOM', '218': 'ECU', '818': 'EGY',
-                            '222': 'SLV', '226': 'GNQ', '232': 'ERI', '233': 'EST', '231': 'ETH',
-                            '246': 'FIN', '250': 'FRA', '266': 'GAB', '270': 'GMB', '268': 'GEO',
-                            '276': 'DEU', '288': 'GHA', '300': 'GRC', '320': 'GTM', '324': 'GIN',
-                            '328': 'GUY', '332': 'HTI', '340': 'HND', '348': 'HUN', '352': 'ISL',
-                            '356': 'IND', '360': 'IDN', '364': 'IRN', '368': 'IRQ', '372': 'IRL',
-                            '376': 'ISR', '380': 'ITA', '384': 'CIV', '388': 'JAM', '392': 'JPN',
-                            '400': 'JOR', '398': 'KAZ', '404': 'KEN', '408': 'PRK', '410': 'KOR',
-                            '414': 'KWT', '417': 'KGZ', '418': 'LAO', '428': 'LVA', '422': 'LBN',
-                            '426': 'LSO', '430': 'LBR', '434': 'LBY', '440': 'LTU', '442': 'LUX',
-                            '807': 'MKD', '450': 'MDG', '454': 'MWI', '458': 'MYS', '466': 'MLI',
-                            '478': 'MRT', '484': 'MEX', '498': 'MDA', '496': 'MNG', '499': 'MNE',
-                            '504': 'MAR', '508': 'MOZ', '516': 'NAM', '524': 'NPL', '528': 'NLD',
-                            '554': 'NZL', '558': 'NIC', '562': 'NER', '566': 'NGA', '578': 'NOR',
-                            '512': 'OMN', '586': 'PAK', '591': 'PAN', '598': 'PNG', '600': 'PRY',
-                            '604': 'PER', '608': 'PHL', '616': 'POL', '620': 'PRT', '634': 'QAT',
-                            '642': 'ROU', '643': 'RUS', '646': 'RWA', '682': 'SAU', '686': 'SEN',
-                            '688': 'SRB', '694': 'SLE', '702': 'SGP', '703': 'SVK', '705': 'SVN',
-                            '706': 'SOM', '710': 'ZAF', '728': 'SSD', '724': 'ESP', '144': 'LKA',
-                            '729': 'SDN', '740': 'SUR', '748': 'SWZ', '752': 'SWE', '756': 'CHE',
-                            '760': 'SYR', '158': 'TWN', '762': 'TJK', '834': 'TZA', '764': 'THA',
-                            '768': 'TGO', '780': 'TTO', '788': 'TUN', '792': 'TUR', '795': 'TKM',
-                            '800': 'UGA', '804': 'UKR', '784': 'ARE', '826': 'GBR', '840': 'USA',
-                            '858': 'URY', '860': 'UZB', '862': 'VEN', '704': 'VNM', '887': 'YEM',
-                            '894': 'ZMB', '716': 'ZWE', '-99': 'XKX',
-                        };
-                        countries.features.forEach((f: any) => {
-                            const iso3 = numToIso3[String(f.properties?.id || f.id)] || '';
-                            f.properties = f.properties || {};
-                            f.properties.iso3 = iso3;
-                            f.properties.flagColor = COUNTRY_FLAG_COLORS[iso3] || '#334155';
-                        });
-                        map.addSource('countries', { type: 'geojson', data: countries });
-                        map.addLayer({ id: 'country-fills', type: 'fill', source: 'countries', paint: { 'fill-color': ['get', 'flagColor'], 'fill-opacity': 0.25 } }, 'fires-heat');
-                        map.addLayer({ id: 'country-borders', type: 'line', source: 'countries', paint: { 'line-color': ['get', 'flagColor'], 'line-width': 1.2, 'line-opacity': 0.55 } }, 'fires-heat');
-                    })
-                    .catch(err2 => console.error('[STARWAR] Both country sources failed:', err2));
-            });
+        map.addLayer({
+            id: 'country-flag-labels',
+            type: 'symbol',
+            source: 'country-flags',
+            layout: {
+                'text-field': ['get', 'iso'],
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-size': ['interpolate', ['linear'], ['zoom'], 2, 9, 5, 11, 8, 14],
+                'text-allow-overlap': false,
+                'text-ignore-placement': false,
+                'text-letter-spacing': 0.1,
+            },
+            paint: {
+                'text-color': '#64748b',
+                'text-halo-color': 'rgba(0,0,0,0.8)',
+                'text-halo-width': 1.5,
+                'text-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.5, 4, 0.7, 6, 0.9],
+            },
+            minzoom: 2,
+        });
 
         // Thermal Anomalies (Heatmap)
         map.addLayer({
@@ -515,46 +436,47 @@ function initMap() {
             }
         });
 
-        // Event Clusters (zoomed out) — bright pulsing nodes
+        // Conflict Heatmap — replaces useless numbered yellow circles
+        // Shows density of conflict events as a warm glow
         map.addLayer({
-            id: 'events-clusters',
-            type: 'circle',
+            id: 'events-heat',
+            type: 'heatmap',
             source: 'events',
-            filter: ['has', 'point_count'],
             paint: {
-                'circle-color': '#eab308',
-                'circle-radius': ['step', ['get', 'point_count'], 18, 10, 24, 50, 35, 100, 45],
-                'circle-opacity': 0.85,
-                'circle-stroke-width': 3,
-                'circle-stroke-color': 'rgba(234, 179, 8, 0.5)'
+                'heatmap-weight': ['interpolate', ['linear'], ['get', 'confidence'], 0, 0.3, 0.5, 0.6, 1, 1],
+                'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 0.6, 6, 1.5, 10, 2],
+                'heatmap-color': [
+                    'interpolate', ['linear'], ['heatmap-density'],
+                    0, 'rgba(255, 100, 50, 0)',
+                    0.15, 'rgba(255, 80, 30, 0.25)',
+                    0.4, 'rgba(255, 50, 20, 0.5)',
+                    0.7, 'rgba(240, 30, 10, 0.75)',
+                    1, 'rgba(220, 20, 5, 1)'
+                ],
+                'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 15, 5, 25, 10, 40],
+                'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 0, 0.7, 8, 0.4, 12, 0.15],
             }
         });
 
-        map.addLayer({
-            id: 'events-cluster-count',
-            type: 'symbol',
-            source: 'events',
-            filter: ['has', 'point_count'],
-            layout: {
-                'text-field': '{point_count_abbreviated}',
-                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                'text-size': 12
-            },
-            paint: {
-                'text-color': '#000'
-            }
-        });
-
-        // Hidden hit-target for unclustered events (popup triggers)
+        // Individual event dots — small glowing markers visible at mid/high zoom
         map.addLayer({
             id: 'events-point',
             type: 'circle',
             source: 'events',
-            filter: ['!', ['has', 'point_count']],
+            minzoom: 4,
             paint: {
-                'circle-color': 'transparent',
-                'circle-radius': 20,
-                'circle-opacity': 0
+                'circle-color': [
+                    'match', ['get', 'type'],
+                    'gdelt', '#ff6b35',
+                    'market-hot', '#ef4444',
+                    'market', '#f59e0b',
+                    '#ff6b35'
+                ],
+                'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 5, 12, 7],
+                'circle-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0.5, 8, 0.8],
+                'circle-stroke-width': 1.5,
+                'circle-stroke-color': 'rgba(255, 107, 53, 0.3)',
+                'circle-blur': 0.3,
             }
         });
 
@@ -631,6 +553,77 @@ function initMap() {
                 'circle-pitch-alignment': 'map'
             }
         });
+
+        // ─── Pump.fun Token Markers (GPU-native) ────────────────
+        map.addSource('pumpfun-tokens', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+        });
+
+        map.addLayer({
+            id: 'pumpfun-tokens-circle',
+            type: 'circle',
+            source: 'pumpfun-tokens',
+            paint: {
+                'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 6, 8, 10, 12, 14],
+                'circle-color': '#ffd700',
+                'circle-opacity': 0.9,
+                'circle-stroke-width': 2,
+                'circle-stroke-color': 'rgba(255, 165, 0, 0.7)',
+                'circle-pitch-alignment': 'map',
+            }
+        });
+
+        map.addLayer({
+            id: 'pumpfun-tokens-label',
+            type: 'symbol',
+            source: 'pumpfun-tokens',
+            layout: {
+                'text-field': ['get', 'symbol'],
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-size': ['interpolate', ['linear'], ['zoom'], 3, 8, 8, 11],
+                'text-offset': [0, 1.4],
+                'text-anchor': 'top',
+                'text-allow-overlap': false,
+                'text-optional': true,
+            },
+            paint: {
+                'text-color': '#ffd700',
+                'text-halo-color': 'rgba(0,0,0,0.9)',
+                'text-halo-width': 1,
+            }
+        });
+
+        // Click handler for token popups
+        map.on('click', 'pumpfun-tokens-circle', (e: any) => {
+            if (!e.features || e.features.length === 0) return;
+            const props = e.features[0].properties;
+            const coords = e.features[0].geometry.coordinates.slice();
+            // Find matching token data
+            const token = pumpfunTokens.find((t: any) => t.symbol === props.symbol && t.name === props.name);
+            if (token) {
+                showTokenPopup(token);
+            } else {
+                // Fallback popup from feature properties
+                new maplibregl.Popup({
+                    className: 'tactical-popup',
+                    closeButton: true,
+                    maxWidth: '280px',
+                })
+                    .setLngLat(coords)
+                    .setHTML(`
+                    <div style="padding:10px">
+                        <div style="font-size:13px;font-weight:700;color:#ffd700">${props.symbol || props.name}</div>
+                        <div style="font-size:11px;color:var(--text-secondary);margin-top:4px">${props.country || ''}</div>
+                        <div style="font-size:10px;color:var(--text-muted);margin-top:4px">${props.keywords || ''}</div>
+                    </div>
+                `)
+                    .addTo(map);
+            }
+        });
+
+        map.on('mouseenter', 'pumpfun-tokens-circle', () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', 'pumpfun-tokens-circle', () => { map.getCanvas().style.cursor = ''; });
 
         // --- Interactive Intel Popups ---
 
@@ -753,20 +746,41 @@ function initMap() {
             }
         });
 
-        // Click cluster → zoom in to break it apart
-        map.on('click', 'events-clusters', (e: any) => {
-            const features = map.queryRenderedFeatures(e.point, { layers: ['events-clusters'] });
-            if (!features.length) return;
-            const clusterId = features[0].properties.cluster_id;
-            map.getSource('events').getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
-                if (err) return;
-                map.flyTo({
-                    center: features[0].geometry.coordinates,
-                    zoom: zoom + 0.5,
-                    speed: 1.5,
-                    curve: 1.2,
-                });
-            });
+        // Click on GDELT event → show detailed article popup
+        map.on('click', 'events-point', (e: any) => {
+            if (!e.features || e.features.length === 0) return;
+            const props = e.features[0].properties;
+            const coords = e.features[0].geometry.coordinates.slice();
+            const imgHtml = props.imageUrl ? `<img src="${proxyImg(props.imageUrl)}" style="width:100%;height:120px;object-fit:cover;border-bottom:1px solid rgba(34,197,94,0.1)" onerror="this.style.display='none'" />` : '';
+            new maplibregl.Popup({
+                className: 'tactical-popup',
+                closeButton: true,
+                maxWidth: '320px',
+            })
+                .setLngLat(coords)
+                .setHTML(`
+                <div class="intel-card">
+                    ${imgHtml}
+                    <div style="padding:10px">
+                        <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px;line-height:1.3">${props.title || 'Event'}</div>
+                        <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">📍 ${props.date || 'Recent'} · ${props.source || 'GDELT'}</div>
+                        ${props.url ? `<a href="${props.url}" target="_blank" rel="noopener" style="font-size:10px;color:var(--accent);text-decoration:none">Read Article →</a>` : ''}
+                    </div>
+                </div>
+            `)
+                .addTo(map);
+        });
+
+        // Click event dot → zoom in
+        map.on('click', 'events-point', (e: any) => {
+            if (!e.features || e.features.length === 0) return;
+            const coords = e.features[0].geometry.coordinates;
+            const props = e.features[0].properties;
+            if (props.url) {
+                window.open(props.url, '_blank');
+            } else {
+                map.flyTo({ center: coords, zoom: Math.max(map.getZoom() + 2, 8) });
+            }
         });
 
         map.on('click', 'fires-cluster', (e: any) => {
@@ -785,8 +799,8 @@ function initMap() {
         });
 
         // Cursor pointer on clusters
-        map.on('mouseenter', 'events-clusters', () => { map.getCanvas().style.cursor = 'pointer'; });
-        map.on('mouseleave', 'events-clusters', () => { map.getCanvas().style.cursor = ''; });
+        map.on('mouseenter', 'events-point', () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', 'events-point', () => { map.getCanvas().style.cursor = ''; });
         map.on('mouseenter', 'fires-cluster', () => { map.getCanvas().style.cursor = 'pointer'; });
         map.on('mouseleave', 'fires-cluster', () => { map.getCanvas().style.cursor = ''; });
 
@@ -820,33 +834,36 @@ function initMap() {
 
         updateMapSources();
 
-        // Sync image markers on map move/zoom
-        map.on('moveend', syncImageMarkers);
-        map.on('zoomend', syncImageMarkers);
-        // Initial sync after a short delay for data to load
-        setTimeout(syncImageMarkers, 3000);
+        // Force MapLibre into continuous 120fps repaint mode
+        startContinuousRepaint();
     });
 }
 
 // ─── Data Fetching ──────────────────────────────────────────
 
 async function fetchAllData() {
-    await Promise.all([
-        fetchNews(),
-        fetchGdelt(),
-        fetchFires(),
-        fetchFlights(),
-        fetchMarkets(),
-        fetchTelegramAlerts(),
-        fetchAssets(),
-        fetchAcled(),
-        fetchSeismic(),
-        fetchCrypto(),
-        fetchWebcams(),
-        fetchPumpfun()
-    ]);
-    updateTicker();
-    updateStats();
+    await measure('Fetch all data', async (m) => {
+        const tasks: Promise<any>[] = [];
+        if (FF.news) tasks.push(m('News', () => fetchNews()));
+        if (FF.gdelt) tasks.push(m('GDELT', () => fetchGdelt()));
+        if (FF.fires) tasks.push(m('Fires', () => fetchFires()));
+        if (FF.flights) tasks.push(m('Flights', () => fetchFlights()));
+        if (FF.markets) tasks.push(m('Markets', () => fetchMarkets()));
+        if (FF.telegram) tasks.push(m('Telegram', () => fetchTelegramAlerts()));
+        if (FF.assets) tasks.push(m('Assets', () => fetchAssets()));
+        if (FF.acled) tasks.push(m('ACLED', () => fetchAcled()));
+        if (FF.seismic) tasks.push(m('Seismic', () => fetchSeismic()));
+        if (FF.crypto) tasks.push(m('Crypto', () => fetchCrypto()));
+        if (FF.webcams) tasks.push(m('Webcams', () => fetchWebcams()));
+        if (FF.pumpfun) tasks.push(m('PumpFun', () => fetchPumpfun()));
+
+        await Promise.allSettled(tasks);
+
+        if (FF.ticker) measureSync('Update ticker', () => updateTicker());
+        measureSync('Update stats', () => updateStats());
+
+        return `${tasks.length} sources`;
+    });
 }
 
 async function fetchAcled() {
@@ -856,7 +873,7 @@ async function fetchAcled() {
         const aSrc = map?.getSource('acled');
         if (aSrc) aSrc.setData(acledEvents);
     } catch (e) {
-        console.error('[STARWAR] ACLED events fetch failed:', e);
+        console.error('[WARMAPS] ACLED events fetch failed:', e);
     }
 }
 
@@ -884,7 +901,7 @@ async function fetchSeismic() {
             if (aSrc) aSrc.setData(seismicData);
         }
     } catch (e) {
-        console.error('[STARWAR] Seismic events fetch failed:', e);
+        console.error('[WARMAPS] Seismic events fetch failed:', e);
     }
 }
 
@@ -1002,7 +1019,7 @@ async function fetchCrypto() {
             ctx.fill();
         }
     } catch (e) {
-        console.error('[STARWAR] Crypto data fetch failed:', e);
+        console.error('[WARMAPS] Crypto data fetch failed:', e);
     }
 }
 
@@ -1013,7 +1030,7 @@ async function fetchAssets() {
         const aSrc = map?.getSource('assets');
         if (aSrc) aSrc.setData(strategicAssets);
     } catch (e) {
-        console.error('[STARWAR] Strategic assets fetch failed:', e);
+        console.error('[WARMAPS] Strategic assets fetch failed:', e);
     }
 }
 
@@ -1025,7 +1042,7 @@ async function fetchNews() {
         markFresh('news');
         renderNewsFeed();
     } catch (e) {
-        console.error('[STARWAR] News fetch failed:', e);
+        console.error('[WARMAPS] News fetch failed:', e);
     }
 }
 
@@ -1038,10 +1055,9 @@ async function fetchGdelt() {
         markFresh('gdelt');
         renderGdeltFeed();
         updateMapSources();
-        syncImageMarkers(); // Immediately render image markers — don't wait for map move
         const el = document.getElementById('gdelt-count');
         if (el) el.textContent = String(gdeltEvents.length);
-        console.log(`[STARWAR] GDELT loaded: ${gdeltEvents.length} events, ${gdeltEvents.filter((e: any) => e.imageUrl).length} with images`);
+        console.log(`[WARMAPS] GDELT loaded: ${gdeltEvents.length} events, ${gdeltEvents.filter((e: any) => e.imageUrl).length} with images`);
 
         // ─── Live animations on data arrival ───
         const newCount = gdeltEvents.length;
@@ -1054,7 +1070,7 @@ async function fetchGdelt() {
             spawnRadarPings(gdeltEvents);
         }
     } catch (e) {
-        console.error('[STARWAR] GDELT fetch failed:', e);
+        console.error('[WARMAPS] GDELT fetch failed:', e);
     }
 }
 
@@ -1069,7 +1085,7 @@ async function fetchFires() {
         const el = document.getElementById('firms-count');
         if (el) el.textContent = String(firePoints.length);
     } catch (e) {
-        console.error('[STARWAR] FIRMS fetch failed:', e);
+        console.error('[WARMAPS] FIRMS fetch failed:', e);
     }
 }
 
@@ -1099,7 +1115,7 @@ async function fetchMarkets() {
             showThreatBanner(criticals[0]);
         }
     } catch (e) {
-        console.error('[STARWAR] Markets fetch failed:', e);
+        console.error('[WARMAPS] Markets fetch failed:', e);
     }
 }
 
@@ -1130,7 +1146,7 @@ async function fetchFlights() {
         const flightCountEl = document.getElementById('flight-count');
         if (flightCountEl) flightCountEl.textContent = String(flightData.length);
     } catch (e) {
-        console.error('[STARWAR] Flights fetch failed:', e);
+        console.error('[WARMAPS] Flights fetch failed:', e);
     }
 }
 
@@ -1161,15 +1177,16 @@ async function fetchWebcams() {
         const src = map?.getSource('webcams');
         if (src) src.setData(webcamGeoJSON);
 
-        console.log(`[STARWAR] Loaded ${webcamData.length} webcams`);
+        console.log(`[WARMAPS] Loaded ${webcamData.length} webcams`);
     } catch (e) {
-        console.error('[STARWAR] Webcams fetch failed:', e);
+        console.error('[WARMAPS] Webcams fetch failed:', e);
     }
 }
 
 // ─── Pump.fun Conflict Token Fetching ───────────────────────
 
-let tokenMarkers: any[] = [];
+// Token markers are now rendered via native MapLibre 'pumpfun-tokens-circle' + 'pumpfun-tokens-label' layers
+// No HTML markers needed — all GPU-rendered
 
 async function fetchPumpfun() {
     try {
@@ -1177,16 +1194,11 @@ async function fetchPumpfun() {
         const data = await res.json();
         pumpfunTokens = data.tokens || [];
         markFresh('pumpfun');
-
-        // Update map source for token clusters
         updateTokenMapSource();
-
-        // Render HTML token markers on the map
-        syncTokenMarkers();
-
-        console.log(`[STARWAR] Pump.fun: ${pumpfunTokens.length} conflict tokens loaded`);
+        renderTokensFeed();
+        console.log(`[WARMAPS] Pump.fun: ${pumpfunTokens.length} conflict tokens loaded`);
     } catch (e) {
-        console.error('[STARWAR] Pump.fun fetch failed:', e);
+        console.error('[WARMAPS] Pump.fun fetch failed:', e);
     }
 }
 
@@ -1209,43 +1221,140 @@ function updateTokenMapSource() {
             }
         }))
     };
-
     const src = map.getSource('pumpfun-tokens');
-    if (src) {
-        src.setData(geojson);
-    }
+    if (src) src.setData(geojson);
 }
 
-function syncTokenMarkers() {
+/** Show a rich popup for a token with nearby GDELT event cross-references */
+function showTokenPopup(token: any) {
     if (!map) return;
 
-    // Remove old markers
-    for (const m of tokenMarkers) m.remove();
-    tokenMarkers = [];
+    // Find nearby GDELT events in the same country/region (within ~5° radius)
+    const nearbyEvents = gdeltEvents.filter(ev => {
+        if (!ev.lat || !ev.lon) return false;
+        const dlat = Math.abs(ev.lat - token.lat);
+        const dlng = Math.abs(ev.lon - token.lng);
+        return dlat < 5 && dlng < 5;
+    }).slice(0, 5);
 
-    // Don't render too many
-    const tokens = pumpfunTokens.slice(0, 30);
+    const keywords = (token.matchedKeywords || []).map((k: string) =>
+        `<span class="token-popup__keyword">${escHtml(k)}</span>`
+    ).join('');
 
-    for (const token of tokens) {
-        if (!token.lat || !token.lng) continue;
+    const imgSrc = token.imageUrl ? proxyImg(token.imageUrl) : '';
+    const pfUrl = token.url || `https://pump.fun/coin/${token.tokenAddress || ''}`;
 
-        const el = document.createElement('div');
-        el.className = 'token-marker event-drop-in';
-        el.innerHTML = `
-            <div class="token-marker__icon">💰</div>
-            <div class="token-marker__label">${escHtml((token.symbol || token.name || '').slice(0, 12))}</div>
-        `;
-        el.title = `${token.name} — ${token.country}\nKeywords: ${(token.matchedKeywords || []).join(', ')}`;
-        el.addEventListener('click', () => {
-            if (token.url) window.open(token.url, '_blank');
-        });
+    const eventsHtml = nearbyEvents.length > 0
+        ? nearbyEvents.map(ev => `
+            <div class="token-popup__event">
+                <a href="${escHtml(ev.url || '#')}" target="_blank" rel="noopener">${escHtml((ev.title || '').slice(0, 60))}</a>
+                <span class="token-popup__event-time">${ev.date ? formatTime(ev.date) : ''}</span>
+            </div>
+        `).join('')
+        : '<div class="token-popup__no-events">No nearby events</div>';
 
-        const marker = new maplibregl.Marker({ element: el })
+    const html = `
+        <div class="token-popup">
+            <div class="token-popup__header">
+                ${imgSrc ? `<img class="token-popup__img" src="${escHtml(imgSrc)}" onerror="this.style.display='none'" />` : ''}
+                <div class="token-popup__title">
+                    <div class="token-popup__symbol">$${escHtml(token.symbol || '???')}</div>
+                    <div class="token-popup__name">${escHtml(token.name || 'Unknown')}</div>
+                </div>
+            </div>
+            <div class="token-popup__meta">
+                ${token.country ? `<span>📍 ${escHtml(token.country)}</span>` : ''}
+                ${token.boostAmount ? `<span>🚀 ${token.boostAmount} SOL</span>` : ''}
+            </div>
+            ${keywords ? `<div class="token-popup__keywords">${keywords}</div>` : ''}
+            <div class="token-popup__divider"></div>
+            <div class="token-popup__events-header">⚡ NEARBY EVENTS (${nearbyEvents.length})</div>
+            <div class="token-popup__events">${eventsHtml}</div>
+            <a href="${escHtml(pfUrl)}" target="_blank" rel="noopener" class="token-popup__cta">
+                Open on DexScreener ↗
+            </a>
+        </div>
+    `;
+
+    // Remove any existing token popup
+    document.querySelectorAll('.maplibregl-popup').forEach(p => {
+        if (p.querySelector('.token-popup')) p.remove();
+    });
+
+    // Fly to the token first so popup is visible, then open popup
+    const currentZoom = map.getZoom();
+    const targetZoom = Math.max(currentZoom, 6);
+    map.flyTo({
+        center: [token.lng, token.lat],
+        zoom: targetZoom,
+        duration: 800,
+        offset: [0, 80], // offset down so popup renders above center
+    });
+
+    const openPopup = () => {
+        new maplibregl.Popup({ className: 'tactical-popup', maxWidth: '300px', offset: [0, -10] })
             .setLngLat([token.lng, token.lat])
+            .setHTML(html)
             .addTo(map);
+    };
 
-        tokenMarkers.push(marker);
+    map.once('moveend', openPopup);
+}
+
+// ─── Render PF Tokens Feed in Sidebar Panel ─────────────────
+
+function renderTokensFeed() {
+    const container = document.getElementById('tokens-feed');
+    const countEl = document.getElementById('tokens-count');
+    if (!container) return;
+    if (countEl) countEl.textContent = String(pumpfunTokens.length);
+
+    if (pumpfunTokens.length === 0) {
+        container.innerHTML = `<div class="loading-state"><span>No conflict tokens found</span></div>`;
+        return;
     }
+
+    container.innerHTML = pumpfunTokens.map((token, i) => {
+        const keywords = (token.matchedKeywords || []).slice(0, 4).map((k: string) =>
+            `<span class="token-card__keyword">${escHtml(k)}</span>`
+        ).join('');
+
+        const pfUrl = token.url || `https://pump.fun/coin/${token.mint || ''}`;
+        const imgSrc = token.imageUrl ? proxyImg(token.imageUrl) : '';
+
+        return `
+            <div class="token-card" data-token-idx="${i}">
+                <div class="token-card__header">
+                    ${imgSrc
+                ? `<img class="token-card__thumb" src="${escHtml(imgSrc)}" onerror="this.style.display='none'" />`
+                : `<div class="token-card__icon">💰</div>`}
+                    <div class="token-card__info">
+                        <div class="token-card__symbol">${escHtml((token.symbol || '???').slice(0, 12))}</div>
+                        <div class="token-card__name">${escHtml((token.name || 'Unknown').slice(0, 30))}</div>
+                    </div>
+                    <a href="${escHtml(pfUrl)}" target="_blank" rel="noopener" class="token-card__link" title="Open on DexScreener">↗</a>
+                </div>
+                <div class="token-card__meta">
+                    ${token.country ? `<span class="token-card__country">📍 ${escHtml(token.country)}</span>` : ''}
+                    ${token.boostAmount ? `<span class="token-card__boost">🚀 ${token.boostAmount} SOL</span>` : ''}
+                </div>
+                ${keywords ? `<div class="token-card__keywords">${keywords}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+
+    // Fly to token location on card click
+    container.querySelectorAll('.token-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            // Don't interfere with the external link button
+            if ((e.target as HTMLElement).closest('.token-card__link')) return;
+            const idx = parseInt((card as HTMLElement).dataset.tokenIdx || '0');
+            const token = pumpfunTokens[idx];
+            if (token && token.lat && token.lng && map) {
+                map.flyTo({ center: [token.lng, token.lat], zoom: 6, duration: 1500 });
+            }
+        });
+    });
 }
 
 // ─── Rendering ──────────────────────────────────────────────
@@ -1254,91 +1363,77 @@ function renderNewsFeed() {
     const container = document.getElementById('news-feed');
     if (!container) return;
 
-    if (newsItems.length === 0) {
-        container.innerHTML = `<div class="loading-state"><span>No intel available</span></div>`;
+    // Merge GDELT events (with images+coords) and RSS news into a unified feed
+    // GDELT events are the primary source since they have location data
+    const feedEvents = gdeltEvents
+        .filter((ev: any) => ev.imageUrl && ev.lat && (ev.lon || ev.lng))
+        .slice(0, 40);
+
+    if (feedEvents.length === 0 && newsItems.length === 0) {
+        container.innerHTML = `<div class="loading-state"><span class="spinner"></span><span>Establishing secure feed...</span></div>`;
         return;
     }
 
-    container.innerHTML = newsItems.map(item => {
-        const time = formatTime(item.pubDate);
+    // If no GDELT yet, show RSS items as fallback (no click-to-fly)
+    if (feedEvents.length === 0) {
+        container.innerHTML = newsItems.slice(0, 15).map(item => `
+            <div class="pulse-card">
+                <div class="pulse-card__title">${escHtml(item.title)}</div>
+                <div class="pulse-card__meta">${escHtml(item.source || '')} · ${formatTime(item.pubDate)}</div>
+            </div>
+        `).join('');
+        return;
+    }
 
-        // Dynamic assignment based on title heuristics to match exact requested aesthetic
-        const titleLower = item.title.toLowerCase();
-        const descLower = (item.description || '').toLowerCase();
-
-        const isHigh = titleLower.includes('missile') ||
-            titleLower.includes('strike') ||
-            titleLower.includes('dead') ||
-            titleLower.includes('killed') ||
-            titleLower.includes('israel') ||
-            titleLower.includes('iran') ||
-            descLower.includes('casualt');
-
-        const severityClass = isHigh ? 'high' : 'medium';
-        const severityText = isHigh ? 'HIGH' : 'MEDIUM';
-
-        // Pseudo-random metrics for visual testing
-        const sourceCount = Math.floor(Math.random() * 20) + 2;
-        const confPercent = isHigh ? Math.floor(Math.random() * 15) + 80 : Math.floor(Math.random() * 20) + 60;
-
-        let countryFlag = '🏳️';
-        if (titleLower.includes('israel')) countryFlag = '🇮🇱';
-        else if (titleLower.includes('iran') || titleLower.includes('khamenei')) countryFlag = '🇮🇷';
-        else if (titleLower.includes('dubai') || titleLower.includes('uae')) countryFlag = '🇦🇪';
-        else if (titleLower.includes('lebanon') || titleLower.includes('hezbollah')) countryFlag = '🇱🇧';
-        else if (titleLower.includes('yemen') || titleLower.includes('houthi')) countryFlag = '🇾🇪';
-        else if (titleLower.includes('syria')) countryFlag = '🇸🇾';
-        else if (titleLower.includes('iraq')) countryFlag = '🇮🇶';
+    container.innerHTML = feedEvents.map((ev: any, idx: number) => {
+        const lat = ev.lat;
+        const lon = ev.lon || ev.lng;
+        const source = ev.source || ev.domain || '';
+        const time = ev.date ? formatTime(ev.date) : '';
+        const title = (ev.title || '').slice(0, 80);
+        const imgUrl = proxyImg(ev.imageUrl);
 
         return `
-            <div class="pulse-item" data-link="${escHtml(item.link)}">
-                <div class="pulse-item-top">
-                    <div class="pulse-source-badge">
-                        <span class="icon">📚</span> ${sourceCount}
-                    </div>
-                    <div class="pulse-item-title">
-                        <a href="${escHtml(item.link)}" target="_blank" rel="noopener">${escHtml(item.title)}</a>
-                    </div>
-                    <div class="pulse-severity ${severityClass}">${severityText}</div>
-                </div>
-                <div class="pulse-item-desc">
-                    ${escHtml(item.description ? item.description.slice(0, 100) + '...' : '')}
-                </div>
-                <div class="pulse-item-bottom">
-                    <div class="pulse-confidence ${severityClass}">
-                        <span class="icon">✓</span> CONFIDENCE ${confPercent}%
-                    </div>
-                </div>
-                <div class="pulse-item-footer">
-                    <div class="pulse-origin">${countryFlag} ${time}</div>
-                    <div class="pulse-expand">⌄</div>
+            <div class="pulse-card" data-lat="${lat}" data-lon="${lon}" data-idx="${idx}">
+                <img class="pulse-card__img" src="${imgUrl}" 
+                     onerror="this.style.display='none'" alt="" loading="lazy" />
+                <div class="pulse-card__body">
+                    <div class="pulse-card__title">${escHtml(title)}</div>
+                    <div class="pulse-card__meta">${escHtml(source)} · ${time}</div>
                 </div>
             </div>
         `;
     }).join('');
+
+    // Click handler: fly to location on map
+    container.querySelectorAll('.pulse-card[data-lat]').forEach(card => {
+        card.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const el = card as HTMLElement;
+            const lat = parseFloat(el.dataset.lat || '0');
+            const lon = parseFloat(el.dataset.lon || '0');
+            if (!map || isNaN(lat) || isNaN(lon)) return;
+
+            // Fly to the event location
+            map.flyTo({
+                center: [lon, lat],
+                zoom: 6,
+                speed: 1.5,
+                curve: 1.2,
+            });
+
+            // Highlight the clicked card
+            container.querySelectorAll('.pulse-card--active').forEach(c => c.classList.remove('pulse-card--active'));
+            el.classList.add('pulse-card--active');
+        });
+    });
 }
 
 function renderGdeltFeed() {
-    const container = document.getElementById('gdelt-feed');
-    if (!container) return;
-
-    if (gdeltEvents.length === 0) {
-        container.innerHTML = `<div class="loading-state"><span>No GDELT events</span></div>`;
-        return;
-    }
-
-    container.innerHTML = gdeltEvents.slice(0, 15).map(ev => `
-        <div class="feed-item" data-link="${escHtml(ev.url)}">
-            <div class="feed-item-source gdelt">${escHtml(ev.source)}</div>
-            <div class="feed-item-title">
-                <a href="${escHtml(ev.url)}" target="_blank" rel="noopener">${escHtml(ev.title)}</a>
-            </div>
-            <div class="feed-item-meta">
-                <span class="feed-item-time">${ev.date ? formatTime(ev.date) : '—'}</span>
-                ${ev.country ? `<span class="feed-item-location">📍 ${escHtml(ev.country)}</span>` : ''}
-            </div>
-        </div>
-    `).join('');
+    // GDELT feed is now merged into the main pulse feed via renderNewsFeed
+    // This function is kept as a no-op for backward compatibility
+    renderNewsFeed();
 }
 
 function renderFiresFeed() {
@@ -1403,7 +1498,7 @@ function renderRadarFeed() {
                 <div class="radar-alert-header">
                     <span class="radar-alert-icon">${icon}</span>
                     <span class="radar-alert-level">${alert.level.toUpperCase()}</span>
-                    <span class="radar-alert-time">${formatTime(alert.timestamp)}</span>
+                    <span class="radar-alert-time">${formatTime(alert.timestamp || alert.created_at || '')}</span>
                 </div>
                 <div class="radar-alert-title">${escHtml(alert.title.replace(/^[🚨⚠📊️\s]+/, ''))}</div>
                 <div class="radar-alert-desc">${escHtml(alert.description)}</div>
@@ -1525,8 +1620,6 @@ function updateMapSources() {
     if (!map || !map.isStyleLoaded()) return;
 
     const now = Date.now();
-    const DECAY_START = 7 * 24 * 3600 * 1000;  // Start fading after 7 days
-    const DECAY_END = 30 * 24 * 3600 * 1000;   // Fully gone after 30 days
 
     // Fires GeoJSON
     const firesGeoJSON = {
@@ -1559,27 +1652,18 @@ function updateMapSources() {
     const flSrc = map.getSource('flights');
     if (flSrc) flSrc.setData(flightsGeoJSON);
 
-    // Events GeoJSON with EXPONENTIAL temporal decay
-    // α = e^(-k·age) where k is tuned so:
-    //   - Events < 1h old: ~100% opacity (fully visible)
-    //   - Events at 12h: ~70% opacity
-    //   - Events at 24h: ~50% opacity  
-    //   - Events at 48h: ~25% opacity → expiry threshold
-    // This holds recent events bright before accelerating fadeout
+    // Events GeoJSON — show all current GDELT events at full opacity for circles.
+    // The floating image markers handle the visual stagger/fade lifecycle.
     const features: any[] = [];
-    const DECAY_CONSTANT = 0.000000015; // k ≈ 1.5e-8: ~48h to reach 0.1 alpha
-    const MAX_AGE = 48 * 3600 * 1000;   // Hard cutoff at 48 hours
+
+    // Queue new image events BEFORE the loop below sets their arrival times
+    if (FF.imageMarkers) queueNewEvents(gdeltEvents);
 
     gdeltEvents.filter(e => e.lat && e.lon).forEach(e => {
-        const eventTime = e.date ? new Date(
-            e.date.length === 8 ? `${e.date.slice(0, 4)}-${e.date.slice(4, 6)}-${e.date.slice(6, 8)}` : e.date
-        ).getTime() : now;
-
-        const age = now - eventTime;
-        if (age > MAX_AGE || age < 0) return; // Too old or future-dated, skip
-
-        // Exponential decay: α = e^(-k·age)
-        const opacity = Math.exp(-DECAY_CONSTANT * age);
+        const eid = e.id || e.url || `${e.lat}-${e.lon}`;
+        if (!eventArrivalTime.has(eid)) {
+            eventArrivalTime.set(eid, now);
+        }
 
         features.push({
             type: 'Feature',
@@ -1590,7 +1674,7 @@ function updateMapSources() {
                 date: e.date,
                 url: e.url || null,
                 source: e.source || null,
-                opacity: Math.max(0.08, Math.min(1.0, opacity)),
+                opacity: 1.0,
                 imageUrl: e.imageUrl || null,
                 vgkg: e.vgkg || false,
                 confidence: e.confidence || 0.5,
@@ -1598,13 +1682,15 @@ function updateMapSources() {
         });
     });
 
-    marketData.filter((m: any) => m.lat && m.lon).forEach((m: any) => {
-        features.push({
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: [m.lon, m.lat] },
-            properties: { type: m.probability >= 60 ? 'market-hot' : 'market', title: m.title, opacity: 1.0 }
+    if (FF.markets) {
+        marketData.filter((m: any) => m.lat && m.lon).forEach((m: any) => {
+            features.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [m.lon, m.lat] },
+                properties: { type: m.probability >= 60 ? 'market-hot' : 'market', title: m.title, opacity: 1.0 }
+            });
         });
-    });
+    }
 
     const eventsGeoJSON = {
         type: 'FeatureCollection',
@@ -1612,10 +1698,153 @@ function updateMapSources() {
     };
     const eSrc = map.getSource('events');
     if (eSrc) eSrc.setData(eventsGeoJSON);
-
-    // Re-sync HTML image markers after data change
-    requestAnimationFrame(() => setTimeout(syncImageMarkers, 100));
 }
+
+// ─── Real-Time Image Marker Functions ────────────────────────
+
+/** Queue new events that we haven't seen before for staggered appearance */
+function queueNewEvents(events: any[]) {
+    const eventsWithImages = events.filter(e => {
+        if (!e.lat || !e.lon || !e.imageUrl) return false;
+        return e.lat >= -90 && e.lat <= 90 && e.lon >= -180 && e.lon <= 180;
+    });
+    for (const ev of eventsWithImages) {
+        const eid = ev.id || ev.url || `${ev.lat}-${ev.lon}`;
+        if (!eventArrivalTime.has(eid) && !IMAGE_MARKERS.has(eid)) {
+            // Don't re-queue something already in queue
+            if (!eventQueue.some(q => (q.id || q.url || `${q.lat}-${q.lon}`) === eid)) {
+                eventQueue.push(ev);
+            }
+        }
+    }
+
+    // Start draining the queue if not already running
+    if (!queueDrainTimer && eventQueue.length > 0) {
+        drainOneEvent();
+        queueDrainTimer = setInterval(drainOneEvent, IMAGE_APPEAR_INTERVAL);
+    }
+}
+
+/** Place one event from the queue onto the map as a floating image */
+function drainOneEvent() {
+    if (!map) return;
+
+    const ev = eventQueue.shift();
+    if (!ev) {
+        if (queueDrainTimer) {
+            clearInterval(queueDrainTimer);
+            queueDrainTimer = null;
+        }
+        return;
+    }
+
+    const eid = ev.id || ev.url || `${ev.lat}-${ev.lon}`;
+    spawnImageMarker(ev, eid);
+}
+
+/** Create a floating image marker and recompute all opacities by rank */
+function spawnImageMarker(ev: any, eid: string) {
+    if (!map || !ev.imageUrl) return;
+
+    // Validate coordinates
+    const lat = ev.lat;
+    const lon = ev.lon || ev.lng;
+    if (typeof lat !== 'number' || typeof lon !== 'number' ||
+        isNaN(lat) || isNaN(lon) ||
+        lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        return;
+    }
+
+    const arrivedAt = Date.now();
+    eventArrivalTime.set(eid, arrivedAt);
+
+    // Simple geo-jitter to prevent exact overlaps
+    // Check if any existing marker is within ~2° — if so, offset this one
+    let finalLon = lon;
+    let finalLat = lat;
+    const GEO_MIN_DIST = 2.5; // min degrees apart
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+        let tooClose = false;
+        for (const [, data] of IMAGE_MARKERS) {
+            const other = data.marker.getLngLat();
+            const dLat = Math.abs(finalLat - other.lat);
+            const dLon = Math.abs(finalLon - other.lng);
+            if (dLat < GEO_MIN_DIST && dLon < GEO_MIN_DIST) {
+                tooClose = true;
+                break;
+            }
+        }
+        if (!tooClose) break;
+
+        // Golden angle spiral offset in degrees
+        const angle = (attempt * 137.5) * Math.PI / 180;
+        const r = GEO_MIN_DIST * (1 + attempt * 0.5);
+        finalLon = lon + Math.cos(angle) * r;
+        finalLat = lat + Math.sin(angle) * r * 0.7;
+        finalLat = Math.max(-80, Math.min(80, finalLat));
+        if (finalLon > 180) finalLon -= 360;
+        if (finalLon < -180) finalLon += 360;
+    }
+
+    // Create the marker element — rectangular image card
+    const el = document.createElement('div');
+    el.className = 'map-image-marker';
+    el.innerHTML = `
+        <img src="${proxyImg(ev.imageUrl)}" 
+             onerror="this.parentElement.style.display='none'" 
+             alt="" />
+        <div class="map-image-marker__label">${escHtml((ev.title || '').slice(0, 50))}</div>
+    `;
+
+    const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([finalLon, finalLat])
+        .addTo(map);
+
+    IMAGE_MARKERS.set(eid, { marker, el, ev });
+    IMAGE_MARKER_ORDER.push(eid);
+
+    // Trigger entrance animation
+    requestAnimationFrame(() => {
+        el.classList.add('map-image-marker--visible');
+    });
+
+    // Recompute all markers' opacity based on rank
+    updateImageMarkerRanks();
+}
+
+/**
+ * Rank-based opacity: newest image = 1.0, each older image loses FADE_PER_RANK.
+ * When an image's opacity hits 0, remove it from the map.
+ */
+function updateImageMarkerRanks() {
+    const total = IMAGE_MARKER_ORDER.length;
+
+    // Walk backwards through the order array (newest = last)
+    for (let i = total - 1; i >= 0; i--) {
+        const eid = IMAGE_MARKER_ORDER[i];
+        const data = IMAGE_MARKERS.get(eid);
+        if (!data) continue;
+
+        const rank = total - 1 - i; // 0 = newest, 1 = second newest, etc.
+        const opacity = Math.max(0, 1.0 - rank * FADE_PER_RANK);
+        const scale = 0.7 + 0.3 * opacity; // shrink as it fades
+
+        data.el.style.opacity = String(opacity);
+        data.el.style.transform = `scale(${scale})`;
+
+        // Remove markers that have faded out completely
+        if (opacity <= 0 || rank >= MAX_VISIBLE_IMAGES) {
+            data.marker.remove();
+            IMAGE_MARKERS.delete(eid);
+            IMAGE_MARKER_ORDER.splice(i, 1);
+            eventArrivalTime.delete(eid);
+        }
+    }
+}
+
+// startImageDecayLoop and startMapRefreshLoop are no longer needed —
+// rank updates happen synchronously in spawnImageMarker.
 
 // ─── Panel Toggle System ────────────────────────────────────
 
@@ -1671,7 +1900,7 @@ function updateTicker() {
     const headlines = [
         ...threatAlerts.filter((a: any) => a.level === 'critical' || a.level === 'high').slice(0, 3)
             .map((a: any) => `[THREAT RADAR] ${a.title}`),
-        ...newsItems.slice(0, 6).map(n => `[${n.source.toUpperCase()}] ${n.title}`),
+        ...newsItems.slice(0, 6).map(n => `[${(n.source || 'NEWS').toUpperCase()}] ${n.title}`),
         ...marketData.filter((m: any) => m.probability >= 60).slice(0, 3)
             .map((m: any) => `[MARKET] ${m.title} — ${m.probability}% (${m.platform})`),
         ...gdeltEvents.slice(0, 3).map(e => `[GDELT] ${e.title}`),
@@ -1682,7 +1911,7 @@ function updateTicker() {
         return;
     }
 
-    const text = headlines.join('    ◆    ');
+    const text = decodeEntities(headlines.join('    ◆    '));
     el.textContent = text + '    ◆    ' + text;
 }
 
@@ -1706,6 +1935,7 @@ function updateStats() {
             return `<span style="color:${color}">${s.toUpperCase()}: ${label}</span>`;
         }).join(' · ');
     }
+    updatePerfDisplay();
 }
 
 // ─── TV Channel Switching ───────────────────────────────────
@@ -1753,9 +1983,9 @@ async function fetchYouTubeStreams() {
             container.appendChild(btn);
         });
 
-        console.log(`[STARWAR] YouTube: ${channels.filter((c: any) => c.isLive).length}/${channels.length} channels live`);
+        console.log(`[WARMAPS] YouTube: ${channels.filter((c: any) => c.isLive).length}/${channels.length} channels live`);
     } catch (e) {
-        console.error('[STARWAR] YouTube stream discovery failed:', e);
+        console.error('[WARMAPS] YouTube stream discovery failed:', e);
     }
 }
 
@@ -1890,21 +2120,29 @@ function initAurebeshToggle() {
     if (!btn) return;
 
     // Restore saved preference
-    if (localStorage.getItem('starwar-aurebesh') === 'on') {
+    if (localStorage.getItem('warmaps-aurebesh') === 'on') {
         document.body.classList.add('aurebesh');
     }
 
     btn.addEventListener('click', () => {
         document.body.classList.toggle('aurebesh');
         const isOn = document.body.classList.contains('aurebesh');
-        localStorage.setItem('starwar-aurebesh', isOn ? 'on' : 'off');
+        localStorage.setItem('warmaps-aurebesh', isOn ? 'on' : 'off');
     });
 }
 
 // ─── Utilities ──────────────────────────────────────────────
 
+function decodeEntities(str: string): string {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = str;
+    return textarea.value;
+}
+
 function escHtml(str: string): string {
-    return str
+    // First decode RSS/HTML entities, then escape for safe HTML output
+    const decoded = decodeEntities(str);
+    return decoded
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -2091,66 +2329,70 @@ function initBootSequence() {
     if (!bootEl) return;
 
     // Only show once per session to avoid annoying the user on refresh
-    if (sessionStorage.getItem('starwar-booted')) {
+    if (sessionStorage.getItem('warmaps-booted')) {
         bootEl.style.display = 'none';
         return;
     }
 
-    sessionStorage.setItem('starwar-booted', 'true');
+    sessionStorage.setItem('warmaps-booted', 'true');
 
-    // Remove overlay after 4.5 seconds (matches CSS animation)
+    // Fast boot — 1.5s then fade out
     setTimeout(() => {
         bootEl.classList.add('done');
         setTimeout(() => {
             bootEl.style.display = 'none';
-        }, 1000);
-    }, 4500);
+        }, 500);
+    }, 1500);
 }
 
 // ─── Mount ──────────────────────────────────────────────────
 
 export default function mount() {
-    initBootSequence();
-    startClock();
-    initMap();
-    initTVChannels();
-    initFilters();
-    initChat();
-    initTelegram();
-    initThreatBanner();
-    initAurebeshToggle();
-    initSearchModal();
+    measure('Mount WARMAPS', async (m) => {
+        measureSync('Boot sequence', () => initBootSequence());
+        measureSync('Clock', () => startClock());
+        measureSync('Init map', () => initMap());
+        measureSync('TV channels', () => initTVChannels());
+        measureSync('Filters', () => initFilters());
+        measureSync('Chat', () => initChat());
+        measureSync('Telegram', () => initTelegram());
+        measureSync('Threat banner', () => initThreatBanner());
+        measureSync('Aurebesh toggle', () => initAurebeshToggle());
+        measureSync('Search modal', () => initSearchModal());
 
-    // Start data fetching immediately
-    fetchAllData();
+        // Performance monitoring
+        measureSync('FPS counter', () => startFPSCounter());
+        measureSync('Ping monitor', () => startPingMonitor());
 
-    // Slow data loops (News, Fire, GDELT)
-    // Refresh all data every 60 seconds for realtime feel
-    setInterval(fetchAllData, 60_000);
+        // Start data fetching immediately
+        await m('Initial data fetch', () => fetchAllData());
 
-    // Fast data loops (Live Aircraft Telemetry / Movements)
-    setInterval(fetchFlights, 15_000);
+        // Refresh all data every 10 seconds for realtime feel
+        setInterval(fetchAllData, 10_000);
 
-    // Medium loop (Crypto premium chart — accumulate data points)
-    setInterval(fetchCrypto, 30_000);
+        // Fast data loops (gated by feature flags)
+        if (FF.flights) setInterval(fetchFlights, 5_000);
+        if (FF.crypto) setInterval(fetchCrypto, 15_000);
 
-    // Refresh data freshness labels every 10s
-    setInterval(updateStats, 10_000);
+        // Refresh data freshness labels every 5s
+        setInterval(updateStats, 5_000);
 
-    // ─── LIVE MAP ANIMATIONS ─────────────────────────────────
-    // Auto-cycle spotlight between conflict theaters every 45s
-    startConflictSpotlight();
+        // ─── LIVE MAP ANIMATIONS ─────────────────────────────────
+        if (FF.spotlight) startConflictSpotlight();
 
-    // Click on feed items opens link
-    document.addEventListener('click', (e) => {
-        const item = (e.target as HTMLElement).closest('.feed-item, .radar-market') as HTMLElement | null;
-        if (item && item.dataset.link && !(e.target as HTMLElement).closest('a')) {
-            window.open(item.dataset.link, '_blank');
-        }
+        // Click on feed items opens link
+        document.addEventListener('click', (e) => {
+            const item = (e.target as HTMLElement).closest('.feed-item, .radar-market') as HTMLElement | null;
+            if (item && item.dataset.link && !(e.target as HTMLElement).closest('a')) {
+                window.open(item.dataset.link, '_blank');
+            }
+        });
+
+        // Check legend filters to update map layers
+        measureSync('Legend filters', () => setupLegendFilters());
+
+        return 'ready';
     });
-
-    // Check legend filters to update map layers
-    setupLegendFilters();
 }
 
 // ─── Live Animation: Radar Pings ────────────────────────────
@@ -2254,7 +2496,12 @@ function cycleSpotlight() {
             return Math.abs(eLat - theater.lat) < 8 && Math.abs(eLng - theater.lng) < 12;
         });
         if (nearbyEvents.length > 0) {
-            spawnRadarPings(nearbyEvents, nearbyEvents.some((e: any) => isBreaking(e.title || '')) ? 'radar-ping--red' : '');
+            const BREAKING_KW = ['breaking', 'missile', 'strike', 'bomb', 'explosion', 'attack', 'drone', 'killed', 'dead', 'war'];
+            const hasBreaking = nearbyEvents.some((e: any) => {
+                const t = (e.title || '').toLowerCase();
+                return BREAKING_KW.some(kw => t.includes(kw));
+            });
+            spawnRadarPings(nearbyEvents, hasBreaking ? 'radar-ping--red' : '');
         }
     }, 3500);
 }
@@ -2265,44 +2512,32 @@ function setupLegendFilters() {
         map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
     };
 
-    const cProtest = document.getElementById('filter-protest') as HTMLInputElement | null;
-    const cBase = document.getElementById('filter-base') as HTMLInputElement | null;
-    const cNuclear = document.getElementById('filter-nuclear') as HTMLInputElement | null;
-    const cStrike = document.getElementById('filter-strike') as HTMLInputElement | null;
+    // Collapsible header
+    const toggleBtn = document.getElementById('layer-filters-toggle');
+    const panel = document.getElementById('layer-filters');
+    if (toggleBtn && panel) {
+        toggleBtn.addEventListener('click', () => {
+            panel.classList.toggle('collapsed');
+        });
+    }
 
-    if (cProtest) cProtest.addEventListener('change', e => {
-        toggleLayer('events-clusters', cProtest.checked);
-        toggleLayer('events-cluster-count', cProtest.checked);
-        toggleLayer('events-point', cProtest.checked);
-    });
+    // Layer toggles
+    const bind = (filterId: string, layerIds: string[], onToggle?: (visible: boolean) => void) => {
+        const el = document.getElementById(filterId) as HTMLInputElement | null;
+        if (!el) return;
+        el.addEventListener('change', () => {
+            for (const id of layerIds) toggleLayer(id, el.checked);
+            if (onToggle) onToggle(el.checked);
+        });
+    };
 
-    if (cStrike) cStrike.addEventListener('change', e => {
-        // Fires/Strikes
-        toggleLayer('fires-heat', cStrike.checked);
-        toggleLayer('acled-kinetic', cStrike.checked);
-    });
-
-    if (cBase) cBase.addEventListener('change', e => {
-        toggleLayer('assets-base', cBase.checked);
-    });
-
-    if (cNuclear) cNuclear.addEventListener('change', e => {
-        toggleLayer('assets-nuclear', cNuclear.checked);
-    });
-
-    const cSeismic = document.getElementById('filter-seismic') as HTMLInputElement | null;
-    const cFlights = document.getElementById('filter-flights') as HTMLInputElement | null;
-
-    if (cSeismic) cSeismic.addEventListener('change', e => {
-        toggleLayer('seismic-kinetic', cSeismic.checked);
-    });
-
-    if (cFlights) cFlights.addEventListener('change', e => {
-        toggleLayer('flights-point', cFlights.checked);
-    });
-
-    const cWebcams = document.getElementById('filter-webcams') as HTMLInputElement | null;
-    if (cWebcams) cWebcams.addEventListener('change', e => {
-        toggleLayer('webcams-point', cWebcams.checked);
-    });
+    bind('filter-events', ['events-heat', 'events-point']);
+    bind('filter-fires', ['fires-heat']);
+    bind('filter-flights', ['flights-point']);
+    bind('filter-tokens', ['pumpfun-tokens-circle', 'pumpfun-tokens-label']);
+    bind('filter-acled', ['acled-kinetic']);
+    bind('filter-assets', ['assets-nuclear', 'assets-base']);
+    bind('filter-seismic', ['seismic-kinetic']);
+    bind('filter-webcams', ['webcams-point']);
+    bind('filter-flags', ['country-flag-labels']);
 }

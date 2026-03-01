@@ -7,7 +7,7 @@ import { saveChatMessage, getChatHistory, cleanupOldData } from './src/db';
 import * as tg from './src/telegram';
 
 const appDir = path.join(import.meta.dir, 'app');
-const port = parseInt(process.env.STARWAR_PORT || "4444");
+const port = parseInt(process.env.WARMAPS_PORT || "4444");
 const isDev = process.env.NODE_ENV !== 'production';
 
 // ─── Chat State ─────────────────────────────────────────────
@@ -36,7 +36,7 @@ function generateGuestName(): string {
 
 const router = createAppRouter({
     appDir,
-    defaultTitle: 'STARWAR — Global Conflict Monitor',
+    defaultTitle: 'WARMAPS — Global Conflict Monitor',
 });
 
 // ─── Bun Server with WebSocket ──────────────────────────────
@@ -75,7 +75,7 @@ const server = Bun.serve({
                 return await router(req, m);
             },
             (error: any) => {
-                console.error('[STARWAR Error]', error);
+                console.error('[WARMAPS Error]', error);
                 return new Response(`<pre>${error?.stack || error}</pre>`, {
                     status: 500,
                     headers: { 'Content-Type': 'text/html' },
@@ -147,7 +147,7 @@ const server = Bun.serve({
     },
 });
 
-console.log(`⚔ STARWAR running at http://localhost:${port}`);
+console.log(`⚔ WARMAPS running at http://localhost:${port}`);
 
 // ─── Auto-connect Telegram OSINT ────────────────────────────
 
