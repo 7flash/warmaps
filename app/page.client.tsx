@@ -1394,6 +1394,18 @@ function renderNewsFeed() {
             el.classList.add('pulse-card--active');
         });
     });
+
+    // Wire up search bar
+    const searchInput = document.getElementById('pulse-search-input') as HTMLInputElement;
+    if (searchInput) {
+        searchInput.oninput = () => {
+            const q = searchInput.value.toLowerCase().trim();
+            container.querySelectorAll('.pulse-card').forEach((card: any) => {
+                const text = (card.textContent || '').toLowerCase();
+                card.style.display = !q || text.includes(q) ? '' : 'none';
+            });
+        };
+    }
 }
 
 function renderGdeltFeed() {

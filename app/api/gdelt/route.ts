@@ -203,7 +203,40 @@ async function fetchLatestGKG(): Promise<GdeltEvent[]> {
                 }
                 return acc;
             }, 'Conflict Event');
-            const location = country || source;
+
+            // Convert country code to full name (GDELT uses FIPS 10-4 codes, NOT ISO)
+            const COUNTRY_NAMES: Record<string, string> = {
+                // FIPS codes that differ from ISO
+                'IS': 'Israel', 'CH': 'China', 'AS': 'Australia', 'CU': 'Cuba',
+                'MU': 'Oman', 'TU': 'Turkey', 'UP': 'Ukraine', 'RS': 'Russia',
+                'GM': 'Germany', 'UK': 'UK', 'JA': 'Japan', 'KS': 'South Korea',
+                'KN': 'North Korea', 'TI': 'Tajikistan', 'TX': 'Turkmenistan',
+                'GG': 'Georgia', 'BO': 'Belarus', 'LG': 'Latvia', 'EN': 'Estonia',
+                'LH': 'Lithuania', 'BK': 'Bosnia', 'RI': 'Serbia', 'MK': 'North Macedonia',
+                'DA': 'Denmark', 'NO': 'Norway', 'SP': 'Spain', 'PO': 'Portugal',
+                'AU': 'Austria', 'SZ': 'Switzerland', 'MO': 'Morocco', 'AG': 'Algeria',
+                'TS': 'Tunisia', 'LY': 'Libya', 'SU': 'Sudan', 'NI': 'Nigeria',
+                'WA': 'Namibia', 'SF': 'South Africa', 'MI': 'Malawi',
+                // Standard ISO codes
+                'AF': 'Afghanistan', 'AE': 'UAE', 'AM': 'Armenia', 'AZ': 'Azerbaijan',
+                'BH': 'Bahrain', 'BD': 'Bangladesh', 'BR': 'Brazil', 'CA': 'Canada',
+                'CF': 'Central Africa', 'CN': 'China', 'CO': 'Colombia', 'CD': 'Congo',
+                'CY': 'Cyprus', 'EG': 'Egypt', 'ER': 'Eritrea', 'ET': 'Ethiopia',
+                'FR': 'France', 'DE': 'Germany', 'GR': 'Greece', 'ID': 'Indonesia',
+                'IN': 'India', 'IQ': 'Iraq', 'IR': 'Iran', 'IL': 'Israel', 'IT': 'Italy',
+                'JO': 'Jordan', 'KZ': 'Kazakhstan', 'KE': 'Kenya', 'KW': 'Kuwait',
+                'KG': 'Kyrgyzstan', 'LB': 'Lebanon', 'ML': 'Mali', 'MX': 'Mexico',
+                'MM': 'Myanmar', 'NG': 'Nigeria', 'OM': 'Oman', 'PK': 'Pakistan',
+                'PS': 'Palestine', 'QA': 'Qatar', 'RO': 'Romania', 'RU': 'Russia',
+                'SA': 'Saudi Arabia', 'SO': 'Somalia', 'SS': 'South Sudan',
+                'SD': 'Sudan', 'SY': 'Syria', 'TW': 'Taiwan', 'TZ': 'Tanzania',
+                'TH': 'Thailand', 'TR': 'Turkey', 'TM': 'Turkmenistan', 'UA': 'Ukraine',
+                'GB': 'UK', 'US': 'United States', 'UZ': 'Uzbekistan', 'VE': 'Venezuela',
+                'YE': 'Yemen', 'ZW': 'Zimbabwe', 'JP': 'Japan', 'BY': 'Belarus',
+                'BA': 'Bosnia', 'GE': 'Georgia', 'NP': 'Nepal', 'LK': 'Sri Lanka',
+            };
+            const fullCountry = COUNTRY_NAMES[country] || country;
+            const location = fullCountry || source;
 
             events.push({
                 id: `gkg-${date}-${events.length}`,
@@ -211,7 +244,7 @@ async function fetchLatestGKG(): Promise<GdeltEvent[]> {
                 url: articleUrl,
                 source,
                 date: formatGkgDate(date),
-                country,
+                country: fullCountry,
                 lat,
                 lon,
                 tone,
