@@ -1029,6 +1029,7 @@ async function fetchNews() {
 
 async function fetchGdelt() {
     try {
+        const prevCount = gdeltEvents.length;
         const res = await fetch('/api/gdelt?region=conflict');
         const data = await res.json();
         gdeltEvents = data.events || [];
@@ -1039,6 +1040,17 @@ async function fetchGdelt() {
         const el = document.getElementById('gdelt-count');
         if (el) el.textContent = String(gdeltEvents.length);
         console.log(`[STARWAR] GDELT loaded: ${gdeltEvents.length} events, ${gdeltEvents.filter((e: any) => e.imageUrl).length} with images`);
+
+        // ─── Live animations on data arrival ───
+        const newCount = gdeltEvents.length;
+        const diff = Math.abs(newCount - prevCount);
+        if (prevCount > 0 && diff > 0) {
+            spawnRadarPings(gdeltEvents.slice(0, Math.min(diff, 10)));
+            showDataFlash(`⚡ ${newCount} EVENTS • ${diff} NEW`);
+        } else if (prevCount === 0 && newCount > 0) {
+            showDataFlash(`📡 ${newCount} EVENTS LOADED`);
+            spawnRadarPings(gdeltEvents);
+        }
     } catch (e) {
         console.error('[STARWAR] GDELT fetch failed:', e);
     }
@@ -2042,6 +2054,10 @@ export default function mount() {
     // Refresh data freshness labels every 10s
     setInterval(updateStats, 10_000);
 
+    // ─── LIVE MAP ANIMATIONS ─────────────────────────────────
+    // Auto-cycle spotlight between conflict theaters every 45s
+    startConflictSpotlight();
+
     // Click on feed items opens link
     document.addEventListener('click', (e) => {
         const item = (e.target as HTMLElement).closest('.feed-item, .radar-market') as HTMLElement | null;
@@ -2052,6 +2068,112 @@ export default function mount() {
 
     // Check legend filters to update map layers
     setupLegendFilters();
+}
+
+// ─── Live Animation: Radar Pings ────────────────────────────
+
+function spawnRadarPings(events: any[], color = '') {
+    if (!map) return;
+    const mapContainer = document.querySelector('.maplibregl-canvas-container') || document.getElementById('map-container');
+    if (!mapContainer) return;
+
+    // Spawn up to 8 pings at random event locations
+    const subset = events.sort(() => Math.random() - 0.5).slice(0, 8);
+    for (const evt of subset) {
+        const lat = evt.lat || evt.latitude;
+        const lng = evt.lng || evt.longitude || evt.lon;
+        if (!lat || !lng) continue;
+
+        try {
+            const point = map.project([lng, lat]);
+            const ping = document.createElement('div');
+            ping.className = `radar-ping ${color}`;
+            ping.style.left = `${point.x}px`;
+            ping.style.top = `${point.y}px`;
+            mapContainer.appendChild(ping);
+            setTimeout(() => ping.remove(), 2500);
+        } catch (_) { /* point outside viewport */ }
+    }
+}
+
+function showDataFlash(message: string) {
+    const flash = document.createElement('div');
+    flash.className = 'data-flash';
+    flash.textContent = message;
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 3500);
+}
+
+// ─── Live Animation: Conflict Theater Spotlight ─────────────
+
+const CONFLICT_THEATERS = [
+    { name: 'Iran Theater', lat: 32.42, lng: 53.68, zoom: 5.5 },
+    { name: 'Israel-Gaza', lat: 31.5, lng: 34.8, zoom: 7 },
+    { name: 'Ukraine Front', lat: 48.5, lng: 37.5, zoom: 6 },
+    { name: 'Syria-Iraq', lat: 35.0, lng: 40.0, zoom: 5.5 },
+    { name: 'Red Sea', lat: 15.5, lng: 42.0, zoom: 5.5 },
+    { name: 'Taiwan Strait', lat: 24.0, lng: 121.0, zoom: 5 },
+    { name: 'Korean DMZ', lat: 38.0, lng: 127.0, zoom: 6 },
+];
+
+let spotlightIndex = 0;
+let spotlightActive = true;
+let spotlightMarker: any = null;
+
+function startConflictSpotlight() {
+    // Don't auto-pan immediately — let user explore first
+    setTimeout(() => {
+        cycleSpotlight();
+        setInterval(cycleSpotlight, 45_000);
+    }, 30_000); // Start after 30s
+
+    // Pause spotlight when user interacts with map
+    const mapEl = document.getElementById('map-container');
+    if (mapEl) {
+        mapEl.addEventListener('mousedown', () => { spotlightActive = false; });
+        mapEl.addEventListener('wheel', () => { spotlightActive = false; });
+        // Resume after 60s of no interaction
+        let resumeTimer: any;
+        const resetResume = () => {
+            spotlightActive = false;
+            clearTimeout(resumeTimer);
+            resumeTimer = setTimeout(() => { spotlightActive = true; }, 60_000);
+        };
+        mapEl.addEventListener('mousedown', resetResume);
+        mapEl.addEventListener('wheel', resetResume);
+        mapEl.addEventListener('touchstart', resetResume);
+    }
+}
+
+function cycleSpotlight() {
+    if (!map || !spotlightActive) return;
+
+    const theater = CONFLICT_THEATERS[spotlightIndex % CONFLICT_THEATERS.length];
+    spotlightIndex++;
+
+    // Smooth fly to the next theater
+    map.flyTo({
+        center: [theater.lng, theater.lat],
+        zoom: theater.zoom,
+        duration: 3000,
+        essential: false,
+    });
+
+    // Show "Now Monitoring: ..." flash
+    showDataFlash(`🎯 ${theater.name.toUpperCase()}`);
+
+    // Spawn pings at nearby events
+    setTimeout(() => {
+        const nearbyEvents = gdeltEvents.filter((e: any) => {
+            const eLat = e.lat || e.latitude;
+            const eLng = e.lng || e.longitude || e.lon;
+            if (!eLat || !eLng) return false;
+            return Math.abs(eLat - theater.lat) < 8 && Math.abs(eLng - theater.lng) < 12;
+        });
+        if (nearbyEvents.length > 0) {
+            spawnRadarPings(nearbyEvents, nearbyEvents.some((e: any) => isBreaking(e.title || '')) ? 'radar-ping--red' : '');
+        }
+    }, 3500);
 }
 
 function setupLegendFilters() {

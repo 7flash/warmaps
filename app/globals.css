@@ -2370,3 +2370,148 @@ body::before {
     align-items: flex-end;
     gap: 2px;
 }
+
+/* ─── Radar Ping Animation ───────────────────────────────── */
+/* Expanding ring that appears when new events drop on map */
+
+.radar-ping {
+    position: absolute;
+    pointer-events: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 90;
+}
+
+.radar-ping::before,
+.radar-ping::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 220, 255, 0.8);
+    animation: radarExpand 2s ease-out forwards;
+}
+
+.radar-ping::after {
+    animation-delay: 0.3s;
+}
+
+.radar-ping--red::before,
+.radar-ping--red::after {
+    border-color: rgba(239, 68, 68, 0.9);
+}
+
+.radar-ping--amber::before,
+.radar-ping--amber::after {
+    border-color: rgba(251, 191, 36, 0.9);
+}
+
+@keyframes radarExpand {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(6);
+        opacity: 0;
+    }
+}
+
+/* ─── Event Drop Pop-in ──────────────────────────────────── */
+
+.event-drop-in {
+    animation: eventPopIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes eventPopIn {
+    0% {
+        transform: scale(0) translateY(-20px);
+        opacity: 0;
+    }
+
+    60% {
+        transform: scale(1.3) translateY(0);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+/* ─── Data Flash Indicator ───────────────────────────────── */
+
+.data-flash {
+    position: fixed;
+    top: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, rgba(0, 220, 255, 0.15), rgba(0, 220, 255, 0.05));
+    border: 1px solid rgba(0, 220, 255, 0.4);
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 6px 20px;
+    border-radius: 20px;
+    z-index: 9999;
+    animation: flashSlide 3s ease-out forwards;
+    pointer-events: none;
+    text-transform: uppercase;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 0 20px rgba(0, 220, 255, 0.2);
+}
+
+@keyframes flashSlide {
+    0% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+
+    15% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    70% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-10px);
+    }
+}
+
+/* ─── Spotlight Glow on Conflict Zones ───────────────────── */
+
+.spotlight-ring {
+    position: absolute;
+    pointer-events: none;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 220, 255, 0.3);
+    transform: translate(-50%, -50%);
+    z-index: 80;
+    animation: spotlightPulse 4s ease-in-out infinite;
+    box-shadow: 0 0 40px rgba(0, 220, 255, 0.1), inset 0 0 30px rgba(0, 220, 255, 0.05);
+}
+
+@keyframes spotlightPulse {
+
+    0%,
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.6;
+    }
+
+    50% {
+        transform: translate(-50%, -50%) scale(1.15);
+        opacity: 1;
+    }
+}
