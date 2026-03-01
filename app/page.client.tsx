@@ -31,6 +31,7 @@ let acledEvents: any = null;
 let seismicData: any = null;
 let cryptoData: any = null;
 let webcamData: any[] = [];
+let pumpfunTokens: any[] = [];
 let currentFilter = 'all';
 
 // Data freshness tracking
@@ -841,7 +842,8 @@ async function fetchAllData() {
         fetchAcled(),
         fetchSeismic(),
         fetchCrypto(),
-        fetchWebcams()
+        fetchWebcams(),
+        fetchPumpfun()
     ]);
     updateTicker();
     updateStats();
@@ -1162,6 +1164,87 @@ async function fetchWebcams() {
         console.log(`[STARWAR] Loaded ${webcamData.length} webcams`);
     } catch (e) {
         console.error('[STARWAR] Webcams fetch failed:', e);
+    }
+}
+
+// ─── Pump.fun Conflict Token Fetching ───────────────────────
+
+let tokenMarkers: any[] = [];
+
+async function fetchPumpfun() {
+    try {
+        const res = await fetch('/api/pumpfun');
+        const data = await res.json();
+        pumpfunTokens = data.tokens || [];
+        markFresh('pumpfun');
+
+        // Update map source for token clusters
+        updateTokenMapSource();
+
+        // Render HTML token markers on the map
+        syncTokenMarkers();
+
+        console.log(`[STARWAR] Pump.fun: ${pumpfunTokens.length} conflict tokens loaded`);
+    } catch (e) {
+        console.error('[STARWAR] Pump.fun fetch failed:', e);
+    }
+}
+
+function updateTokenMapSource() {
+    if (!map) return;
+    const geojson = {
+        type: 'FeatureCollection' as const,
+        features: pumpfunTokens.map((t: any) => ({
+            type: 'Feature' as const,
+            geometry: { type: 'Point' as const, coordinates: [t.lng, t.lat] },
+            properties: {
+                name: t.name,
+                symbol: t.symbol,
+                country: t.country,
+                countryCode: t.countryCode,
+                keywords: (t.matchedKeywords || []).join(', '),
+                boostAmount: t.boostAmount || 0,
+                url: t.url,
+                imageUrl: t.imageUrl,
+            }
+        }))
+    };
+
+    const src = map.getSource('pumpfun-tokens');
+    if (src) {
+        src.setData(geojson);
+    }
+}
+
+function syncTokenMarkers() {
+    if (!map) return;
+
+    // Remove old markers
+    for (const m of tokenMarkers) m.remove();
+    tokenMarkers = [];
+
+    // Don't render too many
+    const tokens = pumpfunTokens.slice(0, 30);
+
+    for (const token of tokens) {
+        if (!token.lat || !token.lng) continue;
+
+        const el = document.createElement('div');
+        el.className = 'token-marker event-drop-in';
+        el.innerHTML = `
+            <div class="token-marker__icon">💰</div>
+            <div class="token-marker__label">${escHtml((token.symbol || token.name || '').slice(0, 12))}</div>
+        `;
+        el.title = `${token.name} — ${token.country}\nKeywords: ${(token.matchedKeywords || []).join(', ')}`;
+        el.addEventListener('click', () => {
+            if (token.url) window.open(token.url, '_blank');
+        });
+
+        const marker = new maplibregl.Marker({ element: el })
+            .setLngLat([token.lng, token.lat])
+            .addTo(map);
+
+        tokenMarkers.push(marker);
     }
 }
 
