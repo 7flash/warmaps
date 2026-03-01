@@ -2882,35 +2882,108 @@ function formatAIContent(text: string): string {
 function gatherLiveContext(): string {
     const parts: string[] = [];
 
-    // Gather recent GDELT events shown on map
+    // 1. Map viewport — what the user is literally looking at
     try {
-        const feedItems = document.querySelectorAll('#pulse-feed .feed-item');
-        if (feedItems.length > 0) {
-            const headlines: string[] = [];
-            feedItems.forEach((item, i) => {
-                if (i >= 15) return;
-                const title = item.querySelector('.feed-item-title')?.textContent?.trim();
-                const source = item.querySelector('.feed-item-source')?.textContent?.trim();
-                if (title) headlines.push(`- ${title}${source ? ` (${source})` : ''}`);
+        if (map) {
+            const center = map.getCenter();
+            const zoom = map.getZoom();
+            const bounds = map.getBounds();
+            parts.push(`### Current Map View
+- Center: ${center.lat.toFixed(2)}°N, ${center.lng.toFixed(2)}°E
+- Zoom level: ${zoom.toFixed(1)}
+- Viewport: ${bounds.getSouth().toFixed(1)}°N to ${bounds.getNorth().toFixed(1)}°N, ${bounds.getWest().toFixed(1)}°E to ${bounds.getEast().toFixed(1)}°E
+- The user is currently viewing this region on the WARMAPS conflict map.`);
+        }
+    } catch { }
+
+    // 2. Image markers visible on map (GDELT news with images)
+    try {
+        if (typeof IMAGE_MARKERS !== 'undefined' && IMAGE_MARKERS.size > 0) {
+            const markerInfo: string[] = [];
+            IMAGE_MARKERS.forEach((data: any, eid: string) => {
+                const ev = data.ev;
+                const lnglat = data.marker.getLngLat();
+                const title = ev.title || '';
+                const source = ev.source || ev.domain || '';
+                if (title) {
+                    markerInfo.push(`- "${title}" (${source}) at ${lnglat.lat.toFixed(1)}°, ${lnglat.lng.toFixed(1)}°`);
+                }
             });
-            if (headlines.length > 0) {
-                parts.push(`### Recent Conflict Events\n${headlines.join('\n')}`);
+            if (markerInfo.length > 0) {
+                parts.push(`### Image Markers On Map (${markerInfo.length} news events with photos)\n${markerInfo.slice(0, 20).join('\n')}`);
             }
         }
     } catch { }
 
-    // Gather token data
+    // 3. Pulse feed articles
     try {
-        const tokenItems = document.querySelectorAll('#tokens-feed .token-item');
-        if (tokenItems.length > 0) {
+        const cards = document.querySelectorAll('#news-feed .pulse-card');
+        if (cards.length > 0) {
+            const headlines: string[] = [];
+            cards.forEach((card, i) => {
+                if (i >= 20) return;
+                const title = card.querySelector('.pulse-card__title')?.textContent?.trim();
+                const meta = card.querySelector('.pulse-card__meta')?.textContent?.trim();
+                if (title) headlines.push(`- ${title}${meta ? ` (${meta})` : ''}`);
+            });
+            if (headlines.length > 0) {
+                parts.push(`### Pulse Feed Headlines (${headlines.length} articles)\n${headlines.join('\n')}`);
+            }
+        }
+    } catch { }
+
+    // 4. Breaking news ticker
+    try {
+        const ticker = document.querySelector('.marquee-text')?.textContent?.trim();
+        if (ticker && ticker.length > 10) {
+            parts.push(`### Breaking News Ticker\n${ticker.slice(0, 500)}`);
+        }
+    } catch { }
+
+    // 5. Token markers on map
+    try {
+        const tokenMarkers = document.querySelectorAll('.map-token-marker');
+        if (tokenMarkers.length > 0) {
             const tokens: string[] = [];
-            tokenItems.forEach((item, i) => {
-                if (i >= 5) return;
-                const name = item.querySelector('.token-name')?.textContent?.trim();
+            tokenMarkers.forEach((el: any) => {
+                const name = el.querySelector('.map-token-label')?.textContent?.trim();
                 if (name) tokens.push(`- ${name}`);
             });
             if (tokens.length > 0) {
-                parts.push(`### Pump.fun Conflict Tokens\n${tokens.join('\n')}`);
+                parts.push(`### Pump.fun Tokens On Map\n${tokens.join('\n')}`);
+            }
+        }
+    } catch { }
+
+    // 6. Fire/FIRMS data
+    try {
+        const fireFeed = document.querySelectorAll('#firms-feed .feed-item');
+        if (fireFeed.length > 0) {
+            const fires: string[] = [];
+            fireFeed.forEach((item, i) => {
+                if (i >= 5) return;
+                const title = item.querySelector('.feed-item-title')?.textContent?.trim();
+                if (title) fires.push(`- ${title}`);
+            });
+            if (fires.length > 0) {
+                parts.push(`### Thermal Anomalies (FIRMS)\n${fires.join('\n')}`);
+            }
+        }
+    } catch { }
+
+    // 7. Prediction markets
+    try {
+        const markets = document.querySelectorAll('.radar-market');
+        if (markets.length > 0) {
+            const minfo: string[] = [];
+            markets.forEach((m, i) => {
+                if (i >= 5) return;
+                const title = m.querySelector('.radar-market-title')?.textContent?.trim();
+                const prob = m.querySelector('.radar-market-prob')?.textContent?.trim();
+                if (title) minfo.push(`- ${title} → ${prob || '?'}%`);
+            });
+            if (minfo.length > 0) {
+                parts.push(`### Prediction Markets\n${minfo.join('\n')}`);
             }
         }
     } catch { }

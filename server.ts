@@ -6,10 +6,13 @@ import * as fs from 'fs';
 import { saveChatMessage, getChatHistory, cleanupOldData } from './src/db';
 import * as tg from './src/telegram';
 
-// Load Gemini API key from geeksy config if not already in env
+// Load Gemini API key from config if not already in env
 if (!process.env.GEMINI_API_KEY) {
     try {
-        const configPaths = ['C:/Code/geeksy/.config.toml', path.join(import.meta.dir, '.config.toml')];
+        const configPaths = [
+            path.join(import.meta.dir, '.config.toml'),
+            'C:/Code/geeksy/.config.toml',
+        ];
         for (const p of configPaths) {
             if (fs.existsSync(p)) {
                 const content = fs.readFileSync(p, 'utf-8');
