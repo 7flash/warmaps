@@ -34,7 +34,8 @@ import {
 import { initTVChannels } from './lib/tv';
 import { initChat } from './lib/chat';
 import { startConflictSpotlight } from './lib/spotlight';
-import { setDataPaused } from './lib/state';
+import { setDataPaused, setTimelineHours } from './lib/state';
+import { initAlerts } from './lib/alerts';
 
 // ─── Mount ──────────────────────────────────────────────────
 
@@ -109,6 +110,52 @@ export default function mount() {
             }
         }
         initPauseButton();
+
+        // Timeline scrubber
+        function initTimeline() {
+            const slider = document.getElementById('timeline-slider') as HTMLInputElement;
+            const valueEl = document.getElementById('timeline-value');
+            const btns = document.querySelectorAll('.timeline-btn');
+
+            function formatHours(h: number): string {
+                if (h <= 0) return 'ALL';
+                if (h < 24) return h + 'H';
+                if (h < 168) return Math.round(h / 24) + 'D';
+                return '7D';
+            }
+
+            function setTimeline(hours: number) {
+                setTimelineHours(hours);
+                if (slider) slider.value = String(hours);
+                if (valueEl) valueEl.textContent = formatHours(hours);
+                btns.forEach(b => {
+                    const bh = parseInt(b.getAttribute('data-hours') || '0');
+                    b.classList.toggle('active', bh === hours);
+                });
+            }
+
+            btns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const h = parseInt(btn.getAttribute('data-hours') || '0');
+                    setTimeline(h);
+                });
+            });
+
+            if (slider) {
+                slider.addEventListener('input', () => {
+                    const h = parseInt(slider.value);
+                    setTimelineHours(h);
+                    if (valueEl) valueEl.textContent = formatHours(h);
+                    // Update active button
+                    btns.forEach(b => {
+                        const bh = parseInt(b.getAttribute('data-hours') || '0');
+                        b.classList.toggle('active', bh === h);
+                    });
+                });
+            }
+        }
+        measureSync('Timeline', () => initTimeline());
+        measureSync('Alerts', () => initAlerts());
 
         // Start data fetching immediately
         await m('Initial data fetch', () => fetchAllData());

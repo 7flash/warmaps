@@ -117,3 +117,16 @@ export function getFreshnessLabel(source: string): string {
 
 // Track active token markers for cleanup
 export const TOKEN_MARKERS: Map<string, any> = new Map();
+
+// ─── Timeline Scrubber ──────────────────────────────────────
+export let timelineHours = 0; // 0 = show all, >0 = filter to last N hours
+export function setTimelineHours(h: number) { timelineHours = h; }
+
+/** Check if a date string is within the current timeline window */
+export function isWithinTimeline(dateStr: string): boolean {
+    if (timelineHours <= 0) return true; // show all
+    const eventTime = new Date(dateStr).getTime();
+    if (isNaN(eventTime)) return true; // can't parse = show
+    const cutoff = Date.now() - timelineHours * 3600_000;
+    return eventTime >= cutoff;
+}

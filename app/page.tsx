@@ -106,6 +106,21 @@ export default function Page() {
                     <button class="threat-banner-close" id="threat-banner-close">×</button>
                 </div>
 
+                {/* Timeline Scrubber */}
+                <div id="timeline-scrubber" class="timeline-scrubber">
+                    <span class="timeline-label">⏱ TIME</span>
+                    <div class="timeline-presets">
+                        <button class="timeline-btn active" data-hours="0">ALL</button>
+                        <button class="timeline-btn" data-hours="1">1H</button>
+                        <button class="timeline-btn" data-hours="6">6H</button>
+                        <button class="timeline-btn" data-hours="24">24H</button>
+                        <button class="timeline-btn" data-hours="48">48H</button>
+                        <button class="timeline-btn" data-hours="168">7D</button>
+                    </div>
+                    <input type="range" id="timeline-slider" class="timeline-slider" min="0" max="168" value="0" step="1" />
+                    <span class="timeline-value" id="timeline-value">ALL</span>
+                </div>
+
                 {/* Bottom Ticker */}
                 <div id="ticker" class="ticker">
                     <div class="ticker-label">▶ BREAKING</div>

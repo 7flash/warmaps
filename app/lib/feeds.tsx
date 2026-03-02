@@ -3,7 +3,7 @@
  */
 
 import { render } from 'melina/client';
-import { map, newsItems, gdeltEvents, firePoints, marketData, threatAlerts, webcamData, flightData, getFreshnessLabel } from './state';
+import { map, newsItems, gdeltEvents, firePoints, marketData, threatAlerts, webcamData, flightData, getFreshnessLabel, isWithinTimeline, timelineHours } from './state';
 import { formatTime, formatVolume, getCategoryIcon, proxyImg, decodeEntities } from './utils';
 import { updatePerfDisplay } from './perf';
 import { openArticleModal } from './modals';
@@ -17,6 +17,7 @@ export function renderNewsFeed() {
 
     const feedEvents = gdeltEvents
         .filter((ev: any) => ev.imageUrl && ev.lat && (ev.lon || ev.lng))
+        .filter((ev: any) => isWithinTimeline(ev.date || ''))
         .slice(0, 40);
 
     if (feedEvents.length === 0 && newsItems.length === 0) {
@@ -294,8 +295,10 @@ export function updateStats() {
     const fireEl = document.getElementById('fire-count');
     const flightEl = document.getElementById('flight-count');
     const webcamEl = document.getElementById('webcam-count');
-    if (evtEl) evtEl.textContent = String(gdeltEvents.length);
-    if (fireEl) fireEl.textContent = String(firePoints.length);
+    const filteredGdelt = timelineHours > 0 ? gdeltEvents.filter(e => isWithinTimeline(e.date || '')) : gdeltEvents;
+    const filteredFires = timelineHours > 0 ? firePoints.filter(f => isWithinTimeline(f.acq_date || '')) : firePoints;
+    if (evtEl) evtEl.textContent = String(filteredGdelt.length);
+    if (fireEl) fireEl.textContent = String(filteredFires.length);
     if (flightEl) flightEl.textContent = String(flightData.length);
     if (webcamEl) webcamEl.textContent = String(webcamData.length);
 

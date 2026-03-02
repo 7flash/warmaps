@@ -364,5 +364,135 @@ export function initMap() {
 
         // Force MapLibre into continuous 120fps repaint mode
         startContinuousRepaint();
+
+        // ─── Country Profile Click ──────────────────────────
+        m.on('click', 'country-flag-labels', (e: any) => {
+            if (!e.features || e.features.length === 0) return;
+            const iso = e.features[0].properties.iso;
+            const country = COUNTRY_FLAGS.find(c => c.iso === iso);
+            if (!country) return;
+            showCountryProfile(country, m);
+        });
+        m.on('mouseenter', 'country-flag-labels', () => { m.getCanvas().style.cursor = 'pointer'; });
+        m.on('mouseleave', 'country-flag-labels', () => { m.getCanvas().style.cursor = ''; });
     });
+}
+
+// ─── Country Profile Modal ──────────────────────────────────
+
+function showCountryProfile(country: typeof COUNTRY_FLAGS[0], mapRef: any) {
+    // Import state data
+    const { gdeltEvents, acledEvents, firePoints, threatAlerts } = require('./state');
+
+    // Aggregate events near this country (within ~500km of flag position)
+    const RADIUS = 500;
+    const countryEvents = gdeltEvents.filter((ev: any) => {
+        if (!ev.lat || !ev.lon) return false;
+        return haversine(country.lat, country.lon, ev.lat, ev.lon) < RADIUS;
+    });
+
+    const countryFires = firePoints.filter((f: any) => {
+        return haversine(country.lat, country.lon, f.lat, f.lon) < RADIUS;
+    });
+
+    // ACLED events by country name
+    let acledCount = 0;
+    let acledFatalities = 0;
+    const acledList: any[] = [];
+    if (acledEvents?.features) {
+        for (const f of acledEvents.features) {
+            const p = f.properties;
+            if (p.country?.toLowerCase().includes(country.name.toLowerCase()) ||
+                haversine(country.lat, country.lon, f.geometry.coordinates[1], f.geometry.coordinates[0]) < RADIUS) {
+                acledCount++;
+                acledFatalities += p.fatalities || 0;
+                acledList.push(p);
+            }
+        }
+    }
+
+    // Risk score: 0-100
+    const eventScore = Math.min(30, countryEvents.length * 2);
+    const fireScore = Math.min(15, countryFires.length);
+    const acledScore = Math.min(35, acledCount * 10);
+    const fatalityScore = Math.min(20, acledFatalities * 5);
+    const riskScore = Math.min(100, eventScore + fireScore + acledScore + fatalityScore);
+    const riskLevel = riskScore >= 70 ? 'CRITICAL' : riskScore >= 40 ? 'HIGH' : riskScore >= 15 ? 'MODERATE' : 'LOW';
+    const riskColor = riskScore >= 70 ? '#ef4444' : riskScore >= 40 ? '#f59e0b' : riskScore >= 15 ? '#06b6d4' : '#22c55e';
+
+    // Recent events (last 5)
+    const recentEvents = countryEvents.slice(0, 5).map((ev: any) =>
+        `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;">
+            <div style="color:var(--text-primary);margin-bottom:2px">${(ev.title || '').slice(0, 60)}</div>
+            <div style="color:var(--text-muted);font-size:9px">${ev.source || 'GDELT'} · ${ev.date || 'Recent'}</div>
+        </div>`
+    ).join('');
+
+    // ACLED strikes
+    const acledHtml = acledList.slice(0, 3).map((a: any) =>
+        `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px;">
+            <div style="color:#ef4444;font-weight:600;font-size:9px;letter-spacing:1px">${a.sub_type || 'STRIKE'}</div>
+            <div style="color:var(--text-primary);margin:2px 0">${a.actor1} vs ${a.actor2}</div>
+            <div style="color:var(--text-muted);font-size:9px">${a.location || ''} · ${a.fatalities || 0} fatalities</div>
+        </div>`
+    ).join('');
+
+    // Build modal
+    const existingModal = document.getElementById('country-profile-modal');
+    if (existingModal) existingModal.remove();
+    const existingOverlay = document.getElementById('country-profile-overlay');
+    if (existingOverlay) existingOverlay.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'country-profile-overlay';
+    overlay.className = 'country-profile-overlay';
+    overlay.onclick = () => { overlay.remove(); modal.remove(); };
+
+    const modal = document.createElement('div');
+    modal.id = 'country-profile-modal';
+    modal.className = 'country-profile-modal';
+    modal.innerHTML = `
+        <div class="cp-header">
+            <span class="cp-flag">${country.flag}</span>
+            <div>
+                <div class="cp-name">${country.name}</div>
+                <div class="cp-iso">${country.iso}</div>
+            </div>
+            <div class="cp-risk" style="background:${riskColor}20;color:${riskColor};border-color:${riskColor}">
+                <div class="cp-risk-score">${riskScore}</div>
+                <div class="cp-risk-label">${riskLevel}</div>
+            </div>
+            <button class="cp-close" onclick="this.closest('.country-profile-modal').remove();document.getElementById('country-profile-overlay')?.remove()">×</button>
+        </div>
+        <div class="cp-stats">
+            <div class="cp-stat"><div class="cp-stat-val">${countryEvents.length}</div><div class="cp-stat-lbl">EVENTS</div></div>
+            <div class="cp-stat"><div class="cp-stat-val" style="color:#f97316">${countryFires.length}</div><div class="cp-stat-lbl">FIRES</div></div>
+            <div class="cp-stat"><div class="cp-stat-val" style="color:#ef4444">${acledCount}</div><div class="cp-stat-lbl">STRIKES</div></div>
+            <div class="cp-stat"><div class="cp-stat-val" style="color:#ef4444">${acledFatalities}</div><div class="cp-stat-lbl">FATALITIES</div></div>
+        </div>
+        ${recentEvents ? `<div class="cp-section"><div class="cp-section-title">📡 RECENT EVENTS</div>${recentEvents}</div>` : ''}
+        ${acledHtml ? `<div class="cp-section"><div class="cp-section-title">💥 KINETIC ACTIVITY</div>${acledHtml}</div>` : ''}
+        <div class="cp-footer">
+            <button class="cp-fly-btn" id="cp-fly-btn">🗺️ FLY TO REGION</button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(modal);
+
+    document.getElementById('cp-fly-btn')?.addEventListener('click', () => {
+        mapRef.flyTo({ center: [country.lon, country.lat], zoom: 5, speed: 1.5 });
+        overlay.remove();
+        modal.remove();
+    });
+}
+
+function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
