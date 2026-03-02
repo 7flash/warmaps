@@ -4030,3 +4030,73 @@ body::before {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* ─── Market Maker Dashboard ─────────────────────────────── */
+
+.mm-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.mm-stat {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 8px 10px;
+    text-align: center;
+}
+
+.mm-stat-label {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.mm-stat-value {
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    color: #e2e8f0;
+}
+
+.mm-bucket-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 11px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.mm-bucket-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.mm-bucket-id {
+    width: 42px;
+    flex-shrink: 0;
+    font-weight: 600;
+}
+
+.mm-bucket-wallet {
+    color: #64748b;
+    flex-shrink: 0;
+    width: 80px;
+}
+
+.mm-bucket-tokens {
+    flex: 1;
+    text-align: right;
+    color: #94a3b8;
+}
+
+.mm-bucket-pnl {
+    width: 60px;
+    text-align: right;
+    font-weight: 700;
+}
