@@ -157,6 +157,51 @@ export default function mount() {
         measureSync('Timeline', () => initTimeline());
         measureSync('Alerts', () => initAlerts());
 
+        // Keyboard shortcuts help (press ?)
+        document.addEventListener('keydown', (e) => {
+            if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+            if (e.key === '?') {
+                const existing = document.getElementById('shortcuts-modal');
+                if (existing) { existing.remove(); document.getElementById('shortcuts-overlay')?.remove(); return; }
+
+                const overlay = document.createElement('div');
+                overlay.id = 'shortcuts-overlay';
+                overlay.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)';
+                overlay.onclick = () => { overlay.remove(); modal.remove(); };
+
+                const modal = document.createElement('div');
+                modal.id = 'shortcuts-modal';
+                modal.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:201;width:340px;max-width:90vw;background:rgba(10,15,26,0.98);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.6)';
+                modal.innerHTML = `
+                    <div style="font-family:var(--font-display);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:2px;margin-bottom:16px">⌨ KEYBOARD SHORTCUTS</div>
+                    ${[
+                        ['?', 'Toggle this help'],
+                        ['P', 'Pause/resume data polling'],
+                        ['Ctrl+K', 'Search / jump to location'],
+                        ['ESC', 'Close any modal or panel'],
+                        ['1-9', 'Switch panel tab'],
+                    ].map(([key, desc]) => `
+                        <div style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+                            <kbd style="font-family:var(--font-mono);font-size:11px;background:rgba(255,255,255,0.06);padding:3px 8px;border-radius:4px;border:1px solid rgba(255,255,255,0.1);color:var(--text-primary);min-width:60px;text-align:center">${key}</kbd>
+                            <span style="margin-left:12px;font-size:12px;color:var(--text-secondary)">${desc}</span>
+                        </div>
+                    `).join('')}
+                    <div style="margin-top:12px;font-size:10px;color:var(--text-muted);text-align:center">Press ? or ESC to close</div>
+                `;
+
+                document.body.appendChild(overlay);
+                document.body.appendChild(modal);
+
+                const escHandler = (ev: KeyboardEvent) => {
+                    if (ev.key === 'Escape' || ev.key === '?') {
+                        overlay.remove(); modal.remove();
+                        document.removeEventListener('keydown', escHandler);
+                    }
+                };
+                document.addEventListener('keydown', escHandler);
+            }
+        });
+
         // Start data fetching immediately
         await m('Initial data fetch', () => fetchAllData());
 
