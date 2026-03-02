@@ -101,7 +101,7 @@ export const IMAGE_MARKERS: Map<string, any> = new Map();
 export const IMAGE_MARKER_ORDER: string[] = [];
 export const MAX_VISIBLE_IMAGES = 25;
 export const FADE_PER_RANK = 0.04;
-export const IMAGE_APPEAR_INTERVAL = 2_000;
+export const IMAGE_APPEAR_INTERVAL = 500;
 
 // Data freshness tracking
 export const dataFreshness: Record<string, number> = {};
