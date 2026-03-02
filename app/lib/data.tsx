@@ -19,7 +19,7 @@ import {
     currentFilter, dataPaused,
     eventArrivalTime, markFresh,
 } from './state';
-import { renderNewsFeed, renderGdeltFeed, renderFiresFeed, renderRadarFeed, showThreatBanner, updateTicker, updateStats, renderTelegramFeed } from './feeds';
+import { renderNewsFeed, renderGdeltFeed, renderFiresFeed, renderRadarFeed, renderSeismicFeed, showThreatBanner, updateTicker, updateStats, renderTelegramFeed } from './feeds';
 import { queueNewEvents } from './markers';
 import { updateTokenMapSource, renderTokensFeed } from './tokens';
 import { spawnRadarPings, showDataFlash } from './spotlight';
@@ -85,6 +85,10 @@ export async function fetchSeismic() {
             setSeismicData(geo);
             const aSrc = map?.getSource('seismic');
             if (aSrc) aSrc.setData(geo);
+            renderSeismicFeed();
+            markFresh('seismic');
+            const el = document.getElementById('seismic-count');
+            if (el) el.textContent = String(data.events.length);
         }
     } catch (e) {
         console.error('[WARMAPS] Seismic events fetch failed:', e);

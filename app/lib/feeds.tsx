@@ -3,7 +3,7 @@
  */
 
 import { render } from 'melina/client';
-import { map, newsItems, gdeltEvents, firePoints, marketData, threatAlerts, webcamData, flightData, getFreshnessLabel, isWithinTimeline, timelineHours } from './state';
+import { map, newsItems, gdeltEvents, firePoints, marketData, threatAlerts, webcamData, flightData, seismicData, getFreshnessLabel, isWithinTimeline, timelineHours } from './state';
 import { formatTime, formatVolume, getCategoryIcon, proxyImg, decodeEntities } from './utils';
 import { updatePerfDisplay } from './perf';
 import { openArticleModal } from './modals';
@@ -145,6 +145,44 @@ export function renderFiresFeed() {
                 </div>
             </div>
         )}</>,
+        container
+    );
+}
+
+// ─── Seismic Feed ───────────────────────────────────────────
+
+export function renderSeismicFeed() {
+    const container = document.getElementById('seismic-feed');
+    if (!container) return;
+
+    const features = seismicData?.features || [];
+
+    if (features.length === 0) {
+        render(<div className="loading-state"><span>No seismic events</span></div>, container);
+        return;
+    }
+
+    render(
+        <>{features.slice(0, 15).map((f: any) => {
+            const p = f.properties;
+            const [lon, lat] = f.geometry.coordinates;
+            const mag = p.mag || 0;
+            const depth = p.depth || 0;
+            const magColor = mag >= 5 ? '#ef4444' : mag >= 4 ? '#f59e0b' : '#22c55e';
+            const depthLabel = depth <= 2 ? '⚠️ SHALLOW' : `${depth.toFixed(1)}km`;
+            return (
+                <div className="feed-item feed-item--seismic" style={{ cursor: 'default' }}>
+                    <div className="feed-item-source" style={{ color: magColor }}>
+                        {p.is_kinetic ? '💥 KINETIC SUSPECT' : '🌍 EARTHQUAKE'} — M{mag.toFixed(1)}
+                    </div>
+                    <div className="feed-item-title">{p.title}</div>
+                    <div className="feed-item-meta">
+                        <span>Depth: {depthLabel}</span>
+                        <span>{lat.toFixed(2)}°, {lon.toFixed(2)}°</span>
+                    </div>
+                </div>
+            );
+        })}</>,
         container
     );
 }

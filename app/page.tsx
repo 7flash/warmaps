@@ -314,6 +314,16 @@ export default function Page() {
                             <div class="loading-state"><span class="spinner"></span><span>Scanning NASA FIRMS...</span></div>
                         </div>
                     </div>
+
+                    <div class="panel-section">
+                        <div class="panel-header">
+                            <h2>🌍 SEISMIC</h2>
+                            <span class="badge" id="seismic-count">0</span>
+                        </div>
+                        <div id="seismic-feed" class="feed-list feed-list--short">
+                            <div class="loading-state"><span class="spinner"></span><span>Scanning USGS...</span></div>
+                        </div>
+                    </div>
                 </aside>
 
                 {/* ─── Tab: AI ANALYST ──────────────────────── */}
