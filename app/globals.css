@@ -3562,3 +3562,195 @@ body::before {
     background: rgba(34, 197, 94, 0.2);
     border-color: var(--accent);
 }
+
+/* ─── Market Bet Buttons (inline on cards) ────────────────── */
+
+.radar-market {
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.radar-market:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.radar-market-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.market-bet-btn {
+    flex: 1;
+    text-align: center;
+    padding: 5px 8px;
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    letter-spacing: 0.3px;
+}
+
+.market-bet-btn--yes {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: var(--accent);
+}
+
+.market-bet-btn--yes:hover {
+    background: rgba(34, 197, 94, 0.25);
+    border-color: var(--accent);
+    transform: scale(1.02);
+}
+
+.market-bet-btn--no {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
+.market-bet-btn--no:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: #ef4444;
+    transform: scale(1.02);
+}
+
+/* ─── Market Modal ────────────────────────────────────────── */
+
+.market-modal {
+    max-width: 520px;
+}
+
+.market-modal__gauge {
+    padding: 16px 20px;
+}
+
+.market-modal__gauge-bar {
+    display: flex;
+    height: 40px;
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.market-modal__gauge-yes {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    min-width: 60px;
+    transition: width 0.3s ease;
+}
+
+.market-modal__gauge-yes.prob--hot {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.6), rgba(239, 68, 68, 0.3));
+}
+
+.market-modal__gauge-yes.prob--warm {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.6), rgba(245, 158, 11, 0.3));
+}
+
+.market-modal__gauge-yes.prob--cool {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.5), rgba(34, 197, 94, 0.25));
+}
+
+.market-modal__gauge-no {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-dim);
+    min-width: 60px;
+}
+
+.market-modal__body {
+    padding: 12px 20px 16px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+.market-modal__body strong {
+    color: var(--text-primary);
+}
+
+.market-velocity-note {
+    padding: 8px 12px;
+    background: rgba(245, 158, 11, 0.08);
+    border-left: 2px solid rgba(245, 158, 11, 0.4);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.market-velocity-badge {
+    color: #f59e0b !important;
+    font-weight: 700;
+}
+
+.market-modal__actions {
+    display: flex;
+    gap: 12px;
+    padding: 0 20px 16px;
+}
+
+.market-modal__bet {
+    flex: 1;
+    text-align: center;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    letter-spacing: 0.5px;
+}
+
+.market-modal__bet--yes {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.08));
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: var(--accent);
+}
+
+.market-modal__bet--yes:hover {
+    background: rgba(34, 197, 94, 0.3);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+}
+
+.market-modal__bet--no {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.08));
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #ef4444;
+}
+
+.market-modal__bet--no:hover {
+    background: rgba(239, 68, 68, 0.3);
+    border-color: #ef4444;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+.market-modal__footer {
+    padding: 10px 20px 14px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.market-modal__footer a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.market-modal__footer a:hover {
+    text-decoration: underline;
+}

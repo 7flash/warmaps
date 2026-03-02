@@ -1512,7 +1512,8 @@ function renderMarketCards(markets: any[]) {
         const velocity = market.velocityPct ? (market.velocityPct > 0 ? `▲${market.velocityPct.toFixed(1)}%` : `▼${Math.abs(market.velocityPct).toFixed(1)}%`) : '';
         const velocityClass = market.velocityPct > 5 ? 'velocity--up' : market.velocityPct < -5 ? 'velocity--down' : '';
         return (
-            <div className="radar-market" data-link={market.url}>
+            <div className="radar-market" data-link={market.url}
+                onClick={() => openMarketModal(market)}>
                 <div className="radar-market-header">
                     <span className="radar-market-cat">{catIcon} {market.category.toUpperCase()}</span>
                     <span className="radar-market-platform">{market.platform === 'polymarket' ? 'PM' : 'KA'}</span>
@@ -1526,6 +1527,18 @@ function renderMarketCards(markets: any[]) {
                 </div>
                 <div className="radar-market-bar">
                     <div className={`radar-market-bar-fill ${probClass}`} style={{ width: `${market.probability}%` }}></div>
+                </div>
+                <div className="radar-market-actions">
+                    <a className="market-bet-btn market-bet-btn--yes"
+                        href={market.url} target="_blank" rel="noopener"
+                        onClick={(e: any) => e.stopPropagation()}>
+                        YES {market.probability}%
+                    </a>
+                    <a className="market-bet-btn market-bet-btn--no"
+                        href={market.url} target="_blank" rel="noopener"
+                        onClick={(e: any) => e.stopPropagation()}>
+                        NO {100 - market.probability}%
+                    </a>
                 </div>
             </div>
         );
@@ -2809,6 +2822,78 @@ function openArticleModal(ev: any) {
 
 
 // ─── AI Chat ────────────────────────────────────────────────
+
+// ─── Market Modal ───────────────────────────────────────────
+
+function openMarketModal(market: any) {
+    document.querySelector('.article-modal-overlay')?.remove();
+
+    const probClass = market.probability >= 70 ? 'prob--hot' :
+        market.probability >= 50 ? 'prob--warm' : 'prob--cool';
+    const noPct = 100 - market.probability;
+    const velocity = market.velocityPct ? (market.velocityPct > 0 ? `▲${market.velocityPct.toFixed(1)}%` : `▼${Math.abs(market.velocityPct).toFixed(1)}%`) : '';
+    const platformLabel = market.platform === 'polymarket' ? 'Polymarket' : 'Kalshi';
+    const catIcon = getCategoryIcon(market.category);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'article-modal-overlay';
+
+    overlay.innerHTML = `
+        <div class="article-modal market-modal" onclick="event.stopPropagation()">
+            <div class="article-modal__header">
+                <div class="article-modal__title">${escHtml(market.title)}</div>
+                <button class="article-modal__close" title="Close">×</button>
+            </div>
+
+            <div class="market-modal__gauge">
+                <div class="market-modal__gauge-bar">
+                    <div class="market-modal__gauge-yes ${probClass}" style="width:${market.probability}%">
+                        <span>YES ${market.probability}%</span>
+                    </div>
+                    <div class="market-modal__gauge-no" style="width:${noPct}%">
+                        <span>NO ${noPct}%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="article-modal__meta">
+                <span>${catIcon} ${escHtml(market.category.toUpperCase())}</span>
+                <span>📊 ${platformLabel}</span>
+                <span>💰 $${formatVolume(market.volume)} volume</span>
+                ${velocity ? `<span class="market-velocity-badge">${velocity}</span>` : ''}
+                ${market.region ? `<span>📍 ${escHtml(market.region)}</span>` : ''}
+            </div>
+
+            <div class="market-modal__body">
+                <p>This market asks: <strong>${escHtml(market.title)}</strong></p>
+                <p>Current odds suggest a <strong>${market.probability}%</strong> probability of YES.</p>
+                ${market.velocityPct && Math.abs(market.velocityPct) > 2 ?
+            `<p class="market-velocity-note">${market.velocityPct > 0 ? '📈' : '📉'} Odds have moved <strong>${velocity}</strong> in the last 15 minutes — ${market.velocityPct > 0 ? 'smart money may be flowing in' : 'sentiment shifting against'}.</p>` : ''}
+            </div>
+
+            <div class="market-modal__actions">
+                <a class="market-modal__bet market-modal__bet--yes" href="${escHtml(market.url)}" target="_blank" rel="noopener">
+                    BET YES — ${market.probability}%
+                </a>
+                <a class="market-modal__bet market-modal__bet--no" href="${escHtml(market.url)}" target="_blank" rel="noopener">
+                    BET NO — ${noPct}%
+                </a>
+            </div>
+
+            <div class="market-modal__footer">
+                Trade on <a href="${escHtml(market.url)}" target="_blank" rel="noopener">${platformLabel} →</a>
+            </div>
+        </div>
+    `;
+
+    overlay.addEventListener('click', () => overlay.remove());
+    overlay.querySelector('.article-modal__close')?.addEventListener('click', () => overlay.remove());
+    const escHandler = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
+    };
+    document.addEventListener('keydown', escHandler);
+    document.body.appendChild(overlay);
+}
 
 interface AIChatMessage {
     role: 'user' | 'assistant';
