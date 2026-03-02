@@ -3754,3 +3754,279 @@ body::before {
 .market-modal__footer a:hover {
     text-decoration: underline;
 }
+
+/* ─── Wallet Connect Button ───────────────────────────────── */
+
+.wallet-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.wallet-btn:hover {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: var(--accent);
+}
+
+.wallet-btn--connected {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: var(--accent);
+}
+
+@keyframes wallet-flash {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+    }
+
+    50% {
+        box-shadow: 0 0 12px 4px rgba(34, 197, 94, 0.4);
+    }
+}
+
+.wallet-btn--flash {
+    animation: wallet-flash 0.5s ease 3;
+    border-color: var(--accent) !important;
+}
+
+/* ─── Native Bet UI ───────────────────────────────────────── */
+
+.market-modal__bet-section {
+    padding: 0 20px 16px;
+}
+
+.bet-amount-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.bet-amount-row label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+.bet-amount-input-wrap {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.bet-amount-input {
+    width: 80px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    outline: none;
+}
+
+.bet-amount-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.2);
+}
+
+.bet-presets {
+    display: flex;
+    gap: 4px;
+}
+
+.bet-preset {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text-dim);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.1s ease;
+}
+
+.bet-preset:hover {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: var(--accent);
+}
+
+.market-modal__bet {
+    cursor: pointer;
+}
+
+.bet-status {
+    text-align: center;
+    padding: 8px 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    min-height: 20px;
+}
+
+.bet-error {
+    color: #ef4444;
+}
+
+.bet-pending {
+    color: #f59e0b;
+}
+
+.bet-success {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+/* ─── Pool Stats ──────────────────────────────────────────── */
+
+.market-pool-stats {
+    padding: 0 20px;
+}
+
+.pool-header,
+.positions-header {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.pool-row {
+    display: flex;
+    gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding-bottom: 8px;
+}
+
+.pool-yes {
+    color: var(--accent);
+}
+
+.pool-no {
+    color: #ef4444;
+}
+
+.pool-total {
+    color: var(--text-dim);
+    margin-left: auto;
+}
+
+/* ─── My Positions ────────────────────────────────────────── */
+
+.my-positions {
+    padding: 0 20px 8px;
+}
+
+.position-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    transition: opacity 0.3s ease;
+}
+
+.position-row.pos-yes {
+    background: rgba(34, 197, 94, 0.06);
+    border: 1px solid rgba(34, 197, 94, 0.15);
+}
+
+.position-row.pos-no {
+    background: rgba(239, 68, 68, 0.06);
+    border: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+.position-row.position-settled {
+    opacity: 0.4;
+}
+
+.position-info {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.position-side {
+    font-weight: 700;
+    min-width: 30px;
+}
+
+.pos-yes .position-side {
+    color: var(--accent);
+}
+
+.pos-no .position-side {
+    color: #ef4444;
+}
+
+.position-amount {
+    color: var(--text-primary);
+}
+
+.position-odds {
+    color: var(--text-dim);
+}
+
+.position-status {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+}
+
+.position-status--confirmed {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--accent);
+}
+
+.position-status--settled {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-dim);
+}
+
+.position-close-btn {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    letter-spacing: 0.5px;
+}
+
+.position-close-btn:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: #ef4444;
+}
+
+.position-close-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

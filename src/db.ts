@@ -90,6 +90,20 @@ export const db = new Database(dbPath, {
         message_date: z.number().default(0),  // unix timestamp
         cached_at: z.string().default(() => new Date().toISOString()),
     }),
+
+    bets: z.object({
+        bet_id: z.string(),                   // unique bet ID
+        market_id: z.string(),                // polymarket/kalshi market ID
+        market_title: z.string(),
+        wallet: z.string(),                   // Solana wallet pubkey
+        side: z.string(),                     // 'yes' | 'no'
+        amount_sol: z.number(),               // SOL amount wagered
+        amount_lamports: z.number(),          // lamports (amount_sol * 1e9)
+        odds_at_bet: z.number(),              // probability at time of bet
+        tx_signature: z.string().default(''), // Solana tx signature
+        status: z.string().default('pending'), // pending | confirmed | settled | refunded
+        placed_at: z.string().default(() => new Date().toISOString()),
+    }),
 }, {
     indexes: {
         market_snapshots: ['market_id', 'captured_at', 'platform', 'category'],
@@ -99,6 +113,7 @@ export const db = new Database(dbPath, {
         fire_points: ['country', 'cached_at'],
         chat_messages: ['sent_at'],
         telegram_messages: ['channel_id', 'cached_at'],
+        bets: ['market_id', 'wallet', 'status', 'placed_at'],
     },
 });
 
@@ -294,4 +309,73 @@ export function cleanupOldData(daysToKeep = 7) {
     db.telegram_messages.delete().where({ cached_at: { $lt: cutoff } }).exec();
 
     console.log(`[db] Cleaned up data older than ${daysToKeep} days`);
+}
+
+// ─── Betting Functions ───────────────────────────────────────
+
+/** Record a new bet. */
+export function placeBet(bet: {
+    marketId: string;
+    marketTitle: string;
+    wallet: string;
+    side: 'yes' | 'no';
+    amountSol: number;
+    oddsAtBet: number;
+    txSignature: string;
+}) {
+    const betId = `bet-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    db.bets.insert({
+        bet_id: betId,
+        market_id: bet.marketId,
+        market_title: bet.marketTitle,
+        wallet: bet.wallet,
+        side: bet.side,
+        amount_sol: bet.amountSol,
+        amount_lamports: Math.round(bet.amountSol * 1e9),
+        odds_at_bet: bet.oddsAtBet,
+        tx_signature: bet.txSignature,
+        status: 'confirmed',
+    });
+    return betId;
+}
+
+/** Get the YES/NO pool for a market (total SOL on each side). */
+export function getMarketPool(marketId: string) {
+    const bets = db.bets.select()
+        .where({ market_id: marketId, status: 'confirmed' })
+        .all();
+
+    let yesPool = 0, noPool = 0, yesBets = 0, noBets = 0;
+    for (const b of bets) {
+        if (b.side === 'yes') { yesPool += b.amount_sol; yesBets++; }
+        else { noPool += b.amount_sol; noBets++; }
+    }
+    const total = yesPool + noPool;
+    return {
+        yesPool, noPool, total,
+        yesBets, noBets,
+        yesOdds: total > 0 ? Math.round((yesPool / total) * 100) : 50,
+        noOdds: total > 0 ? Math.round((noPool / total) * 100) : 50,
+    };
+}
+
+/** Get all bets for a specific market. */
+export function getMarketBets(marketId: string) {
+    return db.bets.select()
+        .where({ market_id: marketId })
+        .orderBy('placed_at', 'desc')
+        .all();
+}
+
+/** Get all bets for a specific wallet. */
+export function getWalletBets(wallet: string) {
+    return db.bets.select()
+        .where({ wallet })
+        .orderBy('placed_at', 'desc')
+        .all();
+}
+
+/** Update bet status (for settlement/refunds). */
+export function updateBetStatus(betId: string, status: string) {
+    db.bets.update({ status }).where({ bet_id: betId }).exec();
 }

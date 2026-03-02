@@ -61,6 +61,10 @@ export default function Page() {
                     </div>
                 </div>
                 <div class="top-bar-right">
+                    <button id="wallet-btn" class="wallet-btn" title="Connect Solana Wallet">
+                        <span id="wallet-label">🔗 CONNECT</span>
+                    </button>
+                    <span class="separator">│</span>
                     <button id="aurebesh-toggle" class="aurebesh-toggle" title="Toggle Aurebesh / Human mode">AB</button>
                     <span class="separator">│</span>
                     <span class="status-indicator">
@@ -233,7 +237,7 @@ export default function Page() {
                     </div>
                     <div class="panel-section panel-section--radar">
                         <div class="panel-header">
-                            <h2>THREAT RADAR · POLYMARKET + KALSHI</h2>
+                            <h2>THREAT RADAR · WARMAPS</h2>
                             <span class="badge badge--hot" id="markets-alert-count">0</span>
                         </div>
                         <div id="markets-feed" class="feed-list">
