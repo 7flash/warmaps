@@ -7,7 +7,7 @@
  * GET  /api/bet?wallet=xxx — Get a wallet's bet history
  */
 import { placeBet, getMarketPool, getMarketBets, getWalletBets, updateBetStatus, db } from '../../../src/db';
-import { Connection, PublicKey, Keypair, Transaction, SystemProgram, sendAndConfirmTransaction } from '@solana/web3.js';
+import { Connection, PublicKey, Keypair, Transaction, SystemProgram } from '@solana/web3.js';
 import * as fs from 'fs';
 import path from 'path';
 import bs58 from 'bs58';
@@ -157,7 +157,11 @@ async function handleCloseBet(req: Request) {
             return Response.json({ error: 'Insufficient treasury balance for withdrawal' }, { status: 503 });
         }
 
-        const tx = new Transaction().add(
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+        const tx = new Transaction();
+        tx.recentBlockhash = blockhash;
+        tx.feePayer = TREASURY_KEYPAIR.publicKey;
+        tx.add(
             SystemProgram.transfer({
                 fromPubkey: TREASURY_KEYPAIR.publicKey,
                 toPubkey,
@@ -165,7 +169,15 @@ async function handleCloseBet(req: Request) {
             })
         );
 
-        const signature = await sendAndConfirmTransaction(connection, tx, [TREASURY_KEYPAIR]);
+        tx.sign(TREASURY_KEYPAIR);
+
+        const signature = await connection.sendRawTransaction(tx.serialize(), {
+            skipPreflight: true,
+            maxRetries: 3,
+        });
+
+        // Wait for confirmation
+        await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
 
         // Mark bet as settled
         updateBetStatus(betId, 'settled');

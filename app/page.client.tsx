@@ -3091,7 +3091,7 @@ async function placeSolanaBet(market: any, side: 'yes' | 'no', overlay: HTMLElem
     try {
         // Create SOL transfer to treasury
         const { Connection, PublicKey, Transaction, SystemProgram } = await import('@solana/web3.js');
-        const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+        const connection = new Connection(window.location.origin + '/api/rpc', 'confirmed');
         const fromPubkey = new PublicKey(connectedWallet);
         const toPubkey = new PublicKey(TREASURY_WALLET);
         const lamports = Math.round(amount * 1e9);
