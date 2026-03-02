@@ -4,7 +4,7 @@
 
 import { render } from 'melina/client';
 import maplibregl from 'maplibre-gl';
-import { map, pumpfunTokens, gdeltEvents, TOKEN_MARKERS } from './state';
+import { map, pumpfunTokens, gdeltEvents, TOKEN_MARKERS, connectedWallet } from './state';
 import { ImgWithFallback, proxyImg, escHtml, formatTime } from './utils';
 
 export function updateTokenMapSource() {
@@ -123,6 +123,35 @@ export function openTokenDetailModal(token: any) {
                 <div class="token-detail__events">${eventsHtml}</div>
             </div>
 
+            ${tokenAddr ? `<div class="token-trade">
+                <div class="token-trade__header">
+                    <span>⚡ TRADE $${symbol}</span>
+                    <span class="token-trade__price" id="trade-price">Loading...</span>
+                </div>
+                <div class="token-trade__tabs">
+                    <button class="token-trade__tab token-trade__tab--buy active" id="trade-tab-buy">BUY</button>
+                    <button class="token-trade__tab token-trade__tab--sell" id="trade-tab-sell">SELL</button>
+                </div>
+                <div class="token-trade__body">
+                    <div class="token-trade__input-row">
+                        <label id="trade-input-label">Amount (SOL)</label>
+                        <input type="number" id="trade-amount" class="token-trade__input" value="0.1" min="0.001" step="0.01" />
+                    </div>
+                    <div class="token-trade__presets">
+                        <button class="token-trade__preset" data-amt="0.05">0.05</button>
+                        <button class="token-trade__preset" data-amt="0.1">0.1</button>
+                        <button class="token-trade__preset" data-amt="0.5">0.5</button>
+                        <button class="token-trade__preset" data-amt="1">1.0</button>
+                        <button class="token-trade__preset" data-amt="5">5.0</button>
+                    </div>
+                    <div class="token-trade__estimate" id="trade-estimate"></div>
+                    <button class="token-trade__exec token-trade__exec--buy" id="trade-exec-btn">
+                        🔥 BUY $${symbol}
+                    </button>
+                    <div class="token-trade__status" id="trade-status"></div>
+                </div>
+            </div>` : ''}
+
             <div class="token-detail__actions">
                 <a href="${escHtml(pfUrl)}" target="_blank" rel="noopener" class="token-detail__cta token-detail__cta--pump">
                     🔥 View on Pump.fun
@@ -150,6 +179,156 @@ export function openTokenDetailModal(token: any) {
     document.addEventListener('keydown', escHandler);
 
     document.body.appendChild(overlay);
+
+    // ── Trading widget logic ─────────────────────────────────
+    if (tokenAddr) {
+        let tradeSide: 'buy' | 'sell' = 'buy';
+        let currentPrice = 0;
+
+        const tabBuy = overlay.querySelector('#trade-tab-buy') as HTMLElement;
+        const tabSell = overlay.querySelector('#trade-tab-sell') as HTMLElement;
+        const amtInput = overlay.querySelector('#trade-amount') as HTMLInputElement;
+        const inputLabel = overlay.querySelector('#trade-input-label') as HTMLElement;
+        const estimateEl = overlay.querySelector('#trade-estimate') as HTMLElement;
+        const execBtn = overlay.querySelector('#trade-exec-btn') as HTMLButtonElement;
+        const statusEl = overlay.querySelector('#trade-status') as HTMLElement;
+        const priceEl = overlay.querySelector('#trade-price') as HTMLElement;
+
+        // Tab switching
+        tabBuy?.addEventListener('click', () => {
+            tradeSide = 'buy';
+            tabBuy.classList.add('active');
+            tabSell?.classList.remove('active');
+            inputLabel.textContent = 'Amount (SOL)';
+            execBtn.textContent = '🔥 BUY $' + symbol;
+            execBtn.className = 'token-trade__exec token-trade__exec--buy';
+            updateEstimate();
+        });
+        tabSell?.addEventListener('click', () => {
+            tradeSide = 'sell';
+            tabSell.classList.add('active');
+            tabBuy?.classList.remove('active');
+            inputLabel.textContent = 'Amount (tokens)';
+            execBtn.textContent = '💰 SELL $' + symbol;
+            execBtn.className = 'token-trade__exec token-trade__exec--sell';
+            updateEstimate();
+        });
+
+        // Preset buttons
+        overlay.querySelectorAll('.token-trade__preset').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (amtInput) amtInput.value = (btn as HTMLElement).dataset.amt || '0.1';
+                updateEstimate();
+            });
+        });
+
+        // Estimate updates
+        amtInput?.addEventListener('input', () => updateEstimate());
+
+        function updateEstimate() {
+            if (!currentPrice || !estimateEl) return;
+            const amt = parseFloat(amtInput?.value || '0');
+            if (!amt || amt <= 0) { estimateEl.textContent = ''; return; }
+            if (tradeSide === 'buy') {
+                const tokens = amt / currentPrice;
+                estimateEl.textContent = '≈ ' + formatTokens(tokens) + ' tokens';
+            } else {
+                const sol = amt * currentPrice;
+                estimateEl.textContent = '≈ ' + sol.toFixed(6) + ' SOL';
+            }
+        }
+
+        function formatTokens(n: number): string {
+            if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+            if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+            if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+            return n.toFixed(0);
+        }
+
+        // Fetch initial price
+        fetch('/api/swap?mint=' + tokenAddr)
+            .then(r => r.json())
+            .then(d => {
+                if (d.price) {
+                    currentPrice = d.price;
+                    const mcapUsd = d.mcapSol * 150; // rough SOL/USD
+                    priceEl.textContent = mcapUsd >= 1000 ? '$' + (mcapUsd / 1000).toFixed(1) + 'K mcap' : '$' + mcapUsd.toFixed(0) + ' mcap';
+                    updateEstimate();
+                }
+            })
+            .catch(() => { priceEl.textContent = 'Price unavailable'; });
+
+        // Execute trade
+        execBtn?.addEventListener('click', async () => {
+            const amt = parseFloat(amtInput?.value || '0');
+            if (!amt || amt <= 0) {
+                statusEl.innerHTML = '<span style="color:#ef4444">Enter an amount</span>';
+                return;
+            }
+            if (!connectedWallet) {
+                statusEl.innerHTML = '<span style="color:#ef4444">🔗 Connect wallet first (top bar)</span>';
+                const walletBtn = document.getElementById('wallet-btn');
+                walletBtn?.classList.add('wallet-btn--flash');
+                setTimeout(() => walletBtn?.classList.remove('wallet-btn--flash'), 2000);
+                return;
+            }
+            const solana = (window as any).solana;
+            if (!solana?.isPhantom) {
+                statusEl.innerHTML = '<span style="color:#ef4444">Phantom wallet required</span>';
+                return;
+            }
+
+            execBtn.disabled = true;
+            statusEl.innerHTML = '<span style="color:#fbbf24">⏳ Building transaction...</span>';
+
+            try {
+                // 1. Get unsigned tx from server
+                const res = await fetch('/api/swap', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mint: tokenAddr,
+                        side: tradeSide,
+                        amount: amt,
+                        wallet: connectedWallet,
+                    }),
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                // 2. Deserialize and sign with Phantom
+                statusEl.innerHTML = '<span style="color:#fbbf24">⏳ Confirm in Phantom...</span>';
+
+                const { Transaction: SolTx } = await import('@solana/web3.js');
+                const txBuf = Buffer.from(data.tx, 'base64');
+                const tx = SolTx.from(txBuf);
+
+                const { signature } = await solana.signAndSendTransaction(tx);
+
+                // 3. Show success
+                const outLabel = tradeSide === 'buy'
+                    ? formatTokens(data.estimatedOutput) + ' tokens'
+                    : data.estimatedOutput.toFixed(4) + ' SOL';
+                statusEl.innerHTML = `<span style="color:#22c55e">✅ ${tradeSide === 'buy' ? 'Bought' : 'Sold'} ~${outLabel}</span><br/><a href="https://solscan.io/tx/${signature}" target="_blank" style="color:#3b82f6;font-size:10px">${signature.slice(0, 16)}...</a>`;
+
+                // Refresh price
+                setTimeout(() => {
+                    fetch('/api/swap?mint=' + tokenAddr)
+                        .then(r => r.json())
+                        .then(d => { if (d.price) { currentPrice = d.price; updateEstimate(); } })
+                        .catch(() => { });
+                }, 3000);
+            } catch (err: any) {
+                if (err.message?.includes('User rejected')) {
+                    statusEl.innerHTML = '<span style="color:#94a3b8">Transaction cancelled</span>';
+                } else {
+                    statusEl.innerHTML = `<span style="color:#ef4444">❌ ${err.message || 'Failed'}</span>`;
+                }
+            } finally {
+                execBtn.disabled = false;
+            }
+        });
+    }
 }
 
 export function TokenCard({ token, idx, onFly }: { token: any; idx: number; onFly: (t: any) => void }) {
