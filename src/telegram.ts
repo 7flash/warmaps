@@ -349,6 +349,10 @@ function classifyThreat(text: string): TelegramAlert['threatLevel'] {
 // Track last message ID per channel to avoid duplicates
 const lastMessageIds = new Map<string, number>()
 
+// Track channels that fail to resolve (don't retry for 1 hour)
+const failedChannels = new Map<string, number>();
+const FAILED_CHANNEL_TTL = 3600_000; // 1 hour
+
 /** Start polling all OSINT channels */
 export function startPolling(intervalMs = 15_000) {
     if (state.pollTimer) clearInterval(state.pollTimer)
@@ -365,6 +369,10 @@ export function startPolling(intervalMs = 15_000) {
 
         for (const channel of OSINT_CHANNELS) {
             try {
+                // Skip recently-failed channels
+                const failedAt = failedChannels.get(channel.id);
+                if (failedAt && Date.now() - failedAt < FAILED_CHANNEL_TTL) continue;
+
                 let peer: any
                 try {
                     peer = await state.client!.getInputEntity(channel.id)
@@ -372,10 +380,13 @@ export function startPolling(intervalMs = 15_000) {
                     try {
                         peer = await state.client!.getInputEntity(`@${channel.id}`)
                     } catch {
-                        console.error(`[telegram] Cannot resolve: ${channel.title} (@${channel.id})`)
+                        failedChannels.set(channel.id, Date.now());
+                        console.error(`[telegram] Cannot resolve: ${channel.title} (@${channel.id}) — skipping for 1h`)
                         continue
                     }
                 }
+                // Clear from failed cache on successful resolve
+                failedChannels.delete(channel.id);
 
                 const lastId = lastMessageIds.get(channel.id) || 0
                 const result = await state.client!.invoke(

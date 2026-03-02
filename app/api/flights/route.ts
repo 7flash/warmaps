@@ -9,11 +9,13 @@
 
 // In-memory cache to respect OpenSky rate limits
 let flightCache: { data: any[]; ts: number } | null = null;
-const CACHE_TTL = 15_000; // 15 seconds
+let cacheTTL = 60_000; // start at 60s
+const MIN_TTL = 60_000;
+const MAX_TTL = 300_000; // 5 min max backoff
 
 export async function GET(request: Request) {
     // Return from cache if fresh
-    if (flightCache && Date.now() - flightCache.ts < CACHE_TTL) {
+    if (flightCache && Date.now() - flightCache.ts < cacheTTL) {
         return Response.json({
             flights: flightCache.data,
             stats: { total: flightCache.data.length },
@@ -28,8 +30,18 @@ export async function GET(request: Request) {
             { signal: AbortSignal.timeout(12000) }
         );
 
+        if (res.status === 429) {
+            // Rate limited — back off
+            cacheTTL = Math.min(cacheTTL * 2, MAX_TTL);
+            console.warn(`[flights] 429 rate limited — backoff to ${cacheTTL / 1000}s`);
+            throw new Error('OpenSky 429 — rate limited');
+        }
+
         if (!res.ok) throw new Error(`OpenSky returned ${res.status}`);
         const data = await res.json();
+
+        // Successful fetch — reset TTL
+        cacheTTL = MIN_TTL;
 
         let flights: any[] = [];
         if (data && data.states) {
