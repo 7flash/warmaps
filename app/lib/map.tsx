@@ -88,15 +88,36 @@ export function initMap() {
     const mapEl = document.getElementById('map');
     if (!mapEl || map) return;
 
+    // Parse map position from URL hash: #map=zoom/lat/lng
+    let initCenter: [number, number] = [45, 30];
+    let initZoom = 3;
+    const hashMatch = location.hash.match(/map=(\d+\.?\d*)\/(-?\d+\.?\d*)\/(-?\d+\.?\d*)/);
+    if (hashMatch) {
+        initZoom = parseFloat(hashMatch[1]);
+        initCenter = [parseFloat(hashMatch[3]), parseFloat(hashMatch[2])];
+    }
+
     const m = new maplibregl.Map({
         container: 'map',
         style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-        center: [45, 30],
-        zoom: 3,
+        center: initCenter,
+        zoom: initZoom,
         pitch: 0,
         attributionControl: false,
     });
     setMap(m);
+
+    // Update URL hash on move (debounced)
+    let hashTimer: ReturnType<typeof setTimeout> | null = null;
+    m.on('moveend', () => {
+        if (hashTimer) clearTimeout(hashTimer);
+        hashTimer = setTimeout(() => {
+            const c = m.getCenter();
+            const z = m.getZoom().toFixed(1);
+            const newHash = `map=${z}/${c.lat.toFixed(2)}/${c.lng.toFixed(2)}`;
+            history.replaceState(null, '', `#${newHash}`);
+        }, 500);
+    });
 
     m.addControl(new maplibregl.NavigationControl(), 'top-right');
 

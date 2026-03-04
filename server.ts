@@ -4,6 +4,7 @@ import { builtAssets } from 'melina/server';
 import path from 'path';
 import * as fs from 'fs';
 import { saveChatMessage, getChatHistory, cleanupOldData } from './src/db';
+import { getSessionUser } from './app/lib/auth';
 import * as tg from './src/telegram';
 
 // Load Gemini API key from config if not already in env
@@ -66,9 +67,20 @@ const server = Bun.serve({
 
         // WebSocket upgrade for chat
         if (url.pathname === '/ws/chat') {
-            const username = generateGuestName();
+            // Check for authenticated user via session cookie
+            const cookie = req.headers.get('cookie') || '';
+            const sessionMatch = cookie.match(/wm_session=([a-f0-9]+)/);
+            let username = generateGuestName();
+            let isAuthenticated = false;
+            if (sessionMatch) {
+                const user = getSessionUser(sessionMatch[1]);
+                if (user) {
+                    username = user.displayName || user.username;
+                    isAuthenticated = true;
+                }
+            }
             const upgraded = server.upgrade(req, {
-                data: { username },
+                data: { username, isAuthenticated },
             });
             if (upgraded) return undefined as any;
             return new Response('WebSocket upgrade failed', { status: 400 });
@@ -139,6 +151,7 @@ const server = Bun.serve({
                 text: `${ws.data.username} joined`,
                 time: new Date().toISOString(),
                 online: server.subscriberCount('chat'),
+                isAuthenticated: ws.data.isAuthenticated,
             }));
         },
         message(ws: any, message: string | Buffer) {

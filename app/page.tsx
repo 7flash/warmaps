@@ -61,6 +61,13 @@ export default function Page() {
                     </div>
                 </div>
                 <div class="top-bar-right">
+                    <div id="user-auth" class="user-auth">
+                        <a href="/api/auth/github" id="login-btn" class="login-btn" title="Sign in with GitHub">
+                            <span class="login-icon">👤</span>
+                            <span class="login-text">LOGIN</span>
+                        </a>
+                    </div>
+                    <span class="separator">│</span>
                     <button id="wallet-btn" class="wallet-btn" title="Connect Solana Wallet">
                         <span id="wallet-label">🔗 CONNECT</span>
                     </button>

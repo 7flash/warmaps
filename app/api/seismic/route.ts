@@ -38,14 +38,7 @@ export async function GET(request: Request) {
             .filter((feat: any) => {
                 if (seenIds.has(feat.id)) return false;
                 seenIds.add(feat.id);
-
-                const coords = feat.geometry.coordinates;
-                const lon = coords[0];
-                const lat = coords[1];
-
-                // Extended bounding box: Middle East + Central Asia + Eastern Med
-                // lon 20-75, lat 15-45
-                return lon >= 20 && lon <= 75 && lat >= 15 && lat <= 45;
+                return true; // Global coverage — no bounding box filter
             })
             .map((feat: any) => ({
                 id: feat.id,

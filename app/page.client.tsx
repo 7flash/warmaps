@@ -36,6 +36,7 @@ import { initChat } from './lib/chat';
 import { startConflictSpotlight } from './lib/spotlight';
 import { setDataPaused, setTimelineHours } from './lib/state';
 import { initAlerts } from './lib/alerts';
+import { initAuth } from './lib/user-auth';
 
 // ─── Mount ──────────────────────────────────────────────────
 
@@ -51,6 +52,7 @@ export default function mount() {
         measureSync('Threat banner', () => initThreatBanner());
         measureSync('Aurebesh toggle', () => initAurebeshToggle());
         measureSync('Search modal', () => initSearchModal());
+        initAuth(); // async — doesn't block boot
 
         // CA click-to-copy
         const caBadge = document.getElementById('token-ca');
@@ -177,6 +179,7 @@ export default function mount() {
                     ${[
                         ['?', 'Toggle this help'],
                         ['P', 'Pause/resume data polling'],
+                        ['S', 'Copy shareable map URL'],
                         ['Ctrl+K', 'Search / jump to location'],
                         ['ESC', 'Close any modal or panel'],
                         ['1-9', 'Switch panel tab'],
@@ -199,6 +202,18 @@ export default function mount() {
                     }
                 };
                 document.addEventListener('keydown', escHandler);
+            }
+            // Share current map view
+            if (e.key === 's' || e.key === 'S') {
+                navigator.clipboard.writeText(window.location.href).then(() => {
+                    const toast = document.createElement('div');
+                    toast.className = 'alert-toast visible';
+                    toast.style.borderLeftColor = 'var(--accent)';
+                    toast.style.borderColor = 'rgba(34,197,94,0.3)';
+                    toast.innerHTML = '<div class="alert-toast-title" style="color:var(--accent)">📋 Link copied</div><div class="alert-toast-body">Share this URL to show your exact map view</div>';
+                    document.body.appendChild(toast);
+                    setTimeout(() => { toast.classList.remove('visible'); setTimeout(() => toast.remove(), 300); }, 3000);
+                });
             }
         });
 
