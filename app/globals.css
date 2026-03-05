@@ -270,7 +270,7 @@ body {
     }
 }
 
-/* ─── Full-Screen Map Wrapper ──────────────────────────────── */
+/* ─── Full-Screen Map Wrapper (legacy) ─────────────────────── */
 
 #map-wrapper {
     position: relative;
@@ -282,6 +282,256 @@ body {
 #map-wrapper .map-view {
     width: 100%;
     height: 100%;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ─── CANVAS VIEWPORT (new infinite canvas layout) ──────── */
+/* ═══════════════════════════════════════════════════════════ */
+
+.wm-viewport {
+    position: relative;
+    width: 100%;
+    height: calc(100vh - 40px);
+    overflow: hidden;
+    background: var(--bg-primary);
+    cursor: grab;
+    /* Subtle grid pattern */
+    background-image:
+        radial-gradient(circle at 1px 1px, rgba(34, 197, 94, 0.03) 1px, transparent 0);
+    background-size: 40px 40px;
+}
+
+.wm-viewport.space-panning {
+    cursor: grabbing;
+}
+
+.wm-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+    will-change: transform;
+}
+
+/* ─── Container Cards ─────────────────────────────────────── */
+
+.wm-container {
+    position: absolute;
+    background: rgba(8, 12, 22, 0.96);
+    border: 1px solid rgba(34, 197, 94, 0.12);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(34, 197, 94, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.02);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    min-width: 280px;
+    min-height: 200px;
+}
+
+.wm-container:hover {
+    border-color: rgba(34, 197, 94, 0.25);
+    box-shadow:
+        0 12px 48px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(34, 197, 94, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.wm-container.dragging {
+    z-index: 100;
+    border-color: rgba(34, 197, 94, 0.4);
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.6),
+        0 0 24px rgba(34, 197, 94, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.wm-container.resizing {
+    opacity: 0.95;
+}
+
+.wm-container-header {
+    padding: 8px 12px;
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent);
+    border-bottom: 1px solid rgba(34, 197, 94, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    cursor: grab;
+    user-select: none;
+    background: rgba(34, 197, 94, 0.03);
+}
+
+.wm-container.dragging .wm-container-header {
+    cursor: grabbing;
+}
+
+/* Collapsed container (double-click header to toggle) */
+.wm-container.collapsed {
+    height: auto !important;
+    min-height: 0 !important;
+}
+
+.wm-container.collapsed .wm-container-body {
+    display: none;
+}
+
+.wm-container.collapsed .wm-resize-handle {
+    display: none;
+}
+
+.wm-container.collapsed .wm-container-header {
+    border-bottom: none;
+    border-radius: 12px;
+}
+
+.wm-container.collapsed .wm-c-title::after {
+    content: '  ▸';
+    font-size: 9px;
+    opacity: 0.4;
+}
+
+.wm-c-icon {
+    font-size: 13px;
+}
+
+.wm-c-title {
+    flex: 1;
+}
+
+.wm-c-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.wm-map-stats {
+    display: flex;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.wm-map-stats strong {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+}
+
+.wm-container-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* Map container special sizing */
+.wm-container--map .wm-container-body {
+    overflow: hidden;
+}
+
+.wm-map-inner {
+    width: 100%;
+    height: 100%;
+    flex: 1;
+}
+
+/* ─── Container Resize Handle ─────────────────────────────── */
+
+.wm-resize-handle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.wm-resize-handle::before {
+    content: '';
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid rgba(34, 197, 94, 0.3);
+    border-bottom: 2px solid rgba(34, 197, 94, 0.3);
+    border-radius: 0 0 3px 0;
+}
+
+.wm-container:hover .wm-resize-handle {
+    opacity: 1;
+}
+
+/* ─── Minimap ─────────────────────────────────────────────── */
+
+.wm-minimap {
+    position: absolute;
+    bottom: 52px;
+    right: 16px;
+    width: 200px;
+    height: 140px;
+    background: rgba(5, 9, 19, 0.92);
+    border: 1px solid rgba(34, 197, 94, 0.12);
+    border-radius: 8px;
+    overflow: hidden;
+    z-index: 90;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.wm-minimap-content {
+    position: absolute;
+    inset: 0;
+}
+
+.wm-mm-dot {
+    position: absolute;
+    border-radius: 2px;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.wm-minimap:hover .wm-mm-dot {
+    opacity: 1;
+}
+
+.wm-minimap-vp {
+    position: absolute;
+    border: 1.5px solid rgba(34, 197, 94, 0.5);
+    background: rgba(34, 197, 94, 0.06);
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+/* ─── Top bar fit-all button ──────────────────────────────── */
+.top-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 3px 8px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all var(--transition);
+}
+
+.top-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim);
 }
 
 /* ─── Overlay Panels (Glassmorphic Floating Cards) ─────────── */

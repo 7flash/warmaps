@@ -37,12 +37,15 @@ import { startConflictSpotlight } from './lib/spotlight';
 import { setDataPaused, setTimelineHours } from './lib/state';
 import { initAlerts } from './lib/alerts';
 import { initAuth } from './lib/user-auth';
+import { initCanvas, fitAllContainers, initMinimapClick } from './lib/canvas';
 
 // ─── Mount ──────────────────────────────────────────────────
 
 export default function mount() {
     measure('Mount WARMAPS', async (m) => {
         measureSync('Boot sequence', () => initBootSequence());
+        measureSync('Canvas engine', () => initCanvas());
+        measureSync('Minimap', () => initMinimapClick());
         measureSync('Clock', () => startClock());
         measureSync('Init map', () => initMap());
         measureSync('TV channels', () => initTVChannels());
@@ -71,6 +74,9 @@ export default function mount() {
                 }
             });
         }
+
+        // Fit-all button
+        document.getElementById('wm-fit-all')?.addEventListener('click', () => fitAllContainers());
 
         // Performance monitoring
         measureSync('FPS counter', () => startFPSCounter());
