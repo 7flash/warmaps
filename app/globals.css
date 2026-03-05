@@ -285,8 +285,279 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════ */
+/* ─── WIDGET CATALOG ────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ */
+
+.widget-catalog {
+    position: fixed;
+    top: 48px;
+    right: 0;
+    width: 380px;
+    max-height: calc(100vh - 48px);
+    background: rgba(5, 9, 19, 0.97);
+    border-left: 1px solid var(--border);
+    z-index: 9000;
+    display: flex;
+    flex-direction: column;
+    animation: slideInRight 0.2s ease;
+    box-shadow: -4px 0 30px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.wc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.wc-title {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #fff;
+}
+
+.wc-close {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 16px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.wc-close:hover {
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.wc-categories {
+    display: flex;
+    gap: 6px;
+    padding: 12px 20px;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+}
+
+.wc-cat-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 5px 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+}
+
+.wc-cat-btn:hover {
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.wc-cat-btn.active {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.wc-grid {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.wc-widget-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.wc-widget-card:hover {
+    background: rgba(34, 197, 94, 0.06);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(34, 197, 94, 0.1);
+}
+
+.wc-widget-icon {
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.wc-widget-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.wc-widget-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.wc-widget-desc {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.4;
+}
+
+.wc-widget-badge {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(34, 197, 94, 0.12);
+    color: var(--accent);
+    align-self: flex-start;
+    flex-shrink: 0;
+}
+
+/* Add widget button glow */
+.top-btn--add {
+    background: rgba(34, 197, 94, 0.15) !important;
+    border-color: var(--accent) !important;
+    color: var(--accent) !important;
+    font-size: 14px !important;
+    animation: addPulse 2s infinite;
+}
+
+@keyframes addPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.3);
+    }
+
+    50% {
+        box-shadow: 0 0 8px 2px rgba(34, 197, 94, 0.15);
+    }
+}
+
+.top-btn--add:hover {
+    background: rgba(34, 197, 94, 0.25) !important;
+}
+
+/* Share Toast */
+.share-toast {
+    position: fixed;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    animation: toastIn 0.3s ease, toastOut 0.3s ease 2s forwards;
+}
+
+@keyframes toastIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+@keyframes toastOut {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
+
+.share-toast-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.share-toast-icon {
+    font-size: 16px;
+}
+
+/* Remove widget button on containers */
+.wm-c-remove {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: all 0.15s;
+    opacity: 0;
+}
+
+.wm-container:hover .wm-c-remove {
+    opacity: 1;
+}
+
+.wm-c-remove:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════════════ */
 /* ─── CANVAS VIEWPORT (new infinite canvas layout) ──────── */
 /* ═══════════════════════════════════════════════════════════ */
+
 
 .wm-viewport {
     position: relative;
@@ -303,6 +574,13 @@ body {
 
 .wm-viewport.space-panning {
     cursor: grabbing;
+}
+
+.wm-viewport.snap-grid {
+    background-image:
+        linear-gradient(rgba(34, 197, 94, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34, 197, 94, 0.06) 1px, transparent 1px);
+    background-size: 20px 20px;
 }
 
 .wm-content {

@@ -37,7 +37,195 @@ import { startConflictSpotlight } from './lib/spotlight';
 import { setDataPaused, setTimelineHours } from './lib/state';
 import { initAlerts } from './lib/alerts';
 import { initAuth } from './lib/user-auth';
-import { initCanvas, fitAllContainers, initMinimapClick } from './lib/canvas';
+import { initCanvas, fitAllContainers, initMinimapClick, updateMinimap } from './lib/canvas';
+import { WIDGET_TYPES, encodeShareLink, loadInstances, saveInstances, createInstance, getDefaultInstances } from './lib/widgets';
+import type { WidgetInstance } from './lib/widgets';
+
+// ─── Widget Catalog Management ──────────────────────────────
+
+function initWidgetCatalog() {
+    const addBtn = document.getElementById('wm-add-widget');
+    const catalog = document.getElementById('widget-catalog');
+    const closeBtn = document.getElementById('wc-close');
+    const grid = document.getElementById('wc-grid');
+    const shareBtn = document.getElementById('wm-share');
+    const resetBtn = document.getElementById('wm-reset-layout');
+
+    if (!addBtn || !catalog || !grid) return;
+
+    let activeCategory = 'all';
+
+    function renderCatalog() {
+        if (!grid) return;
+        grid.innerHTML = '';
+        const filtered = activeCategory === 'all'
+            ? WIDGET_TYPES
+            : WIDGET_TYPES.filter(w => w.category === activeCategory);
+
+        filtered.forEach(wt => {
+            const card = document.createElement('div');
+            card.className = 'wc-widget-card';
+            card.dataset.widgetType = wt.id;
+            card.innerHTML = `
+                <div class="wc-widget-icon">${wt.icon}</div>
+                <div class="wc-widget-info">
+                    <div class="wc-widget-name">${wt.name.toUpperCase()}</div>
+                    <div class="wc-widget-desc">${wt.description}</div>
+                </div>
+                ${wt.multi ? '<span class="wc-widget-badge">MULTI</span>' : ''}
+            `;
+            card.addEventListener('click', () => addWidgetToCanvas(wt.id));
+            grid.appendChild(card);
+        });
+    }
+
+    // Category filtering
+    catalog.querySelectorAll('.wc-cat-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            catalog.querySelectorAll('.wc-cat-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeCategory = (btn as HTMLElement).dataset.cat || 'all';
+            renderCatalog();
+        });
+    });
+
+    // Toggle catalog
+    addBtn.addEventListener('click', () => {
+        const isVisible = catalog.style.display !== 'none';
+        catalog.style.display = isVisible ? 'none' : 'flex';
+        if (!isVisible) renderCatalog();
+    });
+
+    closeBtn?.addEventListener('click', () => {
+        catalog.style.display = 'none';
+    });
+
+    // Share button
+    shareBtn?.addEventListener('click', () => {
+        const instances = getCurrentInstances();
+        const link = encodeShareLink(instances);
+        navigator.clipboard.writeText(link).then(() => {
+            const toast = document.getElementById('share-toast');
+            if (toast) {
+                toast.style.display = 'block';
+                // Reset animation
+                toast.style.animation = 'none';
+                toast.offsetHeight; // force reflow
+                toast.style.animation = 'toastIn 0.3s ease, toastOut 0.3s ease 2s forwards';
+                setTimeout(() => { toast.style.display = 'none'; }, 2500);
+            }
+        });
+    });
+
+    // Reset layout
+    resetBtn?.addEventListener('click', () => {
+        if (!confirm('Reset to default widget layout?')) return;
+        localStorage.removeItem('warmaps:instances');
+        localStorage.removeItem('warmaps:layout');
+        window.location.reload();
+    });
+
+    // Add remove buttons to existing containers
+    document.querySelectorAll('.wm-container-header').forEach(header => {
+        const actions = header.querySelector('.wm-c-actions') || header;
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'wm-c-remove';
+        removeBtn.title = 'Remove widget';
+        removeBtn.textContent = '×';
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const container = (header as HTMLElement).closest('.wm-container') as HTMLElement;
+            if (container && confirm(`Remove ${container.querySelector('.wm-c-title')?.textContent}?`)) {
+                container.remove();
+                updateMinimap();
+            }
+        });
+        actions.appendChild(removeBtn);
+    });
+
+    renderCatalog();
+}
+
+function addWidgetToCanvas(typeId: string) {
+    const wt = WIDGET_TYPES.find(w => w.id === typeId);
+    if (!wt) return;
+
+    // Check if non-multi widget already exists
+    if (!wt.multi) {
+        const existing = document.querySelector(`[data-widget-type="${typeId}"]`);
+        if (existing) {
+            // Flash the existing one
+            existing.classList.add('dragging');
+            setTimeout(() => existing.classList.remove('dragging'), 500);
+            return;
+        }
+    }
+
+    const content = document.getElementById('wm-content');
+    if (!content) return;
+
+    // Find center of viewport for placement
+    const viewport = document.getElementById('wm-viewport');
+    const vRect = viewport?.getBoundingClientRect();
+    const x = vRect ? (vRect.width / 2 - wt.defaultWidth / 2) : 200;
+    const y = vRect ? (vRect.height / 2 - wt.defaultHeight / 2) : 200;
+
+    // Create the DOM element
+    const container = document.createElement('div');
+    container.id = `wm-c-${typeId}-${Date.now()}`;
+    container.className = 'wm-container';
+    container.dataset.widgetType = typeId;
+    container.style.cssText = `left:${x}px;top:${y}px;width:${wt.defaultWidth}px;height:${wt.defaultHeight}px`;
+
+    container.innerHTML = `
+        <div class="wm-container-header">
+            <span class="wm-c-icon">${wt.icon}</span>
+            <span class="wm-c-title">${wt.name.toUpperCase()}</span>
+            <div class="wm-c-actions">
+                <button class="wm-c-remove" title="Remove widget">×</button>
+            </div>
+        </div>
+        <div class="wm-container-body">
+            <div class="loading-state" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">
+                <span class="spinner"></span>
+                <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim)">Initializing ${wt.name}...</span>
+            </div>
+        </div>
+    `;
+
+    // Remove button handler
+    container.querySelector('.wm-c-remove')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        container.remove();
+        updateMinimap();
+    });
+
+    content.appendChild(container);
+    updateMinimap();
+
+    // Close catalog after adding
+    const catalog = document.getElementById('widget-catalog');
+    if (catalog) catalog.style.display = 'none';
+}
+
+function getCurrentInstances(): WidgetInstance[] {
+    const containers = document.querySelectorAll('.wm-container');
+    const instances: WidgetInstance[] = [];
+    containers.forEach(c => {
+        const el = c as HTMLElement;
+        instances.push({
+            id: el.id,
+            typeId: el.dataset.widgetType || el.id.replace('wm-c-', ''),
+            x: parseFloat(el.style.left) || 0,
+            y: parseFloat(el.style.top) || 0,
+            width: el.offsetWidth,
+            height: el.offsetHeight,
+            collapsed: el.classList.contains('collapsed'),
+            config: {},
+        });
+    });
+    return instances;
+}
 
 // ─── Mount ──────────────────────────────────────────────────
 
@@ -77,6 +265,9 @@ export default function mount() {
 
         // Fit-all button
         document.getElementById('wm-fit-all')?.addEventListener('click', () => fitAllContainers());
+
+        // ─── Widget Catalog ─────────────────────────────────
+        initWidgetCatalog();
 
         // Performance monitoring
         measureSync('FPS counter', () => startFPSCounter());

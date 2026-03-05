@@ -61,6 +61,9 @@ export default function Page() {
                     </div>
                 </div>
                 <div class="top-bar-right">
+                    <button id="wm-add-widget" class="top-btn top-btn--add" title="Add widget">＋</button>
+                    <button id="wm-share" class="top-btn" title="Share this layout">🔗</button>
+                    <button id="wm-reset-layout" class="top-btn" title="Reset to default layout">↺</button>
                     <button id="wm-fit-all" class="top-btn" title="Fit all containers">⊞</button>
                     <span class="separator">│</span>
                     <div id="user-auth" class="user-auth">
@@ -89,12 +92,40 @@ export default function Page() {
                 </div>
             </header>
 
+            {/* ─── Widget Catalog Panel ────────────────── */}
+            <div id="widget-catalog" class="widget-catalog" style="display:none">
+                <div class="wc-header">
+                    <span class="wc-title">📦 Add Widget</span>
+                    <button id="wc-close" class="wc-close">×</button>
+                </div>
+                <div class="wc-categories">
+                    <button class="wc-cat-btn active" data-cat="all">All</button>
+                    <button class="wc-cat-btn" data-cat="map">🗺 Maps</button>
+                    <button class="wc-cat-btn" data-cat="feed">📡 Feeds</button>
+                    <button class="wc-cat-btn" data-cat="data">📊 Data</button>
+                    <button class="wc-cat-btn" data-cat="social">💬 Social</button>
+                    <button class="wc-cat-btn" data-cat="media">📺 Media</button>
+                    <button class="wc-cat-btn" data-cat="ai">🤖 AI</button>
+                </div>
+                <div id="wc-grid" class="wc-grid">
+                    {/* Populated by client-side JS from widget registry */}
+                </div>
+            </div>
+
+            {/* ─── Share Toast ─────────────────────────── */}
+            <div id="share-toast" class="share-toast" style="display:none">
+                <div class="share-toast-content">
+                    <span class="share-toast-icon">🔗</span>
+                    <span class="share-toast-text">Link copied to clipboard!</span>
+                </div>
+            </div>
+
             {/* ─── Canvas Viewport ─────────────────────── */}
             <div id="wm-viewport" class="wm-viewport">
                 <div id="wm-content" class="wm-content">
 
                     {/* ─── Container: MAP ─────────────────── */}
-                    <div id="wm-c-map" class="wm-container wm-container--map" style="left:0px;top:0px;width:700px;height:500px">
+                    <div id="wm-c-map" class="wm-container wm-container--map" data-widget-type="map" style="left:0px;top:0px;width:700px;height:500px">
                         <div class="wm-container-header">
                             <span class="wm-c-icon">🌍</span>
                             <span class="wm-c-title">GLOBAL MAP</span>
@@ -112,7 +143,7 @@ export default function Page() {
                     </div>
 
                     {/* ─── Container: PULSE FEED ──────────── */}
-                    <div id="wm-c-pulse" class="wm-container" style="left:720px;top:0px;width:380px;height:500px">
+                    <div id="wm-c-pulse" class="wm-container" data-widget-type="news" style="left:720px;top:0px;width:380px;height:500px">
                         <div class="wm-container-header">
                             <span class="wm-c-icon">📡</span>
                             <span class="wm-c-title">PULSE FEED</span>
@@ -137,7 +168,7 @@ export default function Page() {
                     </div>
 
                     {/* ─── Container: INTEL ───────────────── */}
-                    <div id="wm-c-intel" class="wm-container" style="left:1120px;top:0px;width:380px;height:340px">
+                    <div id="wm-c-intel" class="wm-container" data-widget-type="intel" style="left:1120px;top:0px;width:380px;height:340px">
                         <div class="wm-container-header">
                             <span class="wm-c-icon">🎯</span>
                             <span class="wm-c-title">INTEL</span>
@@ -171,7 +202,7 @@ export default function Page() {
                     </div>
 
                     {/* ─── Container: TELEGRAM SIGNAL ─────── */}
-                    <div id="wm-c-signal" class="wm-container" style="left:1120px;top:360px;width:380px;height:340px">
+                    <div id="wm-c-signal" class="wm-container" data-widget-type="telegram" style="left:1120px;top:360px;width:380px;height:340px">
                         <div class="wm-container-header">
                             <span class="wm-c-icon">💬</span>
                             <span class="wm-c-title">SIGNAL</span>
@@ -191,7 +222,7 @@ export default function Page() {
                     </div>
 
                     {/* ─── Container: PF TOKENS ───────────── */}
-                    <div id="wm-c-tokens" class="wm-container" style="left:0px;top:520px;width:380px;height:340px">
+                    <div id="wm-c-tokens" class="wm-container" data-widget-type="tokens" style="left:0px;top:520px;width:380px;height:340px">
                         <div class="wm-container-header">
                             <span class="wm-c-icon">🪙</span>
                             <span class="wm-c-title">PF TOKENS</span>
@@ -210,7 +241,7 @@ export default function Page() {
                     </div>
 
                     {/* ─── Container: MARKETS ─────────────── */}
-                    <div id="wm-c-markets" class="wm-container" style="left:400px;top:520px;width:380px;height:340px">
+                    <div id="wm-c-markets" class="wm-container" data-widget-type="markets" style="left:400px;top:520px;width:380px;height:340px">
                         <div class="wm-container-header">
                             <span class="wm-c-icon">💎</span>
                             <span class="wm-c-title">PREDICTION MARKETS</span>
@@ -237,7 +268,7 @@ export default function Page() {
                     </div>
 
                     {/* ─── Container: DATA FEEDS ──────────── */}
-                    <div id="wm-c-data" class="wm-container" style="left:800px;top:520px;width:380px;height:340px">
+                    <div id="wm-c-data" class="wm-container" data-widget-type="gdelt" style="left:800px;top:520px;width:380px;height:340px">
                         <div class="wm-container-header">
                             <span class="wm-c-icon">📊</span>
                             <span class="wm-c-title">DATA FEEDS</span>
@@ -274,7 +305,7 @@ export default function Page() {
                     </div>
 
                     {/* ─── Container: AI ANALYST ──────────── */}
-                    <div id="wm-c-ai" class="wm-container" style="left:1200px;top:520px;width:360px;height:340px">
+                    <div id="wm-c-ai" class="wm-container" data-widget-type="ai" style="left:1200px;top:520px;width:360px;height:340px">
                         <div class="wm-container-header">
                             <span class="wm-c-icon">🤖</span>
                             <span class="wm-c-title">AI ANALYST</span>
@@ -295,7 +326,7 @@ export default function Page() {
                     </div>
 
                     {/* ─── Container: GLOBAL CHAT ─────────── */}
-                    <div id="wm-c-chat" class="wm-container" style="left:1520px;top:0px;width:340px;height:400px">
+                    <div id="wm-c-chat" class="wm-container" data-widget-type="chat" style="left:1520px;top:0px;width:340px;height:400px">
                         <div class="wm-container-header">
                             <span class="wm-c-icon">🗨️</span>
                             <span class="wm-c-title">GLOBAL CHAT</span>
@@ -316,7 +347,7 @@ export default function Page() {
                     </div>
 
                     {/* ─── Container: LIVE TV ─────────────── */}
-                    <div id="wm-c-tv" class="wm-container" style="left:1520px;top:420px;width:340px;height:340px">
+                    <div id="wm-c-tv" class="wm-container" data-widget-type="tv" style="left:1520px;top:420px;width:340px;height:340px">
                         <div class="wm-container-header">
                             <span class="wm-c-icon">📺</span>
                             <span class="wm-c-title">LIVE TV</span>

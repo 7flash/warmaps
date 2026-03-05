@@ -6,6 +6,8 @@
  */
 import { measureSync } from './state';
 
+const GRID_SIZE = 20;
+
 // ─── Canvas State ───────────────────────────────────────
 export interface CanvasState {
     zoom: number;
@@ -112,10 +114,18 @@ export function initCanvas() {
     window.addEventListener('mousemove', (e) => {
         if (draggingContainer) {
             const rect = viewport!.getBoundingClientRect();
-            const worldX = (e.clientX - rect.left - state.offsetX) / state.zoom;
-            const worldY = (e.clientY - rect.top - state.offsetY) / state.zoom;
-            draggingContainer.style.left = `${worldX - containerDragOffsetX}px`;
-            draggingContainer.style.top = `${worldY - containerDragOffsetY}px`;
+            let newX = (e.clientX - rect.left - state.offsetX) / state.zoom - containerDragOffsetX;
+            let newY = (e.clientY - rect.top - state.offsetY) / state.zoom - containerDragOffsetY;
+            // Snap to grid when Shift held
+            if (e.shiftKey) {
+                newX = Math.round(newX / GRID_SIZE) * GRID_SIZE;
+                newY = Math.round(newY / GRID_SIZE) * GRID_SIZE;
+                viewport!.classList.add('snap-grid');
+            } else {
+                viewport!.classList.remove('snap-grid');
+            }
+            draggingContainer.style.left = `${newX}px`;
+            draggingContainer.style.top = `${newY}px`;
             updateMinimap();
             return;
         }
@@ -130,6 +140,7 @@ export function initCanvas() {
     window.addEventListener('mouseup', () => {
         if (draggingContainer) {
             draggingContainer.classList.remove('dragging');
+            viewport?.classList.remove('snap-grid');
             saveLayout();
             draggingContainer = null;
             return;
