@@ -9,6 +9,13 @@ export interface WidgetConfig {
     [key: string]: any;
 }
 
+export interface ConfigField {
+    key: string;
+    label: string;
+    type: 'select' | 'multiselect' | 'text' | 'toggle';
+    options?: { value: string; label: string }[];
+}
+
 export interface WidgetType {
     id: string;
     name: string;
@@ -21,6 +28,8 @@ export interface WidgetType {
     defaultConfig: WidgetConfig;
     /** Whether multiple instances are allowed */
     multi: boolean;
+    /** Configurable fields for the settings panel */
+    configFields?: ConfigField[];
 }
 
 export interface WidgetInstance {
@@ -58,6 +67,16 @@ export const WIDGET_TYPES: WidgetType[] = [
         defaultHeight: 400,
         defaultConfig: { source: 'fires' },
         multi: true,
+        configFields: [
+            {
+                key: 'source', label: 'Data Source', type: 'select', options: [
+                    { value: 'fires', label: '🔥 NASA Fires' },
+                    { value: 'events', label: '⚡ Conflict Events' },
+                    { value: 'acled', label: '📊 ACLED' },
+                    { value: 'seismic', label: '🌍 Seismic' },
+                ]
+            },
+        ],
     },
     {
         id: 'news',
@@ -69,6 +88,26 @@ export const WIDGET_TYPES: WidgetType[] = [
         defaultHeight: 500,
         defaultConfig: { filter: 'all', source: 'all', search: '' },
         multi: true,
+        configFields: [
+            {
+                key: 'filter', label: 'Feed Filter', type: 'select', options: [
+                    { value: 'all', label: '🔥 All' },
+                    { value: 'intense', label: '⚡ High Intensity' },
+                    { value: 'recent', label: '🕐 Last 24h' },
+                    { value: 'escalation', label: '↗ Escalation' },
+                ]
+            },
+            {
+                key: 'source', label: 'Source Region', type: 'select', options: [
+                    { value: 'all', label: '🌐 All Regions' },
+                    { value: 'mideast', label: '🏜 Middle East' },
+                    { value: 'europe', label: '🇪🇺 Europe' },
+                    { value: 'asia', label: '🌏 Asia-Pacific' },
+                    { value: 'africa', label: '🌍 Africa' },
+                ]
+            },
+            { key: 'search', label: 'Keyword Filter', type: 'text' },
+        ],
     },
     {
         id: 'telegram',
@@ -80,6 +119,18 @@ export const WIDGET_TYPES: WidgetType[] = [
         defaultHeight: 400,
         defaultConfig: { channels: 'all' },
         multi: true,
+        configFields: [
+            {
+                key: 'channels', label: 'Channel Category', type: 'select', options: [
+                    { value: 'all', label: '📡 All Channels (23)' },
+                    { value: 'state', label: '🏛 State Media (6)' },
+                    { value: 'conflict', label: '⚔ Conflict Media (10)' },
+                    { value: 'cyber', label: '💻 Cyber Networks (2)' },
+                    { value: 'geoVerify', label: '📍 Geo Verification (2)' },
+                    { value: 'ukraine', label: '🇺🇦 Ukraine Theater (3)' },
+                ]
+            },
+        ],
     },
     {
         id: 'tokens',
@@ -102,6 +153,15 @@ export const WIDGET_TYPES: WidgetType[] = [
         defaultHeight: 400,
         defaultConfig: { category: 'all' },
         multi: false,
+        configFields: [
+            {
+                key: 'category', label: 'Market Category', type: 'select', options: [
+                    { value: 'all', label: '📊 All Markets' },
+                    { value: 'conflict', label: '⚔ Conflict' },
+                    { value: 'geopolitical', label: '🌐 Geopolitical' },
+                ]
+            },
+        ],
     },
     {
         id: 'intel',
@@ -179,6 +239,17 @@ export const WIDGET_TYPES: WidgetType[] = [
         defaultHeight: 340,
         defaultConfig: { channel: 'aljazeeraenglish' },
         multi: true,
+        configFields: [
+            {
+                key: 'channel', label: 'TV Channel', type: 'select', options: [
+                    { value: 'aljazeeraenglish', label: '📺 Al Jazeera English' },
+                    { value: 'france24english', label: '📺 France24 English' },
+                    { value: 'skynews', label: '📺 Sky News' },
+                    { value: 'dwnews', label: '📺 DW News' },
+                    { value: 'cnn', label: '📺 CNN' },
+                ]
+            },
+        ],
     },
 ];
 

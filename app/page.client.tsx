@@ -39,7 +39,107 @@ import { initAlerts } from './lib/alerts';
 import { initAuth } from './lib/user-auth';
 import { initCanvas, fitAllContainers, initMinimapClick, updateMinimap } from './lib/canvas';
 import { WIDGET_TYPES, encodeShareLink, loadInstances, saveInstances, createInstance, getDefaultInstances } from './lib/widgets';
-import type { WidgetInstance } from './lib/widgets';
+import type { WidgetInstance, ConfigField } from './lib/widgets';
+
+// ─── Widget Config Panel ────────────────────────────────────
+
+function addConfigGearToContainer(container: HTMLElement) {
+    const typeId = container.dataset.widgetType;
+    if (!typeId) return;
+    const wt = WIDGET_TYPES.find(w => w.id === typeId);
+    if (!wt?.configFields?.length) return;
+
+    const header = container.querySelector('.wm-container-header');
+    if (!header) return;
+
+    // Don't add if already present
+    if (header.querySelector('.wm-c-config')) return;
+
+    const actions = header.querySelector('.wm-c-actions') || header;
+    const gearBtn = document.createElement('button');
+    gearBtn.className = 'wm-c-config';
+    gearBtn.title = 'Widget settings';
+    gearBtn.textContent = '⚙';
+    gearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleConfigPanel(container, wt.configFields!);
+    });
+
+    // Insert before the remove button
+    const removeBtn = actions.querySelector('.wm-c-remove');
+    if (removeBtn) {
+        actions.insertBefore(gearBtn, removeBtn);
+    } else {
+        actions.appendChild(gearBtn);
+    }
+}
+
+function toggleConfigPanel(container: HTMLElement, fields: ConfigField[]) {
+    const existing = container.querySelector('.wm-config-panel');
+    if (existing) {
+        existing.remove();
+        return;
+    }
+
+    const panel = document.createElement('div');
+    panel.className = 'wm-config-panel';
+
+    fields.forEach(field => {
+        const row = document.createElement('div');
+        row.className = 'wm-config-row';
+
+        const label = document.createElement('label');
+        label.className = 'wm-config-label';
+        label.textContent = field.label;
+        row.appendChild(label);
+
+        if (field.type === 'select' && field.options) {
+            const select = document.createElement('select');
+            select.className = 'wm-config-select';
+            select.dataset.configKey = field.key;
+            field.options.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.value;
+                option.textContent = opt.label;
+                // Try to get current value from container dataset
+                const currentVal = container.dataset[`cfg${field.key}`] || '';
+                if (opt.value === currentVal) option.selected = true;
+                select.appendChild(option);
+            });
+            select.addEventListener('change', () => {
+                container.dataset[`cfg${field.key}`] = select.value;
+                // Flash the title to indicate change applied
+                const title = container.querySelector('.wm-c-title') as HTMLElement;
+                if (title) {
+                    title.style.color = 'var(--accent)';
+                    setTimeout(() => { title.style.color = ''; }, 600);
+                }
+            });
+            row.appendChild(select);
+        } else if (field.type === 'text') {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'wm-config-input';
+            input.placeholder = field.label;
+            input.dataset.configKey = field.key;
+            input.value = container.dataset[`cfg${field.key}`] || '';
+            input.addEventListener('input', () => {
+                container.dataset[`cfg${field.key}`] = input.value;
+            });
+            row.appendChild(input);
+        }
+
+        panel.appendChild(row);
+    });
+
+    // Insert panel after header
+    const header = container.querySelector('.wm-container-header');
+    if (header && header.nextSibling) {
+        container.insertBefore(panel, header.nextSibling);
+    } else {
+        container.appendChild(panel);
+    }
+}
 
 // ─── Widget Catalog Management ──────────────────────────────
 
@@ -141,6 +241,11 @@ function initWidgetCatalog() {
             }
         });
         actions.appendChild(removeBtn);
+    });
+
+    // Add config gear to containers that have configurable fields
+    document.querySelectorAll('.wm-container').forEach(c => {
+        addConfigGearToContainer(c as HTMLElement);
     });
 
     renderCatalog();
