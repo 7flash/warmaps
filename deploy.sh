@@ -26,7 +26,7 @@ rsync -avz --delete \
 
 # 3. Install dependencies on server
 echo "📥 Installing dependencies..."
-ssh $SERVER "cd $REMOTE_DIR && bun install"
+ssh $SERVER "cd $REMOTE_DIR && /root/.bun/bin/bun install"
 
 # 4. Set up systemd service
 echo "🔧 Configuring systemd service..."
