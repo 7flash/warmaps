@@ -74,6 +74,7 @@ export interface TelegramAlert {
     id: string
     channel: string
     channelTitle: string
+    category?: string
     text: string
     date: number       // unix timestamp
     senderName?: string
@@ -409,6 +410,7 @@ export function startPolling(intervalMs = 15_000) {
                         id: `tg-${channel.id}-${id}`,
                         channel: channel.id,
                         channelTitle: channel.title,
+                        category: channel.category,
                         text: msg.message,
                         date: msg.date,
                         mediaType: msg.media?.className?.replace('MessageMedia', '').toLowerCase(),

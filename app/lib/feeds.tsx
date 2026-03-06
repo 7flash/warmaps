@@ -12,112 +12,115 @@ import { openMarketModal } from './betting';
 // ─── News Feed ──────────────────────────────────────────────
 
 export function renderNewsFeed() {
-    const container = document.getElementById('news-feed');
-    if (!container) return;
+    const containers = Array.from(document.querySelectorAll('.wm-container[data-widget-type="news"]'));
+    if (containers.length === 0) return;
 
-    const feedEvents = gdeltEvents
+    const baseEvents = gdeltEvents
         .filter((ev: any) => ev.imageUrl && ev.lat && (ev.lon || ev.lng))
-        .filter((ev: any) => isWithinTimeline(ev.date || ''))
-        .slice(0, 40);
-
-    if (feedEvents.length === 0 && newsItems.length === 0) {
-        render(<div className="loading-state"><span className="spinner"></span><span>Establishing secure feed...</span></div>, container);
-        return;
-    }
-
-    if (feedEvents.length === 0) {
-        render(
-            <>{newsItems.slice(0, 15).map((item: any) =>
-                <div className="pulse-card">
-                    <div className="pulse-card__title">{item.title}</div>
-                    <div className="pulse-card__meta">{item.source || ''} · {formatTime(item.pubDate)}</div>
-                </div>
-            )}</>,
-            container
-        );
-        return;
-    }
+        .filter((ev: any) => isWithinTimeline(ev.date || ''));
 
     const flyToEv = (lat: number, lon: number) => {
         if (!map || isNaN(lat) || isNaN(lon)) return;
         map.flyTo({ center: [lon, lat], zoom: 6, speed: 1.5, curve: 1.2 });
     };
 
-    const cards = feedEvents.map((ev: any, idx: number) => {
-        const lat = ev.lat;
-        const lon = ev.lon || ev.lng;
-        const source = ev.source || ev.domain || '';
-        const time = ev.date ? formatTime(ev.date) : '';
-        const title = (ev.title || '').slice(0, 80);
-        const imgUrl = proxyImg(ev.imageUrl);
-        return (
-            <div className="pulse-card" data-tone={String(ev.tone || 0)} data-themes={(ev.themes || []).join(',').toLowerCase()} data-date={ev.date || ''} onClick={() => { flyToEv(lat, lon); openArticleModal(ev); }}>
-                <img className="pulse-card__img" src={imgUrl} onError={(e: any) => e.currentTarget.style.display = 'none'} alt="" loading="lazy" />
-                <div className="pulse-card__body">
-                    <div className="pulse-card__title">{title}</div>
-                    <div className="pulse-card__meta">{source} · {time}</div>
-                </div>
-            </div>
-        );
-    });
+    containers.forEach(container => {
+        const h = container as HTMLElement;
+        const body = (h.querySelector('.pulse-list') || h.querySelector('.wm-container-body')) as HTMLElement;
+        if (!body) return;
 
-    render(<>{cards}</>, container);
+        const cfgFilter = h.dataset.cfgfilter || 'all';
+        const cfgSource = h.dataset.cfgsource || 'all';
+        const cfgSearch = (h.dataset.cfgsearch || '').toLowerCase().trim();
 
-    // Wire up search bar
-    const searchInput = document.getElementById('pulse-search-input') as HTMLInputElement;
-    if (searchInput) {
-        const existingQuery = searchInput.value.toLowerCase().trim();
-        if (existingQuery) {
-            container.querySelectorAll('.pulse-card').forEach((card: any) => {
-                card.style.display = (card.textContent || '').toLowerCase().includes(existingQuery) ? '' : 'none';
-            });
+        const ESCALATION_THEMES = ['kill', 'terror', 'armedconflict', 'wound', 'wmd'];
+        const now = Date.now();
+        const DAY_MS = 86400_000;
+
+        let filtered = baseEvents.filter((ev: any) => {
+            const tone = parseFloat(ev.tone || '0');
+            const themes = (ev.themes || []).join(',').toLowerCase();
+            const date = ev.date || '';
+
+            let passFilter = true;
+            if (cfgFilter === 'intense') passFilter = tone < -3;
+            else if (cfgFilter === 'recent') {
+                if (date) { const t = new Date(date).getTime(); passFilter = !isNaN(t) && (now - t) < DAY_MS; }
+            } else if (cfgFilter === 'escalation') passFilter = ESCALATION_THEMES.some(t => themes.includes(t));
+
+            let passSource = true;
+            if (cfgSource === 'mideast') passSource = (ev.lat > 12 && ev.lat < 42 && ev.lon > 26 && ev.lon < 64);
+            else if (cfgSource === 'europe') passSource = (ev.lat > 35 && ev.lat < 70 && ev.lon > -10 && ev.lon < 40);
+            else if (cfgSource === 'asia') passSource = (ev.lat > -10 && ev.lat < 55 && ev.lon > 60 && ev.lon < 150);
+            else if (cfgSource === 'africa') passSource = (ev.lat > -35 && ev.lat < 35 && ev.lon > -20 && ev.lon < 50);
+
+            let passSearch = true;
+            if (cfgSearch) {
+                const text = ((ev.title || '') + ' ' + (ev.source || '')).toLowerCase();
+                passSearch = text.includes(cfgSearch);
+            }
+
+            return passFilter && passSource && passSearch;
+        }).slice(0, 40);
+
+        if (filtered.length === 0 && newsItems.length === 0) {
+            render(<div className="loading-state"><span className="spinner"></span><span>Establishing secure feed...</span></div>, body);
+            return;
         }
-        searchInput.oninput = () => {
-            const q = searchInput.value.toLowerCase().trim();
-            container.querySelectorAll('.pulse-card').forEach((card: any) => {
-                card.style.display = !q || (card.textContent || '').toLowerCase().includes(q) ? '' : 'none';
-            });
-        };
-    }
 
-    // Wire up filter pills
-    const filterBtns = document.querySelectorAll('#feed-filters .pf-pill');
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            filterBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            applyFeedFilter((btn as HTMLElement).dataset.filter || 'all');
+        if (filtered.length === 0) {
+            render(
+                <>{newsItems.slice(0, 15).map((item: any) =>
+                    <div className="pulse-card">
+                        <div className="pulse-card__title">{item.title}</div>
+                        <div className="pulse-card__meta">{item.source || ''} · {formatTime(item.pubDate)}</div>
+                    </div>
+                )}</>,
+                body
+            );
+            return;
+        }
+
+        const cards = filtered.map((ev: any, idx: number) => {
+            const lat = ev.lat;
+            const lon = ev.lon || ev.lng;
+            const source = ev.source || ev.domain || '';
+            const time = ev.date ? formatTime(ev.date) : '';
+            const title = (ev.title || '').slice(0, 80);
+            const imgUrl = proxyImg(ev.imageUrl);
+            return (
+                <div className="pulse-card" data-tone={String(ev.tone || 0)} data-themes={(ev.themes || []).join(',').toLowerCase()} data-date={ev.date || ''} onClick={() => { flyToEv(lat, lon); openArticleModal(ev); }}>
+                    <img className="pulse-card__img" src={imgUrl} onError={(e: any) => e.currentTarget.style.display = 'none'} alt="" loading="lazy" />
+                    <div className="pulse-card__body">
+                        <div className="pulse-card__title">{title}</div>
+                        <div className="pulse-card__meta">{source} · {time}</div>
+                    </div>
+                </div>
+            );
         });
-    });
 
-    const activeFilter = document.querySelector('#feed-filters .pf-pill.active') as HTMLElement;
-    if (activeFilter && activeFilter.dataset.filter !== 'all') {
-        applyFeedFilter(activeFilter.dataset.filter || 'all');
-    }
+        const listContainer = document.createElement('div');
+        listContainer.className = 'pulse-list';
+        listContainer.style.padding = '10px';
+        render(<>{cards}</>, listContainer);
+
+        body.innerHTML = '';
+        body.appendChild(listContainer);
+    });
 }
 
 export function applyFeedFilter(filter: string) {
-    const container = document.getElementById('news-feed');
-    if (!container) return;
+    // legacy compatibility for unrendered UI buttons
+    renderNewsFeed();
+}
 
-    const ESCALATION_THEMES = ['kill', 'terror', 'armedconflict', 'wound', 'wmd'];
-    const now = Date.now();
-    const DAY_MS = 86400_000;
-
-    container.querySelectorAll('.pulse-card').forEach((card: any) => {
-        if (filter === 'all') { card.style.display = ''; return; }
-        const tone = parseFloat(card.dataset.tone || '0');
-        const themes = (card.dataset.themes || '').toLowerCase();
-        const date = card.dataset.date || '';
-        let show = true;
-
-        if (filter === 'intense') show = tone < -3;
-        else if (filter === 'recent') {
-            if (date) { const t = new Date(date).getTime(); show = !isNaN(t) && (now - t) < DAY_MS; }
-        } else if (filter === 'escalation') show = ESCALATION_THEMES.some(t => themes.includes(t));
-
-        card.style.display = show ? '' : 'none';
-    });
+export function reRenderWidget(typeId: string) {
+    if (typeId === 'news') renderNewsFeed();
+    if (typeId === 'intel' || typeId === 'markets') renderRadarFeed();
+    if (typeId === 'fires') renderFiresFeed();
+    if (typeId === 'seismic') renderSeismicFeed();
+    // For telegram, we need alerts fetch. We can re-fetch or skip if cached alerts aren't available globally
+    if (typeId === 'telegram') window.dispatchEvent(new Event('refresh-telegram'));
 }
 
 export function renderGdeltFeed() { renderNewsFeed(); }
@@ -125,66 +128,69 @@ export function renderGdeltFeed() { renderNewsFeed(); }
 // ─── Fires Feed ─────────────────────────────────────────────
 
 export function renderFiresFeed() {
-    const container = document.getElementById('firms-feed');
-    if (!container) return;
+    const containers = document.querySelectorAll('.wm-container[data-widget-type="fires"]');
 
-    if (firePoints.length === 0) {
-        render(<div className="loading-state"><span>No thermal anomalies</span></div>, container);
-        return;
-    }
+    containers.forEach((container: Element) => {
+        const body = (container.querySelector('.wm-container-body') || container) as HTMLElement;
+        if (firePoints.length === 0) {
+            render(<div className="loading-state"><span>No thermal anomalies</span></div>, body);
+            return;
+        }
 
-    render(
-        <>{firePoints.slice(0, 10).map((fire: any) =>
-            <div className="feed-item feed-item--fire">
-                <div className="feed-item-source firms">🔥 THERMAL ANOMALY</div>
-                <div className="feed-item-title">{fire.country || 'Unknown Region'} — {fire.lat.toFixed(2)}°, {fire.lon.toFixed(2)}°</div>
-                <div className="feed-item-meta">
-                    <span className="feed-item-time">{fire.acq_date} {fire.acq_time}</span>
-                    <span>Brightness: {fire.brightness.toFixed(0)}K</span>
-                    <span>Confidence: {fire.confidence}</span>
+        render(
+            <>{firePoints.slice(0, 15).map((fire: any) =>
+                <div className="feed-item feed-item--fire">
+                    <div className="feed-item-source firms">🔥 THERMAL ANOMALY</div>
+                    <div className="feed-item-title">{fire.country || 'Unknown Region'} — {fire.lat.toFixed(2)}°, {fire.lon.toFixed(2)}°</div>
+                    <div className="feed-item-meta">
+                        <span className="feed-item-time">{fire.acq_date} {fire.acq_time}</span>
+                        <span>Brightness: {fire.brightness.toFixed(0)}K</span>
+                        <span>Confidence: {fire.confidence}</span>
+                    </div>
                 </div>
-            </div>
-        )}</>,
-        container
-    );
+            )}</>,
+            body
+        );
+    });
 }
 
 // ─── Seismic Feed ───────────────────────────────────────────
 
 export function renderSeismicFeed() {
-    const container = document.getElementById('seismic-feed');
-    if (!container) return;
-
+    const containers = document.querySelectorAll('.wm-container[data-widget-type="seismic"]');
     const features = seismicData?.features || [];
 
-    if (features.length === 0) {
-        render(<div className="loading-state"><span>No seismic events</span></div>, container);
-        return;
-    }
+    containers.forEach((container: Element) => {
+        const body = (container.querySelector('.wm-container-body') || container) as HTMLElement;
+        if (features.length === 0) {
+            render(<div className="loading-state"><span>No seismic events</span></div>, body);
+            return;
+        }
 
-    render(
-        <>{features.slice(0, 15).map((f: any) => {
-            const p = f.properties;
-            const [lon, lat] = f.geometry.coordinates;
-            const mag = p.mag || 0;
-            const depth = p.depth || 0;
-            const magColor = mag >= 5 ? '#ef4444' : mag >= 4 ? '#f59e0b' : '#22c55e';
-            const depthLabel = depth <= 2 ? '⚠️ SHALLOW' : `${depth.toFixed(1)}km`;
-            return (
-                <div className="feed-item feed-item--seismic" style={{ cursor: 'default' }}>
-                    <div className="feed-item-source" style={{ color: magColor }}>
-                        {p.is_kinetic ? '💥 KINETIC SUSPECT' : '🌍 EARTHQUAKE'} — M{mag.toFixed(1)}
+        render(
+            <>{features.slice(0, 15).map((f: any) => {
+                const p = f.properties;
+                const [lon, lat] = f.geometry.coordinates;
+                const mag = p.mag || 0;
+                const depth = p.depth || 0;
+                const magColor = mag >= 5 ? '#ef4444' : mag >= 4 ? '#f59e0b' : '#22c55e';
+                const depthLabel = depth <= 2 ? '⚠️ SHALLOW' : `${depth.toFixed(1)}km`;
+                return (
+                    <div className="feed-item feed-item--seismic" style={{ cursor: 'default' }}>
+                        <div className="feed-item-source" style={{ color: magColor }}>
+                            {p.is_kinetic ? '💥 KINETIC SUSPECT' : '🌍 EARTHQUAKE'} — M{mag.toFixed(1)}
+                        </div>
+                        <div className="feed-item-title">{p.title}</div>
+                        <div className="feed-item-meta">
+                            <span>Depth: {depthLabel}</span>
+                            <span>{lat.toFixed(2)}°, {lon.toFixed(2)}°</span>
+                        </div>
                     </div>
-                    <div className="feed-item-title">{p.title}</div>
-                    <div className="feed-item-meta">
-                        <span>Depth: {depthLabel}</span>
-                        <span>{lat.toFixed(2)}°, {lon.toFixed(2)}°</span>
-                    </div>
-                </div>
-            );
-        })}</>,
-        container
-    );
+                );
+            })}</>,
+            body
+        );
+    });
 }
 
 // ─── Market Cards ───────────────────────────────────────────
@@ -223,74 +229,96 @@ export function renderMarketCards(markets: any[]) {
 // ─── Telegram Feed ──────────────────────────────────────────
 
 export function renderTelegramFeed(alerts: any[]) {
-    const container = document.getElementById('tg-feed');
-    if (!container) return;
-    render(
-        <>{alerts.slice(0, 15).map((alert: any) => {
-            const tgUrl = `https://t.me/${alert.channel}`;
-            const time = formatTime(new Date(alert.date * 1000).toISOString());
-            const loc = alert.location ? `📍 ${alert.location.name}` : '';
-            return (
-                <div className="feed-item feed-item--telegram" onClick={() => window.open(tgUrl, '_blank')} style={{ cursor: 'pointer' }}>
-                    <div className="feed-item-source telegram">📡 {alert.channelTitle}</div>
-                    <div className="feed-item-title">{alert.text.slice(0, 200)}</div>
-                    <div className="feed-item-meta">
-                        <span className="feed-item-time">{time}</span>
-                        {loc && <span>{loc}</span>}
-                        {alert.threatLevel && alert.threatLevel !== 'low' && <span className={`tg-threat tg-threat--${alert.threatLevel}`}>{alert.threatLevel.toUpperCase()}</span>}
+    const containers = document.querySelectorAll('.wm-container[data-widget-type="telegram"]');
+    if (containers.length === 0) return;
+
+    containers.forEach((container: Element) => {
+        const h = container as HTMLElement;
+        const body = (h.querySelector('.wm-container-body') || container) as HTMLElement;
+        const cfgChannels = h.dataset.cfgchannels || 'all';
+
+        const filtered = alerts.filter((alert: any) => {
+            if (cfgChannels === 'all') return true;
+            return alert.category === cfgChannels;
+        }).slice(0, 20);
+
+        if (filtered.length === 0) {
+            render(<div className="loading-state"><span>No messages in this category</span></div>, body);
+            return;
+        }
+
+        render(
+            <>{filtered.map((alert: any) => {
+                const tgUrl = `https://t.me/${alert.channel}`;
+                const time = formatTime(new Date(alert.date * 1000).toISOString());
+                const loc = alert.location ? `📍 ${alert.location.name}` : '';
+                return (
+                    <div className="feed-item feed-item--telegram" onClick={() => window.open(tgUrl, '_blank')} style={{ cursor: 'pointer' }}>
+                        <div className="feed-item-source telegram">📡 {alert.channelTitle}</div>
+                        <div className="feed-item-title">{alert.text.slice(0, 200)}</div>
+                        <div className="feed-item-meta">
+                            <span className="feed-item-time">{time}</span>
+                            {loc && <span>{loc}</span>}
+                            {alert.threatLevel && alert.threatLevel !== 'low' && <span className={`tg-threat tg-threat--${alert.threatLevel}`}>{alert.threatLevel.toUpperCase()}</span>}
+                        </div>
                     </div>
-                </div>
-            );
-        })}</>,
-        container
-    );
+                );
+            })}</>,
+            body
+        );
+    });
 }
 
 // ─── Threat Radar ───────────────────────────────────────────
 
 export function renderRadarFeed() {
-    const container = document.getElementById('radar-feed');
-    if (!container) return;
-
-    if (marketData.length === 0 && threatAlerts.length === 0) {
-        render(<div className="loading-state"><span>No prediction market data available</span></div>, container);
-        return;
-    }
-
-    render(
-        <>
-            {threatAlerts.slice(0, 5).map((alert: any) => {
-                const levelClass = `radar-alert--${alert.level}`;
-                const icon = alert.level === 'critical' ? '🚨' : alert.level === 'high' ? '⚠️' : '📊';
-                return (
-                    <div className={`radar-alert ${levelClass}`}>
-                        <div className="radar-alert-header">
-                            <span className="radar-alert-icon">{icon}</span>
-                            <span className="radar-alert-level">{alert.level.toUpperCase()}</span>
-                            <span className="radar-alert-time">{formatTime(alert.timestamp || alert.created_at || '')}</span>
-                        </div>
-                        <div className="radar-alert-title">{alert.title.replace(/^[🚨⚠📊️\s]+/, '')}</div>
-                        <div className="radar-alert-desc">{alert.description}</div>
-                    </div>
-                );
-            })}
-            {renderMarketCards(marketData.slice(0, 8))}
-        </>,
-        container
-    );
-
-    const marketsContainer = document.getElementById('markets-feed');
-    const marketsCount = document.getElementById('markets-alert-count');
-    if (marketsContainer) {
-        if (marketData.length === 0) {
-            render(<div className="loading-state"><span>No prediction market data available</span></div>, marketsContainer);
-        } else {
-            const activeFilter = document.querySelector('#market-filters .pf-pill.active')?.getAttribute('data-market-cat') || 'all';
-            const filtered = activeFilter === 'all' ? marketData : marketData.filter(m => m.category === activeFilter);
-            render(<>{renderMarketCards(filtered)}</>, marketsContainer);
+    const radarContainers = document.querySelectorAll('.wm-container[data-widget-type="intel"]');
+    radarContainers.forEach((container: Element) => {
+        const body = (container.querySelector('.wm-container-body') || container) as HTMLElement;
+        if (marketData.length === 0 && threatAlerts.length === 0) {
+            render(<div className="loading-state"><span>No prediction market data available</span></div>, body);
+            return;
         }
-        if (marketsCount) marketsCount.textContent = String(marketData.length);
-    }
+
+        render(
+            <>
+                {threatAlerts.slice(0, 5).map((alert: any) => {
+                    const levelClass = `radar-alert--${alert.level}`;
+                    const icon = alert.level === 'critical' ? '🚨' : alert.level === 'high' ? '⚠️' : '📊';
+                    return (
+                        <div className={`radar-alert ${levelClass}`}>
+                            <div className="radar-alert-header">
+                                <span className="radar-alert-icon">{icon}</span>
+                                <span className="radar-alert-level">{alert.level.toUpperCase()}</span>
+                                <span className="radar-alert-time">{formatTime(alert.timestamp || alert.created_at || '')}</span>
+                            </div>
+                            <div className="radar-alert-title">{alert.title.replace(/^[🚨⚠📊️\s]+/, '')}</div>
+                            <div className="radar-alert-desc">{alert.description}</div>
+                        </div>
+                    );
+                })}
+                {renderMarketCards(marketData.slice(0, 8))}
+            </>,
+            body
+        );
+    });
+
+    const marketContainers = document.querySelectorAll('.wm-container[data-widget-type="markets"]');
+    marketContainers.forEach((container: Element) => {
+        const body = (container.querySelector('.wm-container-body') || container) as HTMLElement;
+        const cfgCategory = (container as HTMLElement).dataset.cfgcategory || 'all';
+
+        if (marketData.length === 0) {
+            render(<div className="loading-state"><span>No prediction market data available</span></div>, body);
+        } else {
+            const filtered = cfgCategory === 'all' ? marketData : marketData.filter((m: any) => m.category === cfgCategory);
+            render(<>{renderMarketCards(filtered)}</>, body);
+        }
+    });
+
+    // legacy header count
+    const marketsCount = document.getElementById('markets-alert-count');
+    if (marketsCount) marketsCount.textContent = String(marketData.length);
 }
 
 // ─── Threat Banner ──────────────────────────────────────────

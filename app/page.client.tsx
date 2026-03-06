@@ -24,7 +24,7 @@
 import { FF, measure, measureSync, dataPaused } from './lib/state';
 import { initMap } from './lib/map';
 import { fetchAllData, fetchFlights, fetchCrypto } from './lib/data';
-import { updateStats } from './lib/feeds';
+import { updateStats, reRenderWidget } from './lib/feeds';
 import { startFPSCounter, startPingMonitor } from './lib/perf';
 import {
     initFilters, initTelegram, initThreatBanner,
@@ -108,6 +108,7 @@ function toggleConfigPanel(container: HTMLElement, fields: ConfigField[]) {
             });
             select.addEventListener('change', () => {
                 container.dataset[`cfg${field.key}`] = select.value;
+                reRenderWidget(container.dataset.widgetType || '');
                 // Flash the title to indicate change applied
                 const title = container.querySelector('.wm-c-title') as HTMLElement;
                 if (title) {
@@ -125,6 +126,7 @@ function toggleConfigPanel(container: HTMLElement, fields: ConfigField[]) {
             input.value = container.dataset[`cfg${field.key}`] || '';
             input.addEventListener('input', () => {
                 container.dataset[`cfg${field.key}`] = input.value;
+                reRenderWidget(container.dataset.widgetType || '');
             });
             row.appendChild(input);
         }
