@@ -634,6 +634,55 @@ body {
     }
 }
 
+/* ─── Link Handling (Data Connections) ─────────────────── */
+.wm-link-handle {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-dim);
+    cursor: crosshair;
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+}
+
+.wm-link-handle:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(34, 197, 94, 0.15);
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+}
+
+.wm-container-header:hover .wm-link-handle {
+    opacity: 1;
+}
+
+.wm-link-line {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2px;
+    stroke-linecap: round;
+    transition: stroke-width 0.2s, stroke 0.2s;
+    filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.5));
+}
+
+.wm-link-line:hover {
+    stroke-width: 4px;
+    stroke: #fff;
+    filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.8));
+    cursor: no-drop;
+}
+
+.wm-link-dot {
+    fill: var(--bg-primary);
+    stroke: var(--accent);
+    stroke-width: 2px;
+}
+
 .wm-config-row {
     display: flex;
     align-items: center;

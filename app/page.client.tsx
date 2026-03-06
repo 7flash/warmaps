@@ -37,6 +37,7 @@ import { startConflictSpotlight } from './lib/spotlight';
 import { setDataPaused, setTimelineHours } from './lib/state';
 import { initAlerts } from './lib/alerts';
 import { initAuth } from './lib/user-auth';
+import { initLinks } from './lib/links';
 import { initCanvas, fitAllContainers, initMinimapClick, updateMinimap } from './lib/canvas';
 import { WIDGET_TYPES, encodeShareLink, loadInstances, saveInstances, createInstance, getDefaultInstances, LAYOUT_PRESETS, loadUserPresets, saveUserPresets } from './lib/widgets';
 import type { WidgetInstance, ConfigField } from './lib/widgets';
@@ -346,6 +347,7 @@ function addWidgetToCanvas(typeId: string) {
             <span class="wm-c-icon">${wt.icon}</span>
             <span class="wm-c-title">${wt.name.toUpperCase()}</span>
             <div class="wm-c-actions">
+                <button class="wm-c-link-handle wm-link-handle" title="Drag to link">🔗</button>
                 <button class="wm-c-remove" title="Remove widget">×</button>
             </div>
         </div>
@@ -424,6 +426,7 @@ export default function mount() {
                                     <span class="wm-c-icon">${wt.icon}</span>
                                     <span class="wm-c-title">${wt.name.toUpperCase()}</span>
                                     <div class="wm-c-actions">
+                                        <button class="wm-c-link-handle wm-link-handle" title="Drag to link">🔗</button>
                                         <button class="wm-c-remove" title="Remove widget">×</button>
                                     </div>
                                 </div>
@@ -497,6 +500,7 @@ export default function mount() {
         // ─── Widget Catalog & Presets ──────────────────────────
         initWidgetCatalog();
         initPresets();
+        initLinks();
 
         // Performance monitoring
         measureSync('FPS counter', () => startFPSCounter());

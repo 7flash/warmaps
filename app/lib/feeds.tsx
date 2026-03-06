@@ -89,10 +89,13 @@ export function renderNewsFeed() {
             const title = (ev.title || '').slice(0, 80);
             const imgUrl = proxyImg(ev.imageUrl);
             return (
-                <div className="pulse-card" data-tone={String(ev.tone || 0)} data-themes={(ev.themes || []).join(',').toLowerCase()} data-date={ev.date || ''} onClick={() => { flyToEv(lat, lon); openArticleModal(ev); }}>
-                    <img className="pulse-card__img" src={imgUrl} onError={(e: any) => e.currentTarget.style.display = 'none'} alt="" loading="lazy" />
+                <div id={`gdelt-${ev.url ? ev.url.replace(/[^a-zA-Z0-9]/g, '') : idx}`} className="pulse-card" data-tone={String(ev.tone || 0)} data-themes={(ev.themes || []).join(',').toLowerCase()} data-date={ev.date || ''}>
+                    <img className="pulse-card__img" onClick={() => { flyToEv(lat, lon); openArticleModal(ev); }} src={imgUrl} onError={(e: any) => e.currentTarget.style.display = 'none'} alt="" loading="lazy" />
                     <div className="pulse-card__body">
-                        <div className="pulse-card__title">{title}</div>
+                        <div className="pulse-card__title">
+                            <span onClick={() => { flyToEv(lat, lon); openArticleModal(ev); }}>{title}</span>
+                            <button className="wm-link-handle wm-c-link-handle" style={{ float: 'right', margin: '0 0 4px 4px', fontSize: '12px' }} title="Drag to link">🔗</button>
+                        </div>
                         <div className="pulse-card__meta">{source} · {time}</div>
                     </div>
                 </div>
@@ -253,9 +256,12 @@ export function renderTelegramFeed(alerts: any[]) {
                 const time = formatTime(new Date(alert.date * 1000).toISOString());
                 const loc = alert.location ? `📍 ${alert.location.name}` : '';
                 return (
-                    <div className="feed-item feed-item--telegram" onClick={() => window.open(tgUrl, '_blank')} style={{ cursor: 'pointer' }}>
-                        <div className="feed-item-source telegram">📡 {alert.channelTitle}</div>
-                        <div className="feed-item-title">{alert.text.slice(0, 200)}</div>
+                    <div id={alert.id || `tg-${alert.date}`} className="feed-item feed-item--telegram" style={{ cursor: 'pointer' }}>
+                        <div className="feed-item-source telegram">
+                            <span onClick={() => window.open(tgUrl, '_blank')}>📡 {alert.channelTitle}</span>
+                            <button className="wm-link-handle wm-c-link-handle" style={{ float: 'right' }} title="Drag to link">🔗</button>
+                        </div>
+                        <div className="feed-item-title" onClick={() => window.open(tgUrl, '_blank')}>{alert.text.slice(0, 200)}</div>
                         <div className="feed-item-meta">
                             <span className="feed-item-time">{time}</span>
                             {loc && <span>{loc}</span>}

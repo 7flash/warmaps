@@ -26,7 +26,7 @@
 - [x] ~~**Share layout links**~~ — ✅ DONE. 🔗 button encodes widget layout as base64 URL parameter, copies to clipboard. Toast notification on success.
 - [x] ~~**Widget config per-instance**~~ — ✅ DONE. Each widget instance has a config panel (gears icon) to select data source, filters, and channels which instantly map to rendered datasets. Config persists to localStorage.
 - [x] ~~**Saved canvas layouts**~~ — ✅ DONE. Let users save/load multiple layout presets (e.g., "Monitoring", "Trading Desk", "Analysis"). Store in localStorage. Added Top-right dropdown menu.
-- [ ] **Container linking** — Draw connection lines between containers to show data relationships (similar to GitMaps interwingled files). E.g., connecting an ACLED event marker on the map to a Telegram OSINT message.
+- [x] ~~**Container linking**~~ — ✅ DONE. Added an SVG-based linking system allowing users to drag connection lines between containers, feed items, and map points. State is persisted to localStorage.
 - [ ] **Detachable containers** — Allow containers to be "popped out" into separate browser windows for multi-monitor setups.
 
 ## 🟡 Priority: Deploy

@@ -131,6 +131,7 @@ export default function Page() {
             {/* ─── Canvas Viewport ─────────────────────── */}
             <div id="wm-viewport" class="wm-viewport">
                 <div id="wm-content" class="wm-content">
+                    <svg id="wm-links" style="position:absolute; top:0; left:0; width:100%; height:100%; overflow:visible; pointer-events:none; z-index:4000;"></svg>
 
                     {/* ─── Container: MAP ─────────────────── */}
                     <div id="wm-c-map" class="wm-container wm-container--map" data-widget-type="map" style="left:0px;top:0px;width:700px;height:500px">
