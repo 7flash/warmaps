@@ -211,24 +211,24 @@ export function initSearchModal() {
         render(
             <>{
                 locs.map(loc =>
-                    <div className="search-result-item" onClick = {() => {
-        if (map) map.flyTo({ center: [loc.lng, loc.lat], zoom: 6, essential: true });
-        modal!.style.display = 'none';
-    }
-}>
-    <span>{ loc.name } </span>
-    < span style = {{ opacity: 0.5 }}> { loc.lat }, { loc.lng } </span>
-        </div>
-            )}</>,
-resultsContainer
+                    <div className="search-result-item" onClick={() => {
+                        if (map) map.flyTo({ center: [loc.lng, loc.lat], zoom: 6, essential: true });
+                        modal!.style.display = 'none';
+                    }
+                    }>
+                        <span>{loc.name} </span>
+                        < span style={{ opacity: 0.5 }}> {loc.lat}, {loc.lng} </span>
+                    </div>
+                )}</>,
+            resultsContainer
         );
     };
 
-input.addEventListener('input', () => {
-    const query = input.value.toLowerCase();
-    const filtered = GLOBE_LOCATIONS.filter(l => l.name.toLowerCase().includes(query));
-    renderResults(filtered);
-});
+    input.addEventListener('input', () => {
+        const query = input.value.toLowerCase();
+        const filtered = GLOBE_LOCATIONS.filter(l => l.name.toLowerCase().includes(query));
+        renderResults(filtered);
+    });
 }
 
 // ─── Boot Sequence ──────────────────────────────────────────
@@ -255,6 +255,8 @@ export function initBootSequence() {
 // ─── Legend Filters ─────────────────────────────────────────
 
 export function setupLegendFilters() {
+    const STORAGE_PREFIX = 'warmaps:layers:';
+
     const toggleLayer = (id: string, visible: boolean) => {
         if (!map || !map.getLayer(id)) return;
         map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
@@ -269,13 +271,28 @@ export function setupLegendFilters() {
         });
     }
 
-    // Layer toggles
+    // Layer toggles with persistence
     const bind = (filterId: string, layerIds: string[], onToggle?: (visible: boolean) => void) => {
         const el = document.getElementById(filterId) as HTMLInputElement | null;
         if (!el) return;
+
+        // Restore saved state
+        const saved = localStorage.getItem(STORAGE_PREFIX + filterId);
+        if (saved !== null) {
+            el.checked = saved === 'true';
+        }
+
+        // Apply initial state to map layers (delayed to ensure map is ready)
+        setTimeout(() => {
+            for (const id of layerIds) toggleLayer(id, el.checked);
+            if (onToggle) onToggle(el.checked);
+        }, 2000);
+
         el.addEventListener('change', () => {
             for (const id of layerIds) toggleLayer(id, el.checked);
             if (onToggle) onToggle(el.checked);
+            // Persist
+            localStorage.setItem(STORAGE_PREFIX + filterId, String(el.checked));
         });
     };
 

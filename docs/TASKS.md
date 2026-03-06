@@ -48,6 +48,13 @@
 - [x] ~~**Deploy canvas rewrite to production**~~ — ✅ DONE. Push latest canvas changes to `root@202.155.132.139:/opt/starwar/`. Test container dragging, minimap, and layout persistence on production.
 - [x] ~~**Deploy user accounts to production**~~ — ✅ Removed. Wallet connection handles identity; GitHub auth no longer needed.
 
+## 🟡 Priority: Improve
+- [x] ~~**Intel panel categorization**~~ — ✅ DONE. Refactored intel panel from flat mixed list into 4 collapsible sections: 🚨 Threats (critical/high alerts), 📊 Predictions (market cards), 🌍 Seismic (earthquakes), 🔥 Hotspots (fires). Each section has icon + title + count badge + chevron. Color-coded accent borders (red/cyan/amber/orange). Collapse state tracked per container.
+- [ ] **Widget tray scroll arrows** — Category row and widget cards need left/right scroll indicators when content overflows the viewport.
+- [ ] **Map layer toggle persistence** — Currently map layer toggles (fires, flights, etc.) reset on page load. Persist to localStorage.
+- [ ] **Widget snap guidelines** — Show blue alignment guides when dragging containers near other container edges.
+- [ ] **Performance: virtualize long feeds** — News feed and telegram widgets render all items. Add virtual scrolling for feeds with 100+ items.
+
 ## 🔴 Priority: Modular Widgets Pipeline
 - [x] ~~**Game-engine style widget folder**~~ — ✅ DONE. At the bottom of the screen, instead of a news feed, implement a "folder" or "tray" of boilerplate widgets that can be dragged and dropped onto the canvas.
 - [x] ~~**Declutter Default Map**~~ — ✅ DONE. Removed the cluttered default map with streaming images. Map is now just a boilerplate widget.
