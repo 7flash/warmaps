@@ -29,7 +29,7 @@ export const FF = {
     pumpfun: true,
     spotlight: true,
     ticker: true,
-    imageMarkers: true,
+    imageMarkers: false,
 };
 (window as any).FF = FF;
 

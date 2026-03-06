@@ -5,6 +5,9 @@
 - [x] ~~**Flights data**~~ — ✅ DONE. Switched primary source to ADSB.lol (free, no rate limits). OpenSky kept as fallback with exponential backoff. Added enhanced military classification (aircraft type codes + registration-based country detection).
 - [x] ~~**Canvas container overflow clipping**~~ — ✅ DONE. Fixed CSS flexbox cascading limits on `.wm-container-body` and explicitly applied `min-height: 0` and `min-width: 0` along with `flex-shrink: 0` on static header components to permit proper containment scaling per widget.
 - [x] ~~**Mobile canvas**~~ — ✅ DONE. Touch event handlers for single-finger pan and pinch-to-zoom. Container drag via header on touch. Layout saves on touch end.
+- [x] ~~**Map zoom vs Canvas zoom conflict**~~ — ✅ DONE. Canvas wheel handler now checks if target is inside `.maplibregl-map` and skips `preventDefault()`, letting MapLibre handle its own zoom. Same for mousedown — canvas pan no longer triggers when clicking/dragging inside map widgets. Also added smart scroll passthrough for scrollable feed containers.
+- [x] ~~**Image markers cluttering map**~~ — ✅ DONE. Disabled `FF.imageMarkers` by default. Streaming news images no longer float over the global map. Can be re-enabled via `window.FF.imageMarkers = true` in console.
+- [x] ~~**Widget tray redesign**~~ — ✅ DONE. Complete visual overhaul: 64px height, frosted glass gradient background, pill-shaped category buttons with active state, rounded widget cards with hover lift effect, hidden scrollbar, subtle MULTI badges, premium typography.
 
 ## 🟡 Priority: Improve
 - [x] ~~**Performance**~~ — ✅ `page.client.tsx` split from 3400 lines → ~150-line orchestrator + 14 modules in `app/lib/` (state, utils, perf, map, data, feeds, markers, tokens, modals, panels, tv, chat, ai, betting, spotlight)
@@ -28,6 +31,14 @@
 - [x] ~~**Saved canvas layouts**~~ — ✅ DONE. Let users save/load multiple layout presets (e.g., "Monitoring", "Trading Desk", "Analysis"). Store in localStorage. Added Top-right dropdown menu.
 - [x] ~~**Container linking**~~ — ✅ DONE. Added an SVG-based linking system allowing users to drag connection lines between containers, feed items, and map points. State is persisted to localStorage.
 - [x] ~~**Detachable containers**~~ — ✅ DONE. Allow containers to be "popped out" into separate browser windows for multi-monitor setups.
+- [x] ~~**Widget synchronization mode**~~ — ✅ DONE. Added a lock/unlock toggle directly in the toolbar (`🔓`/`🔒`) that links the underlying MapLibre states across all initialized map widgets in the canvas simultaneously via move/zoom/pitch/bearing events.
+- [x] ~~**Widget layout auto-arrange (Tiling)**~~ — ✅ DONE. Added the `▦` button to the canvas toolbar which automatically tiles overlapping container widgets side-by-side using masonry/grid sorting techniques for better visibility.
+- [x] ~~**Data layer WebWorkers**~~ — ✅ DONE. `data.tsx` dynamically spins up an off-thread Blob Worker to chew through tens of thousands of features for Flights, Fires, and GDELT data mapping them into GeoJSON without blocking the compositor.
+
+## 🟢 Priority: Next Pipeline Features
+- [x] ~~**3D Terrain Rendering**~~ — ✅ DONE. Toolbar toggle (🏔️/🌋) enables MapLibre 3D terrain using AWS Open Data DEM tiles (Terrarium encoding). `toggle3DTerrain()` in `lib/map.tsx` applies terrain + pitch animation across all map instances. 1.8x exaggeration, cinematic 60° pitch ease, auto-flatten on disable. CSS `.top-btn.active` glow state.
+- [x] ~~**Data caching / Offline Mode**~~ — ✅ DONE. IndexedDB cache layer (`lib/cache.ts`) with `cachedFetch()` wrapper. Cache-first strategy: returns cached data instantly (5-11ms) on boot, then fetches fresh data in background. 30min TTL for most feeds, 15min for markets/pumpfun, 5min for flights. All 12 data sources wrapped. Stale-while-revalidate pattern. Zero dependencies.
+- [x] ~~**Collaborative Dashboarding**~~ — ✅ DONE. Native Bun WebSocket sync via `/ws/sync`. Room-based pub/sub (`sync:<room>`). Broadcasts layout state (widget X/Y/size/collapsed) to all connected peers on drag/resize. Colored peer cursors with name labels. Join/leave toast notifications. Peer count badge (👥 N) on toolbar button. Auto-reconnect on disconnect. `lib/sync.ts` client module, `server.ts` /ws/sync handler. CSS: `.sync-peer-cursor`, `.sync-badge`, `.sync-toast`.
 
 ## 🟡 Priority: Deploy
 - [x] ~~**Deploy canvas rewrite to production**~~ — ✅ DONE. Push latest canvas changes to `root@202.155.132.139:/opt/starwar/`. Test container dragging, minimap, and layout persistence on production.

@@ -38,7 +38,7 @@ import { setDataPaused, setTimelineHours } from './lib/state';
 import { initAlerts } from './lib/alerts';
 import { initAuth } from './lib/user-auth';
 import { initLinks } from './lib/links';
-import { initCanvas, fitAllContainers, initMinimapClick, updateMinimap } from './lib/canvas';
+import { initCanvas, fitAllContainers, initMinimapClick, updateMinimap, autoArrangeContainers } from './lib/canvas';
 import { WIDGET_TYPES, encodeShareLink, loadInstances, saveInstances, createInstance, getDefaultInstances, LAYOUT_PRESETS, loadUserPresets, saveUserPresets } from './lib/widgets';
 import type { WidgetInstance, ConfigField } from './lib/widgets';
 
@@ -151,6 +151,9 @@ function initWidgetCatalog() {
     const grid = document.getElementById('widget-tray-grid');
     const shareBtn = document.getElementById('wm-share');
     const resetBtn = document.getElementById('wm-reset-layout');
+    const syncMapsBtn = document.getElementById('wm-sync-maps');
+    const fitAllBtn = document.getElementById('wm-fit-all');
+    const autoArrangeBtn = document.getElementById('wm-auto-arrange');
 
     if (!tray || !grid) return;
 
@@ -221,6 +224,61 @@ function initWidgetCatalog() {
         localStorage.removeItem('warmaps:instances');
         localStorage.removeItem('warmaps:layout');
         window.location.reload();
+    });
+
+    // Sync maps
+    syncMapsBtn?.addEventListener('click', () => {
+        import('./lib/map').then(({ toggleMapSync }) => {
+            const enabled = toggleMapSync();
+            if (syncMapsBtn) {
+                syncMapsBtn.textContent = enabled ? '🔒' : '🔓';
+                syncMapsBtn.title = `Sync Map Pan/Zoom (${enabled ? 'On' : 'Off'})`;
+            }
+        });
+    });
+
+    // Fit all
+    fitAllBtn?.addEventListener('click', () => {
+        fitAllContainers();
+    });
+
+    // Auto arrange
+    autoArrangeBtn?.addEventListener('click', () => {
+        autoArrangeContainers();
+    });
+
+    // 3D Terrain toggle
+    const terrainBtn = document.getElementById('wm-terrain-toggle');
+    terrainBtn?.addEventListener('click', () => {
+        import('./lib/map').then(({ toggle3DTerrain }) => {
+            const enabled = toggle3DTerrain();
+            if (terrainBtn) {
+                terrainBtn.textContent = enabled ? '🌋' : '🏔️';
+                terrainBtn.title = `3D Terrain (${enabled ? 'On' : 'Off'})`;
+                terrainBtn.classList.toggle('active', enabled);
+            }
+        });
+    });
+
+    // Collaborative sync toggle
+    const syncCollabBtn = document.getElementById('wm-sync-collab');
+    syncCollabBtn?.addEventListener('click', () => {
+        import('./lib/sync').then(({ initSync, disconnectSync, isSyncEnabled }) => {
+            if (isSyncEnabled()) {
+                disconnectSync();
+                syncCollabBtn.classList.remove('active');
+            } else {
+                initSync();
+                syncCollabBtn.classList.add('active');
+            }
+        });
+    });
+
+    // Broadcast layout on drag/resize end (for sync)
+    document.addEventListener('mouseup', () => {
+        import('./lib/sync').then(({ broadcastLayout, isSyncEnabled }) => {
+            if (isSyncEnabled()) broadcastLayout();
+        });
     });
 
     // Add remove, detach, and link handles to existing containers
@@ -333,7 +391,7 @@ function initPresets() {
     });
 }
 
-function addWidgetToCanvas(typeId: string) {
+function addWidgetToCanvas(typeId: string, dropX?: number, dropY?: number) {
     const wt = WIDGET_TYPES.find(w => w.id === typeId);
     if (!wt) return;
 
@@ -351,11 +409,27 @@ function addWidgetToCanvas(typeId: string) {
     const content = document.getElementById('wm-content');
     if (!content) return;
 
-    // Find center of viewport for placement
-    const viewport = document.getElementById('wm-viewport');
-    const vRect = viewport?.getBoundingClientRect();
-    const x = vRect ? (vRect.width / 2 - wt.defaultWidth / 2) : 200;
-    const y = vRect ? (vRect.height / 2 - wt.defaultHeight / 2) : 200;
+    let x: number, y: number;
+    if (dropX !== undefined && dropY !== undefined) {
+        // Dropped at specific canvas position — convert screen to canvas coords
+        const viewport = document.getElementById('wm-viewport');
+        const vRect = viewport?.getBoundingClientRect();
+        const transform = content.style.transform;
+        const match = transform.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)\s*scale\(([\d.]+)\)/);
+        const tx = match ? parseFloat(match[1]) : 0;
+        const ty = match ? parseFloat(match[2]) : 0;
+        const scale = match ? parseFloat(match[3]) : 1;
+        const relX = dropX - (vRect?.left || 0);
+        const relY = dropY - (vRect?.top || 0);
+        x = (relX - tx) / scale - wt.defaultWidth / 2;
+        y = (relY - ty) / scale - wt.defaultHeight / 2;
+    } else {
+        // Default: center of viewport
+        const viewport = document.getElementById('wm-viewport');
+        const vRect = viewport?.getBoundingClientRect();
+        x = vRect ? (vRect.width / 2 - wt.defaultWidth / 2) : 200;
+        y = vRect ? (vRect.height / 2 - wt.defaultHeight / 2) : 200;
+    }
 
     // Create the DOM element
     const container = document.createElement('div');
@@ -459,6 +533,110 @@ export default function mount() {
             const popupUrl = `/?detached=true&type=${typeId}&${configParams.toString()}`;
             window.open(popupUrl, `warmaps_detach_${typeId}_${Date.now()}`, `width=${rect.width},height=${rect.height + 40},left=${window.screenX + rect.left},top=${window.screenY + rect.top}`);
         }
+    });
+
+    // ─── Canvas Drag & Drop from Widget Tray ────────────────────
+    const viewport = document.getElementById('wm-viewport');
+    if (viewport) {
+        viewport.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+        });
+        viewport.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const typeId = e.dataTransfer?.getData('text/plain');
+            if (typeId && WIDGET_TYPES.find(w => w.id === typeId)) {
+                addWidgetToCanvas(typeId, e.clientX, e.clientY);
+            }
+        });
+    }
+
+    // ─── Right-click Context Menu on Widgets ─────────────────────
+    let contextMenu: HTMLElement | null = null;
+
+    function removeContextMenu() {
+        if (contextMenu) {
+            contextMenu.remove();
+            contextMenu = null;
+        }
+    }
+
+    document.addEventListener('click', removeContextMenu);
+    document.addEventListener('contextmenu', (e) => {
+        const target = e.target as HTMLElement;
+        const container = target.closest('.wm-container') as HTMLElement;
+        if (!container) {
+            removeContextMenu();
+            return;
+        }
+
+        e.preventDefault();
+        removeContextMenu();
+
+        const typeId = container.dataset.widgetType || '';
+        const wt = WIDGET_TYPES.find(w => w.id === typeId);
+
+        contextMenu = document.createElement('div');
+        contextMenu.className = 'wm-context-menu';
+        contextMenu.style.left = `${e.clientX}px`;
+        contextMenu.style.top = `${e.clientY}px`;
+
+        const items = [
+            { label: '⚙️ Configure', action: 'configure', show: !!(wt?.configFields?.length) },
+            { label: '📋 Duplicate', action: 'duplicate', show: !!wt?.multi },
+            { label: '⎘ Detach to Window', action: 'detach', show: true },
+            { label: '─', action: 'separator', show: true },
+            { label: '🗑 Remove', action: 'remove', show: true },
+        ];
+
+        items.filter(i => i.show).forEach(item => {
+            if (item.action === 'separator') {
+                const sep = document.createElement('div');
+                sep.className = 'wm-ctx-separator';
+                contextMenu!.appendChild(sep);
+                return;
+            }
+            const btn = document.createElement('button');
+            btn.className = 'wm-ctx-item';
+            btn.textContent = item.label;
+            btn.addEventListener('click', () => {
+                removeContextMenu();
+                switch (item.action) {
+                    case 'configure': {
+                        // Click the gear button if it exists
+                        const gear = container.querySelector('.wm-c-gear') as HTMLElement;
+                        if (gear) gear.click();
+                        break;
+                    }
+                    case 'duplicate': {
+                        const rect = container.getBoundingClientRect();
+                        addWidgetToCanvas(typeId, rect.right + 20, rect.top + 20);
+                        break;
+                    }
+                    case 'detach': {
+                        const detachBtn = container.querySelector('.wm-c-detach') as HTMLElement;
+                        if (detachBtn) detachBtn.click();
+                        break;
+                    }
+                    case 'remove': {
+                        container.remove();
+                        updateMinimap();
+                        break;
+                    }
+                }
+            });
+            contextMenu!.appendChild(btn);
+        });
+
+        document.body.appendChild(contextMenu);
+
+        // Keep menu in viewport
+        requestAnimationFrame(() => {
+            if (!contextMenu) return;
+            const rect = contextMenu.getBoundingClientRect();
+            if (rect.right > window.innerWidth) contextMenu.style.left = `${window.innerWidth - rect.width - 8}px`;
+            if (rect.bottom > window.innerHeight) contextMenu.style.top = `${window.innerHeight - rect.height - 8}px`;
+        });
     });
 
     measure('Mount WARMAPS', async (m) => {

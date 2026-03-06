@@ -41,6 +41,15 @@ const recentMessages: ChatMessage[] = [];
 const MAX_HISTORY = 50;
 let guestCounter = 0;
 
+// ─── Sync State ─────────────────────────────────────────────
+
+const SYNC_COLORS = [
+    '#22d3ee', '#a78bfa', '#f472b6', '#fb923c', '#34d399',
+    '#fbbf24', '#f87171', '#60a5fa', '#c084fc', '#4ade80',
+];
+let syncColorIdx = 0;
+const syncPeers = new Map<string, { name: string; color: string }>();
+
 // Cleanup old data on startup
 cleanupOldData(7);
 
@@ -67,7 +76,6 @@ const server = Bun.serve({
 
         // WebSocket upgrade for chat
         if (url.pathname === '/ws/chat') {
-            // Check for authenticated user via session cookie
             const cookie = req.headers.get('cookie') || '';
             const sessionMatch = cookie.match(/wm_session=([a-f0-9]+)/);
             let username = generateGuestName();
@@ -80,7 +88,28 @@ const server = Bun.serve({
                 }
             }
             const upgraded = server.upgrade(req, {
-                data: { username, isAuthenticated },
+                data: { channel: 'chat', username, isAuthenticated },
+            });
+            if (upgraded) return undefined as any;
+            return new Response('WebSocket upgrade failed', { status: 400 });
+        }
+
+        // WebSocket upgrade for collaborative sync
+        if (url.pathname === '/ws/sync') {
+            const room = url.searchParams.get('room') || 'default';
+            const cookie = req.headers.get('cookie') || '';
+            const sessionMatch = cookie.match(/wm_session=([a-f0-9]+)/);
+            let peerName = generateGuestName();
+            if (sessionMatch) {
+                const user = getSessionUser(sessionMatch[1]);
+                if (user) peerName = user.displayName || user.username;
+            }
+            const peerId = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            const peerColor = SYNC_COLORS[syncColorIdx++ % SYNC_COLORS.length];
+            syncPeers.set(peerId, { name: peerName, color: peerColor });
+
+            const upgraded = server.upgrade(req, {
+                data: { channel: 'sync', room: `sync:${room}`, peerId, peerName, peerColor },
             });
             if (upgraded) return undefined as any;
             return new Response('WebSocket upgrade failed', { status: 400 });
@@ -134,10 +163,36 @@ const server = Bun.serve({
     },
     websocket: {
         open(ws: any) {
+            if (ws.data.channel === 'sync') {
+                // ── Sync room join ──
+                ws.subscribe(ws.data.room);
+                const peerCount = server.subscriberCount(ws.data.room);
+                console.log(`[Sync] ${ws.data.peerName} joined room ${ws.data.room} (${peerCount} peers)`);
+
+                // Send peer identity
+                ws.send(JSON.stringify({
+                    type: 'sync:init',
+                    peerId: ws.data.peerId,
+                    peerName: ws.data.peerName,
+                    peerColor: ws.data.peerColor,
+                    peerCount,
+                }));
+
+                // Announce to room
+                server.publish(ws.data.room, JSON.stringify({
+                    type: 'sync:peer-join',
+                    peerId: ws.data.peerId,
+                    peerName: ws.data.peerName,
+                    peerColor: ws.data.peerColor,
+                    peerCount,
+                }));
+                return;
+            }
+
+            // ── Chat join ──
             ws.subscribe('chat');
             console.log(`[Chat] ${ws.data.username} connected`);
 
-            // Load chat history from database
             const dbHistory = getChatHistory(30);
             ws.send(JSON.stringify({
                 type: 'init',
@@ -157,6 +212,18 @@ const server = Bun.serve({
         message(ws: any, message: string | Buffer) {
             try {
                 const data = JSON.parse(String(message));
+
+                if (ws.data.channel === 'sync') {
+                    // ── Sync messages: relay to room ──
+                    // Attach peer identity and broadcast
+                    data.peerId = ws.data.peerId;
+                    data.peerName = ws.data.peerName;
+                    data.peerColor = ws.data.peerColor;
+                    server.publish(ws.data.room, JSON.stringify(data));
+                    return;
+                }
+
+                // ── Chat messages ──
                 if (data.type === 'message' && data.text?.trim()) {
                     const chatMsg: ChatMessage = {
                         id: `${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -170,7 +237,6 @@ const server = Bun.serve({
                         recentMessages.shift();
                     }
 
-                    // Persist to database
                     saveChatMessage(chatMsg.user, chatMsg.text);
 
                     server.publish('chat', JSON.stringify({
@@ -182,9 +248,22 @@ const server = Bun.serve({
             } catch { /* ignore malformed */ }
         },
         close(ws: any) {
+            if (ws.data.channel === 'sync') {
+                ws.unsubscribe(ws.data.room);
+                syncPeers.delete(ws.data.peerId);
+                const peerCount = server.subscriberCount(ws.data.room);
+                console.log(`[Sync] ${ws.data.peerName} left (${peerCount} peers)`);
+                server.publish(ws.data.room, JSON.stringify({
+                    type: 'sync:peer-leave',
+                    peerId: ws.data.peerId,
+                    peerName: ws.data.peerName,
+                    peerCount,
+                }));
+                return;
+            }
+
             ws.unsubscribe('chat');
             console.log(`[Chat] ${ws.data.username} disconnected`);
-
             server.publish('chat', JSON.stringify({
                 type: 'system',
                 text: `${ws.data.username} left`,

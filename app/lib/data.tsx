@@ -22,7 +22,111 @@ import {
 import { renderNewsFeed, renderGdeltFeed, renderFiresFeed, renderRadarFeed, renderSeismicFeed, showThreatBanner, updateTicker, updateStats, renderTelegramFeed } from './feeds';
 import { queueNewEvents } from './markers';
 import { updateTokenMapSource, renderTokensFeed } from './tokens';
+import { cachedFetch } from './cache';
 import { spawnRadarPings, showDataFlash } from './spotlight';
+
+// ─── WebWorker Data Layer ───────────────────────────────────
+
+const workerCode = `
+self.onmessage = function(e) {
+    const { type, payload } = e.data;
+    if (type === 'parse-flights') {
+        try {
+            const data = JSON.parse(payload);
+            const flights = data.flights || [];
+            const features = flights.map(f => ({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
+                properties: {
+                    type: f.type,
+                    callsign: f.callsign,
+                    heading: f.heading || 0,
+                    alt: Math.round((f.alt || 0) * 3.281),
+                    velocity: Math.round((f.velocity || 0) * 1.944),
+                    country: f.country || '??',
+                }
+            }));
+            self.postMessage({ type: 'flights-done', features, flights, stats: data.stats || {} });
+        } catch (err) {
+            self.postMessage({ type: 'error', msg: 'Flight parse fail' });
+        }
+    } else if (type === 'parse-fires') {
+        try {
+            const data = JSON.parse(payload);
+            const fires = data.fires || [];
+            const features = fires.map(f => ({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
+                properties: { brightness: f.brightness, confidence: f.confidence }
+            }));
+            self.postMessage({ type: 'fires-done', features, fires });
+        } catch (err) {
+            self.postMessage({ type: 'error', msg: 'Fires parse fail' });
+        }
+    } else if (type === 'parse-gdelt') {
+        try {
+            const data = JSON.parse(payload);
+            self.postMessage({ type: 'gdelt-done', events: data.events || [] });
+        } catch (err) {
+            self.postMessage({ type: 'error', msg: 'GDELT parse fail' });
+        }
+    }
+};
+`;
+const blob = new Blob([workerCode], { type: 'application/javascript' });
+const geoWorker = new Worker(URL.createObjectURL(blob));
+
+let latestFlightsGeoJSON: any = null;
+let latestFiresGeoJSON: any = null;
+
+geoWorker.onmessage = (e) => {
+    if (e.data.type === 'flights-done') {
+        setFlightData(e.data.flights);
+        setFlightStats(e.data.stats);
+        latestFlightsGeoJSON = { type: 'FeatureCollection', features: e.data.features };
+        markFresh('flights');
+
+        const flSrc = map?.getSource('flights');
+        if (flSrc) flSrc.setData(latestFlightsGeoJSON);
+
+        const flightCountEl = document.getElementById('flight-count');
+        if (flightCountEl) flightCountEl.textContent = String(e.data.flights.length);
+    } else if (e.data.type === 'fires-done') {
+        setFirePoints(e.data.fires);
+        latestFiresGeoJSON = { type: 'FeatureCollection', features: e.data.features };
+        markFresh('fires');
+        renderFiresFeed();
+
+        const fSrc = map?.getSource('fires');
+        if (fSrc) fSrc.setData(latestFiresGeoJSON);
+
+        const el = document.getElementById('firms-count');
+        if (el) el.textContent = String(e.data.fires.length);
+    } else if (e.data.type === 'gdelt-done') {
+        const events = e.data.events;
+        const prevCount = gdeltEvents.length;
+        setGdeltEvents(events);
+        markFresh('gdelt');
+        renderGdeltFeed();
+        // Since we are off-worker, MapLibre doesn't have an automated update tick for specific events without updateMapSources.
+        // It's hoisted below but accessible since we're in the same scope.
+        updateMapSources();
+
+        const el = document.getElementById('gdelt-count');
+        if (el) el.textContent = String(events.length);
+        console.log(`[WARMAPS] GDELT via Worker: ${events.length} events, ${events.filter((ev: any) => ev.imageUrl).length} with images`);
+
+        const newCount = events.length;
+        const diff = Math.abs(newCount - prevCount);
+        if (prevCount > 0 && diff > 0) {
+            spawnRadarPings(events.slice(0, Math.min(diff, 10)));
+            showDataFlash(`⚡ ${newCount} EVENTS • ${diff} NEW`);
+        } else if (prevCount === 0 && newCount > 0) {
+            showDataFlash(`📡 ${newCount} EVENTS LOADED`);
+            spawnRadarPings(events);
+        }
+    }
+};
 
 // ─── Data Fetching ──────────────────────────────────────────
 
@@ -52,20 +156,15 @@ export async function fetchAllData() {
 }
 
 export async function fetchAcled() {
-    try {
-        const res = await fetch('/api/acled');
-        setAcledEvents(await res.json());
+    await cachedFetch('/api/acled', 'acled', (data) => {
+        setAcledEvents(data);
         const aSrc = map?.getSource('acled');
         if (aSrc) aSrc.setData(acledEvents);
-    } catch (e) {
-        console.error('[WARMAPS] ACLED events fetch failed:', e);
-    }
+    });
 }
 
 export async function fetchSeismic() {
-    try {
-        const res = await fetch('/api/seismic');
-        const data = await res.json();
+    await cachedFetch('/api/seismic', 'seismic', (data) => {
         if (data.events) {
             const geo = {
                 type: 'FeatureCollection',
@@ -90,9 +189,7 @@ export async function fetchSeismic() {
             const el = document.getElementById('seismic-count');
             if (el) el.textContent = String(data.events.length);
         }
-    } catch (e) {
-        console.error('[WARMAPS] Seismic events fetch failed:', e);
-    }
+    });
 }
 
 export async function fetchCrypto() {
@@ -212,77 +309,38 @@ export async function fetchCrypto() {
 }
 
 export async function fetchAssets() {
-    try {
-        const res = await fetch('/api/assets');
-        const data = await res.json();
+    await cachedFetch('/api/assets', 'assets', (data) => {
         setStrategicAssets(data);
         const aSrc = map?.getSource('assets');
         if (aSrc) aSrc.setData(data);
-    } catch (e) {
-        console.error('[WARMAPS] Strategic assets fetch failed:', e);
-    }
+    });
 }
 
 export async function fetchNews() {
-    try {
-        const res = await fetch(`/api/news?source=${currentFilter}`);
-        const data = await res.json();
+    await cachedFetch(`/api/news?source=${currentFilter}`, `news-${currentFilter}`, (data) => {
         setNewsItems(data.items || []);
         markFresh('news');
         renderNewsFeed();
-    } catch (e) {
-        console.error('[WARMAPS] News fetch failed:', e);
-    }
+    });
 }
 
 export async function fetchGdelt() {
-    try {
-        const prevCount = gdeltEvents.length;
-        const res = await fetch('/api/gdelt?region=conflict');
-        const data = await res.json();
-        setGdeltEvents(data.events || []);
-        markFresh('gdelt');
-        renderGdeltFeed();
-        updateMapSources();
-        const el = document.getElementById('gdelt-count');
-        if (el) el.textContent = String(gdeltEvents.length);
-        console.log(`[WARMAPS] GDELT loaded: ${gdeltEvents.length} events, ${gdeltEvents.filter((e: any) => e.imageUrl).length} with images`);
-
-        // Live animations on data arrival
-        const newCount = gdeltEvents.length;
-        const diff = Math.abs(newCount - prevCount);
-        if (prevCount > 0 && diff > 0) {
-            spawnRadarPings(gdeltEvents.slice(0, Math.min(diff, 10)));
-            showDataFlash(`⚡ ${newCount} EVENTS • ${diff} NEW`);
-        } else if (prevCount === 0 && newCount > 0) {
-            showDataFlash(`📡 ${newCount} EVENTS LOADED`);
-            spawnRadarPings(gdeltEvents);
-        }
-    } catch (e) {
-        console.error('[WARMAPS] GDELT fetch failed:', e);
-    }
+    await cachedFetch('/api/gdelt?region=conflict', 'gdelt', (data) => {
+        // data is text (raw JSON string), pass to worker
+        const text = typeof data === 'string' ? data : JSON.stringify(data);
+        geoWorker.postMessage({ type: 'parse-gdelt', payload: text });
+    }, { parseAs: 'text' });
 }
 
 export async function fetchFires() {
-    try {
-        const res = await fetch('/api/fires');
-        const data = await res.json();
-        setFirePoints(data.fires || []);
-        markFresh('fires');
-        renderFiresFeed();
-        updateMapSources();
-        const el = document.getElementById('firms-count');
-        if (el) el.textContent = String(firePoints.length);
-    } catch (e) {
-        console.error('[WARMAPS] FIRMS fetch failed:', e);
-    }
+    await cachedFetch('/api/fires', 'fires', (data) => {
+        const text = typeof data === 'string' ? data : JSON.stringify(data);
+        geoWorker.postMessage({ type: 'parse-fires', payload: text });
+    }, { parseAs: 'text' });
 }
 
 export async function fetchMarkets() {
-    try {
-        const res = await fetch('/api/markets');
-        if (!res.ok) return;
-        const data = await res.json();
+    await cachedFetch('/api/markets', 'markets', (data) => {
         setMarketData(data.markets || []);
         setThreatAlerts(data.alerts || []);
         renderRadarFeed();
@@ -303,9 +361,7 @@ export async function fetchMarkets() {
         if (criticals.length > 0) {
             showThreatBanner(criticals[0]);
         }
-    } catch (e) {
-        console.error('[WARMAPS] Markets fetch failed:', e);
-    }
+    }, { maxAgeMs: 15 * 60 * 1000 });
 }
 
 export async function fetchTelegramAlerts() {
@@ -322,27 +378,14 @@ export async function fetchTelegramAlerts() {
 }
 
 export async function fetchFlights() {
-    try {
-        const res = await fetch('/api/flights');
-        if (!res.ok) return;
-        const data = await res.json();
-        setFlightData(data.flights || []);
-        setFlightStats(data.stats || {});
-        markFresh('flights');
-        updateMapSources();
-
-        const flightCountEl = document.getElementById('flight-count');
-        if (flightCountEl) flightCountEl.textContent = String(flightData.length);
-    } catch (e) {
-        console.error('[WARMAPS] Flights fetch failed:', e);
-    }
+    await cachedFetch('/api/flights', 'flights', (data) => {
+        const text = typeof data === 'string' ? data : JSON.stringify(data);
+        geoWorker.postMessage({ type: 'parse-flights', payload: text });
+    }, { parseAs: 'text', maxAgeMs: 5 * 60 * 1000 });
 }
 
 export async function fetchWebcams() {
-    try {
-        const res = await fetch('/api/webcams');
-        if (!res.ok) return;
-        const data = await res.json();
+    await cachedFetch('/api/webcams', 'webcams', (data) => {
         setWebcamData(data.webcams || []);
 
         const webcamGeoJSON = {
@@ -366,23 +409,17 @@ export async function fetchWebcams() {
         if (src) src.setData(webcamGeoJSON);
 
         console.log(`[WARMAPS] Loaded ${webcamData.length} webcams`);
-    } catch (e) {
-        console.error('[WARMAPS] Webcams fetch failed:', e);
-    }
+    });
 }
 
 export async function fetchPumpfun() {
-    try {
-        const res = await fetch('/api/pumpfun');
-        const data = await res.json();
+    await cachedFetch('/api/pumpfun', 'pumpfun', (data) => {
         setPumpfunTokens(data.tokens || []);
         markFresh('pumpfun');
         updateTokenMapSource();
         renderTokensFeed();
         console.log(`[WARMAPS] Pump.fun: ${pumpfunTokens.length} conflict tokens loaded`);
-    } catch (e) {
-        console.error('[WARMAPS] Pump.fun fetch failed:', e);
-    }
+    }, { maxAgeMs: 15 * 60 * 1000 });
 }
 
 // ─── Tactical Map Updating ──────────────────────────────────
@@ -411,36 +448,17 @@ function _updateMapSourcesNow() {
 
     const now = Date.now();
 
-    // Fires GeoJSON
-    const firesGeoJSON = {
-        type: 'FeatureCollection',
-        features: firePoints.map(f => ({
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
-            properties: { brightness: f.brightness, confidence: f.confidence }
-        }))
-    };
-    const fSrc = map.getSource('fires');
-    if (fSrc) fSrc.setData(firesGeoJSON);
+    // Features pushed from off-thread worker that just need their Source to be synced
+    // if we dropped a frame
+    if (latestFiresGeoJSON) {
+        const fSrc = map.getSource('fires');
+        if (fSrc) fSrc.setData(latestFiresGeoJSON);
+    }
 
-    // Flights GeoJSON
-    const flightsGeoJSON = {
-        type: 'FeatureCollection',
-        features: flightData.map((f: any) => ({
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
-            properties: {
-                type: f.type,
-                callsign: f.callsign,
-                heading: f.heading || 0,
-                alt: Math.round((f.alt || 0) * 3.281),
-                velocity: Math.round((f.velocity || 0) * 1.944),
-                country: f.country || '??',
-            }
-        }))
-    };
-    const flSrc = map.getSource('flights');
-    if (flSrc) flSrc.setData(flightsGeoJSON);
+    if (latestFlightsGeoJSON) {
+        const flSrc = map.getSource('flights');
+        if (flSrc) flSrc.setData(latestFlightsGeoJSON);
+    }
 
     // Events GeoJSON
     const features: any[] = [];

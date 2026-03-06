@@ -84,6 +84,57 @@ const COUNTRY_FLAGS: Array<{ iso: string; flag: string; lat: number; lon: number
     { iso: 'AZE', flag: '🇦🇿', lat: 40.1, lon: 47.6, name: 'Azerbaijan' },
 ];
 
+export const mapInstances: maplibregl.Map[] = [];
+export let isMapSyncEnabled = false;
+export let is3DTerrainEnabled = false;
+
+export function toggleMapSync() {
+    isMapSyncEnabled = !isMapSyncEnabled;
+    return isMapSyncEnabled;
+}
+
+/**
+ * Toggle 3D terrain rendering on all map instances.
+ * Uses MapTiler's free terrain-rgb DEM tiles.
+ */
+export function toggle3DTerrain(): boolean {
+    is3DTerrainEnabled = !is3DTerrainEnabled;
+
+    for (const m of mapInstances) {
+        // Skip dead maps
+        if (!document.body.contains(m.getContainer())) continue;
+
+        if (is3DTerrainEnabled) {
+            // Add terrain source if not already present
+            if (!m.getSource('terrain-dem')) {
+                m.addSource('terrain-dem', {
+                    type: 'raster-dem',
+                    tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+                    encoding: 'terrarium',
+                    tileSize: 256,
+                    maxzoom: 15,
+                });
+            }
+
+            // Enable terrain exaggeration
+            m.setTerrain({ source: 'terrain-dem', exaggeration: 1.8 });
+
+            // Cinematic pitch transition
+            m.easeTo({ pitch: 60, duration: 1000 });
+        } else {
+            // Disable terrain
+            m.setTerrain(null as any);
+
+            // Flatten back to 2D
+            m.easeTo({ pitch: 0, duration: 800 });
+        }
+    }
+
+    return is3DTerrainEnabled;
+}
+
+let globalSyncing = false;
+
 export function initMap() {
     const mapContainers = document.querySelectorAll('.wm-container[data-widget-type="map"]');
     if (mapContainers.length === 0) return;
@@ -130,6 +181,35 @@ export function initMap() {
 
         // Use first map for global flyTo singleton backwards compatibility
         if (index === 0 && !map) setMap(m);
+
+        // Add to global instances for syncing and cleanup
+        if (!mapInstances.includes(m)) mapInstances.push(m);
+
+        // Map Syncing logic
+        m.on('move', () => {
+            if (!isMapSyncEnabled || globalSyncing) return;
+            globalSyncing = true;
+
+            const c = m.getCenter();
+            const z = m.getZoom();
+            const b = m.getBearing();
+            const p = m.getPitch();
+
+            // Clean up dead maps and sync alive ones
+            for (let i = mapInstances.length - 1; i >= 0; i--) {
+                const otherMap = mapInstances[i];
+                if (otherMap === m) continue;
+
+                const container = otherMap.getContainer();
+                if (!document.body.contains(container)) {
+                    mapInstances.splice(i, 1);
+                    continue;
+                }
+
+                otherMap.jumpTo({ center: c, zoom: z, bearing: b, pitch: p });
+            }
+            globalSyncing = false;
+        });
 
         // Update URL hash on move (debounced)
         let hashTimer: ReturnType<typeof setTimeout> | null = null;

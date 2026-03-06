@@ -43,6 +43,21 @@ export function initCanvas() {
 
     // ── Wheel zoom ──
     viewport.addEventListener('wheel', (e) => {
+        const target = e.target as HTMLElement;
+
+        // Let MapLibre handle its own zoom — don't zoom canvas when scrolling inside a map
+        if (target.closest('.maplibregl-map') || target.closest('.maplibregl-canvas-container')) {
+            return; // Don't preventDefault, let the map widget handle it
+        }
+
+        // Let scrollable containers (feeds, lists) handle their own scroll
+        const scrollBody = target.closest('.wm-container-body') as HTMLElement | null;
+        if (scrollBody && scrollBody.scrollHeight > scrollBody.clientHeight) {
+            const atTop = scrollBody.scrollTop <= 0 && e.deltaY < 0;
+            const atBottom = scrollBody.scrollTop + scrollBody.clientHeight >= scrollBody.scrollHeight - 1 && e.deltaY > 0;
+            if (!atTop && !atBottom) return; // Still has room to scroll — let it
+        }
+
         e.preventDefault();
         const zoomFactor = e.deltaY < 0 ? 1.08 : 1 / 1.08;
         const newZoom = Math.max(0.15, Math.min(3, state.zoom * zoomFactor));
@@ -90,6 +105,11 @@ export function initCanvas() {
         const clickedContainer = target.closest('.wm-container') as HTMLElement;
         if (clickedContainer && e.button === 0) {
             bringToFront(clickedContainer);
+        }
+
+        // Don't start canvas pan if clicking inside a map widget or interactive content
+        if (target.closest('.maplibregl-map') || target.closest('.maplibregl-canvas-container')) {
+            return; // Let the map handle its own drag
         }
 
         // middle-click or space held = canvas pan
@@ -553,4 +573,43 @@ export function fitAllContainers() {
 
     updateTransform();
     updateMinimap();
+}
+
+// ─── Auto-arrange containers (Tiling) ───────────────────
+export function autoArrangeContainers() {
+    if (!viewport) return;
+    const containers = Array.from(document.querySelectorAll('.wm-container')) as HTMLElement[];
+    if (containers.length === 0) return;
+
+    // Use a fairly predictable tiling layout
+    const gap = 20;
+    let currentX = gap;
+    let currentY = gap;
+    let rowMaxHeight = 0;
+    const maxWidth = 1600;
+
+    containers.forEach((c) => {
+        const w = c.offsetWidth || 380;
+        const h = c.offsetHeight || 300;
+
+        // Wrap to next row
+        if (currentX + w > maxWidth && currentX > gap) {
+            currentX = gap;
+            currentY += rowMaxHeight + gap;
+            rowMaxHeight = 0;
+        }
+
+        c.style.left = `${currentX}px`;
+        c.style.top = `${currentY}px`;
+
+        if (h > rowMaxHeight) {
+            rowMaxHeight = h;
+        }
+
+        currentX += w + gap;
+        bringToFront(c);
+    });
+
+    saveLayout();
+    fitAllContainers();
 }

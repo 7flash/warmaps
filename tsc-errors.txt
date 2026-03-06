@@ -1,0 +1,29 @@
+app/api/swap/route.ts(24,16): error TS7016: Could not find a declaration file for module 'bn.js'. 'C:/Code/starwar/node_modules/bn.js/lib/bn.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/bn.js` if it exists or add a new declaration (.d.ts) file containing `declare module 'bn.js';`
+app/api/swap/route.ts(119,13): error TS2740: Type 'Promise<TransactionInstruction[]>' is missing the following properties from type 'any[]': length, pop, push, concat, and 35 more.
+app/api/swap/route.ts(124,13): error TS2740: Type 'Promise<TransactionInstruction[]>' is missing the following properties from type 'any[]': length, pop, push, concat, and 35 more.
+app/api/telegram/[action]/route.ts(3,21): error TS2307: Cannot find module '../../src/telegram' or its corresponding type declarations.
+node_modules/jsx-ai/src/render.ts(86,25): error TS2339: Property 'props' does not exist on type 'JsxAiNode'.
+  Property 'props' does not exist on type 'TextNode'.
+node_modules/measure-fn/index.ts(301,31): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+node_modules/measure-fn/index.ts(313,60): error TS2345: Argument of type '(string | number)[]' is not assignable to parameter of type 'string[]'.
+  Type 'string | number' is not assignable to type 'string'.
+    Type 'number' is not assignable to type 'string'.
+node_modules/measure-fn/index.ts(363,31): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+node_modules/measure-fn/index.ts(377,61): error TS2345: Argument of type '(string | number)[]' is not assignable to parameter of type 'string[]'.
+  Type 'string | number' is not assignable to type 'string'.
+    Type 'number' is not assignable to type 'string'.
+node_modules/melina/node_modules/measure-fn/index.ts(267,31): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+node_modules/melina/node_modules/measure-fn/index.ts(279,60): error TS2345: Argument of type '(string | number)[]' is not assignable to parameter of type 'string[]'.
+  Type 'string | number' is not assignable to type 'string'.
+    Type 'number' is not assignable to type 'string'.
+node_modules/melina/node_modules/measure-fn/index.ts(308,31): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+node_modules/melina/node_modules/measure-fn/index.ts(322,61): error TS2345: Argument of type '(string | number)[]' is not assignable to parameter of type 'string[]'.
+  Type 'string | number' is not assignable to type 'string'.
+    Type 'number' is not assignable to type 'string'.
+server.ts(83,17): error TS2322: Type '{ username: string; isAuthenticated: boolean; }' is not assignable to type 'undefined'.
+src/telegram.ts(245,46): error TS2339: Property 'computeSrpParams' does not exist on type 'TelegramClient'.

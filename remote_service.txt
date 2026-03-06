@@ -1,0 +1,14 @@
+[Unit]
+Description=bgrun process manager (starwar + caddy + dashboard)
+After=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=root
+Environment=PATH=/usr/bin:/usr/sbin:/usr/local/bin:/root/.bun/bin
+ExecStart=/root/.bun/bin/bgrun --restart-all
+ExecStop=/root/.bun/bin/bgrun --stop-all
+
+[Install]
+WantedBy=multi-user.target
