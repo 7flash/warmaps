@@ -125,17 +125,25 @@ export default function Page() {
                 {/* ─── Bottom Widget Tray (Game Engine Boilerplates) ─── */}
                 <div id="widget-tray" class="widget-tray">
                     <div class="widget-tray-label">🔥 WIDGETS</div>
-                    <div class="widget-tray-categories">
-                        <button class="wc-cat-btn active" data-cat="all">All</button>
-                        <button class="wc-cat-btn" data-cat="map">🗺 Maps</button>
-                        <button class="wc-cat-btn" data-cat="telegram">💬 Telegram</button>
-                        <button class="wc-cat-btn" data-cat="rss">📰 News</button>
-                        <button class="wc-cat-btn" data-cat="data">📊 Data</button>
-                        <button class="wc-cat-btn" data-cat="media">📺 Media</button>
-                        <button class="wc-cat-btn" data-cat="social">💬 Social</button>
+                    <div class="widget-tray-scroll-row">
+                        <button class="tray-scroll-arrow tray-scroll-left" data-target=".widget-tray-categories" aria-label="Scroll left">‹</button>
+                        <div class="widget-tray-categories">
+                            <button class="wc-cat-btn active" data-cat="all">All</button>
+                            <button class="wc-cat-btn" data-cat="map">🗺 Maps</button>
+                            <button class="wc-cat-btn" data-cat="telegram">💬 Telegram</button>
+                            <button class="wc-cat-btn" data-cat="rss">📰 News</button>
+                            <button class="wc-cat-btn" data-cat="data">📊 Data</button>
+                            <button class="wc-cat-btn" data-cat="media">📺 Media</button>
+                            <button class="wc-cat-btn" data-cat="social">💬 Social</button>
+                        </div>
+                        <button class="tray-scroll-arrow tray-scroll-right" data-target=".widget-tray-categories" aria-label="Scroll right">›</button>
                     </div>
-                    <div id="widget-tray-grid" class="widget-tray-grid">
-                        {/* Populated by JS */}
+                    <div class="widget-tray-scroll-row">
+                        <button class="tray-scroll-arrow tray-scroll-left" data-target=".widget-tray-grid" aria-label="Scroll left">‹</button>
+                        <div id="widget-tray-grid" class="widget-tray-grid">
+                            {/* Populated by JS */}
+                        </div>
+                        <button class="tray-scroll-arrow tray-scroll-right" data-target=".widget-tray-grid" aria-label="Scroll right">›</button>
                     </div>
                 </div>
             </div >

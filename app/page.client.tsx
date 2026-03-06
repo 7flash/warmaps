@@ -202,6 +202,40 @@ function initWidgetCatalog() {
         });
     });
 
+    // Scroll arrows for tray rows
+    tray.querySelectorAll('.tray-scroll-arrow').forEach(arrow => {
+        arrow.addEventListener('click', () => {
+            const direction = arrow.classList.contains('tray-scroll-left') ? -1 : 1;
+            const row = arrow.closest('.widget-tray-scroll-row');
+            const scrollable = row?.querySelector('.widget-tray-categories, .widget-tray-grid') as HTMLElement;
+            if (scrollable) {
+                scrollable.scrollBy({ left: direction * 200, behavior: 'smooth' });
+            }
+        });
+    });
+
+    // Auto-show/hide arrows based on overflow
+    const updateArrowVisibility = () => {
+        tray.querySelectorAll('.widget-tray-scroll-row').forEach(row => {
+            const scrollable = row.querySelector('.widget-tray-categories, .widget-tray-grid') as HTMLElement;
+            const leftArrow = row.querySelector('.tray-scroll-left') as HTMLElement;
+            const rightArrow = row.querySelector('.tray-scroll-right') as HTMLElement;
+            if (!scrollable || !leftArrow || !rightArrow) return;
+
+            const hasOverflow = scrollable.scrollWidth > scrollable.clientWidth + 2;
+            leftArrow.style.display = hasOverflow && scrollable.scrollLeft > 4 ? '' : 'none';
+            rightArrow.style.display = hasOverflow && scrollable.scrollLeft < scrollable.scrollWidth - scrollable.clientWidth - 4 ? '' : 'none';
+        });
+    };
+
+    // Update on scroll and resize
+    tray.querySelectorAll('.widget-tray-categories, .widget-tray-grid').forEach(el => {
+        el.addEventListener('scroll', updateArrowVisibility);
+    });
+    window.addEventListener('resize', updateArrowVisibility);
+    // Initial check after a beat (widgets need to render first)
+    setTimeout(updateArrowVisibility, 500);
+
     // Share button
     shareBtn?.addEventListener('click', () => {
         const instances = getCurrentInstances();

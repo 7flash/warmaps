@@ -1790,13 +1790,58 @@ body {
     /* label integrated into categories row now */
 }
 
+/* Scroll row wrapper */
+.widget-tray-scroll-row {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+.tray-scroll-arrow {
+    flex-shrink: 0;
+    width: 24px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.04);
+    border: none;
+    color: #94a3b8;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    z-index: 1;
+}
+
+.tray-scroll-arrow:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e2e8f0;
+}
+
+.tray-scroll-left {
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 0;
+}
+
+.tray-scroll-right {
+    border-left: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 0;
+}
+
 .widget-tray-categories {
     display: flex;
     gap: 4px;
     padding: 6px 16px 4px;
     align-items: center;
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    flex-shrink: 0;
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.widget-tray-categories::-webkit-scrollbar {
+    display: none;
 }
 
 .widget-tray-categories::before {
