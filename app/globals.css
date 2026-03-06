@@ -948,6 +948,137 @@ body {
     color: rgba(239, 68, 68, 0.7);
 }
 
+/* ─── Onboarding Tooltip Tour ─────────────────────────────── */
+.wm-onboard-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 10000;
+    animation: onboardFadeIn 0.3s ease;
+}
+
+@keyframes onboardFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.wm-onboard-spotlight {
+    position: absolute;
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    box-shadow:
+        0 0 0 9999px rgba(0, 0, 0, 0.55),
+        0 0 20px rgba(34, 197, 94, 0.3);
+    pointer-events: none;
+    animation: spotlightPulse 2s infinite;
+}
+
+@keyframes spotlightPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55), 0 0 20px rgba(34, 197, 94, 0.3);
+    }
+
+    50% {
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55), 0 0 30px rgba(34, 197, 94, 0.5);
+    }
+}
+
+.wm-onboard-tooltip {
+    position: absolute;
+    width: 320px;
+    background: rgba(10, 15, 28, 0.97);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    border-radius: 12px;
+    padding: 16px 20px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    animation: tooltipSlideIn 0.25s ease;
+    z-index: 10001;
+}
+
+@keyframes tooltipSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.wm-onboard-title {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #fff;
+    margin-bottom: 6px;
+}
+
+.wm-onboard-body {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+}
+
+.wm-onboard-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.wm-onboard-step {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+}
+
+.wm-onboard-btns {
+    display: flex;
+    gap: 8px;
+}
+
+.wm-onboard-btn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.wm-onboard-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(34, 197, 94, 0.1);
+}
+
+.wm-onboard-next {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.wm-onboard-next:hover {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: var(--accent);
+}
+
 .wm-c-actions {
     display: flex;
     align-items: center;

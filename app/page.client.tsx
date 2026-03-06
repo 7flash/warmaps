@@ -518,6 +518,121 @@ function getCurrentInstances(): WidgetInstance[] {
     return instances;
 }
 
+// ─── First-run Onboarding ───────────────────────────────────
+
+interface OnboardingStep {
+    target: string;  // CSS selector
+    title: string;
+    body: string;
+    position: 'bottom' | 'top' | 'left';
+}
+
+const ONBOARDING_STEPS: OnboardingStep[] = [
+    {
+        target: '.wm-container-header',
+        title: '🖱️ Drag to rearrange',
+        body: 'Grab any widget header to move it around the infinite canvas. Double-click to collapse.',
+        position: 'bottom',
+    },
+    {
+        target: '#widget-tray',
+        title: '➕ Add more widgets',
+        body: 'Browse maps, feeds, data panels, and more. Drag or click to add them to your canvas.',
+        position: 'top',
+    },
+    {
+        target: '.wm-container',
+        title: '⚙️ Configure & customize',
+        body: 'Hover a widget and click ⚙ to change data source, filters, or channel. Right-click for more options.',
+        position: 'bottom',
+    },
+];
+
+function showOnboarding() {
+    let step = 0;
+
+    function render() {
+        // Remove previous
+        document.querySelector('.wm-onboard-overlay')?.remove();
+
+        if (step >= ONBOARDING_STEPS.length) {
+            localStorage.setItem('warmaps:onboarded', '1');
+            return;
+        }
+
+        const s = ONBOARDING_STEPS[step];
+        const targetEl = document.querySelector(s.target) as HTMLElement;
+        if (!targetEl) {
+            // Skip to next if target not found
+            step++;
+            render();
+            return;
+        }
+
+        const rect = targetEl.getBoundingClientRect();
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'wm-onboard-overlay';
+
+        // Spotlight cutout
+        const spotlight = document.createElement('div');
+        spotlight.className = 'wm-onboard-spotlight';
+        spotlight.style.cssText = `left:${rect.left - 4}px;top:${rect.top - 4}px;width:${rect.width + 8}px;height:${rect.height + 8}px`;
+        overlay.appendChild(spotlight);
+
+        // Tooltip
+        const tooltip = document.createElement('div');
+        tooltip.className = 'wm-onboard-tooltip';
+
+        let tipTop = rect.bottom + 12;
+        let tipLeft = Math.max(16, Math.min(rect.left, window.innerWidth - 340));
+
+        if (s.position === 'top') {
+            tipTop = rect.top - 140;
+            tipLeft = Math.max(16, Math.min(rect.left, window.innerWidth - 340));
+        }
+
+        tooltip.style.cssText = `left:${tipLeft}px;top:${tipTop}px`;
+        tooltip.innerHTML = `
+            <div class="wm-onboard-title">${s.title}</div>
+            <div class="wm-onboard-body">${s.body}</div>
+            <div class="wm-onboard-footer">
+                <span class="wm-onboard-step">${step + 1} / ${ONBOARDING_STEPS.length}</span>
+                <div class="wm-onboard-btns">
+                    ${step > 0 ? '<button class="wm-onboard-btn wm-onboard-prev">← Back</button>' : ''}
+                    <button class="wm-onboard-btn wm-onboard-next">${step === ONBOARDING_STEPS.length - 1 ? '✓ Got it' : 'Next →'}</button>
+                </div>
+            </div>
+        `;
+
+        overlay.appendChild(tooltip);
+        document.body.appendChild(overlay);
+
+        // Button handlers
+        overlay.querySelector('.wm-onboard-next')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            step++;
+            render();
+        });
+        overlay.querySelector('.wm-onboard-prev')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            step--;
+            render();
+        });
+
+        // Click overlay to dismiss
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                localStorage.setItem('warmaps:onboarded', '1');
+                overlay.remove();
+            }
+        });
+    }
+
+    render();
+}
+
 // ─── Feed Health Indicators ─────────────────────────────────
 
 // Map widget type → data source name in dataFreshness
@@ -1142,6 +1257,11 @@ export default function mount() {
 
         // Check legend filters to update map layers
         measureSync('Legend filters', () => setupLegendFilters());
+
+        // ─── First-run Onboarding ────────────────────────────────
+        if (!localStorage.getItem('warmaps:onboarded')) {
+            setTimeout(() => showOnboarding(), 3000);
+        }
 
         return 'ready';
     });
