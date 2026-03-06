@@ -285,14 +285,14 @@ export function saveInstances(instances: WidgetInstance[]) {
 export function getDefaultInstances(): WidgetInstance[] {
     nextInstanceId = 1;
     return [
-        { id: 'wi-1', typeId: 'map', x: 0, y: 0, width: 700, height: 500, collapsed: false, config: { layers: ['events', 'fires', 'flights'] } },
-        { id: 'wi-2', typeId: 'news', x: 720, y: 0, width: 380, height: 500, collapsed: false, config: { filter: 'all', source: 'all' } },
-        { id: 'wi-3', typeId: 'intel', x: 1120, y: 0, width: 380, height: 340, collapsed: false, config: {} },
-        { id: 'wi-4', typeId: 'telegram', x: 1120, y: 360, width: 380, height: 340, collapsed: false, config: { channels: 'all' } },
-        { id: 'wi-5', typeId: 'tokens', x: 0, y: 520, width: 380, height: 340, collapsed: false, config: {} },
-        { id: 'wi-6', typeId: 'markets', x: 400, y: 520, width: 380, height: 340, collapsed: false, config: { category: 'all' } },
-        { id: 'wi-7', typeId: 'gdelt', x: 800, y: 520, width: 380, height: 300, collapsed: false, config: {} },
-        { id: 'wi-8', typeId: 'ai', x: 1200, y: 520, width: 360, height: 340, collapsed: false, config: {} },
+        { id: 'wm-c-map', typeId: 'map', x: 0, y: 0, width: 700, height: 500, collapsed: false, config: { layers: ['events', 'fires', 'flights'] } },
+        { id: 'wm-c-pulse', typeId: 'news', x: 720, y: 0, width: 380, height: 500, collapsed: false, config: { filter: 'all', source: 'all' } },
+        { id: 'wm-c-intel', typeId: 'intel', x: 1120, y: 0, width: 380, height: 340, collapsed: false, config: {} },
+        { id: 'wm-c-signal', typeId: 'telegram', x: 1120, y: 360, width: 380, height: 340, collapsed: false, config: { channels: 'all' } },
+        { id: 'wm-c-tokens', typeId: 'tokens', x: 0, y: 520, width: 380, height: 340, collapsed: false, config: {} },
+        { id: 'wm-c-markets', typeId: 'markets', x: 400, y: 520, width: 380, height: 340, collapsed: false, config: { category: 'all' } },
+        { id: 'wm-c-data', typeId: 'gdelt', x: 800, y: 520, width: 380, height: 300, collapsed: false, config: {} },
+        { id: 'wm-c-ai', typeId: 'ai', x: 1200, y: 520, width: 360, height: 340, collapsed: false, config: {} },
     ];
 }
 

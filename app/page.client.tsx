@@ -320,6 +320,13 @@ function getCurrentInstances(): WidgetInstance[] {
     const instances: WidgetInstance[] = [];
     containers.forEach(c => {
         const el = c as HTMLElement;
+        const config: Record<string, any> = {};
+        Object.keys(el.dataset).forEach(key => {
+            if (key.startsWith('cfg')) {
+                const configKey = key.slice(3).toLowerCase(); // cfgFilter -> filter
+                config[configKey] = el.dataset[key];
+            }
+        });
         instances.push({
             id: el.id,
             typeId: el.dataset.widgetType || el.id.replace('wm-c-', ''),
@@ -328,7 +335,7 @@ function getCurrentInstances(): WidgetInstance[] {
             width: el.offsetWidth,
             height: el.offsetHeight,
             collapsed: el.classList.contains('collapsed'),
-            config: {},
+            config,
         });
     });
     return instances;
@@ -338,6 +345,19 @@ function getCurrentInstances(): WidgetInstance[] {
 
 export default function mount() {
     measure('Mount WARMAPS', async (m) => {
+        // Apply saved configurations to DOM before anything else reads them
+        measureSync('Load Configs', () => {
+            const instances = loadInstances();
+            instances.forEach(inst => {
+                const el = document.getElementById(inst.id);
+                if (el && inst.config) {
+                    Object.keys(inst.config).forEach(k => {
+                        el.dataset['cfg' + k] = inst.config[k];
+                    });
+                }
+            });
+        });
+
         measureSync('Boot sequence', () => initBootSequence());
         measureSync('Canvas engine', () => initCanvas());
         measureSync('Minimap', () => initMinimapClick());
