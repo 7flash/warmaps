@@ -11,9 +11,9 @@
 
 ## 🔴 Priority: Fix
 - [x] ~~**Empty default canvas**~~ — ✅ DONE. First-time users got a blank canvas with no widgets. Fixed: `getDefaultInstances()` now returns a "Command Center" preset with 6 widgets (global map, news feed, Intel Slava telegram, intel panel, AI analyst, Al Jazeera TV). Existing users unaffected (their layout is in localStorage).
-- [ ] **Feed health indicators** — Show a small status dot (green/yellow/red) on each widget header indicating data freshness. Users can't tell if a feed is live, stale, or broken.
-- [ ] **Data freshness timestamps** — Show "Last updated: 3m ago" in each data widget footer. Currently impossible to tell if data is from 30 seconds ago or 3 hours ago.
-- [ ] **Guided first-run onboarding** — Show a quick 3-step tooltip tour for first-time users: (1) drag widgets to rearrange, (2) click ＋ to add widgets, (3) use ⚙ to configure each widget. Dismiss with "Got it" button, persist to localStorage.
+- [x] ~~**Feed health indicators**~~ — ✅ DONE. Green/yellow/red/gray status dots on every data widget header. `markFresh()` calls on all 12+ data fetchers. Auto-updates every 10s. Widget type → data source mapping in `WIDGET_DATA_SOURCE`.
+- [x] ~~**Data freshness timestamps**~~ — ✅ DONE. "⟳ Updated 23s ago" footer bar at the bottom of every data widget. Color-coded (green=live, yellow=stale, red=dead). Auto-updates with the health dots.
+- [x] ~~**Guided first-run onboarding**~~ — ✅ DONE. 3-step tooltip tour: (1) drag widgets, (2) add from tray, (3) configure with gear. Spotlight highlights target element with pulsing green border. Prev/Next navigation. Persisted to `warmaps:onboarded` in localStorage.
 - [x] ~~**Performance**~~ — ✅ `page.client.tsx` split from 3400 lines → ~150-line orchestrator + 14 modules in `app/lib/` (state, utils, perf, map, data, feeds, markers, tokens, modals, panels, tv, chat, ai, betting, spotlight)
 - [x] ~~**Token detail view**~~ — ✅ DONE. DexScreener live chart embed, token details, action buttons.
 - [x] ~~**Mobile responsive**~~ — ✅ DONE. 4 breakpoints, bottom-sheet panels, touch targets.

@@ -26,7 +26,7 @@ export const FF = {
     seismic: true,
     crypto: true,
     webcams: true,
-    pumpfun: true,
+    pumpfun: false,
     spotlight: true,
     ticker: true,
     imageMarkers: false,

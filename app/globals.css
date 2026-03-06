@@ -1776,40 +1776,38 @@ body {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 64px;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     background: linear-gradient(180deg, rgba(5, 9, 19, 0.85) 0%, rgba(5, 9, 19, 0.98) 100%);
     border-top: 1px solid rgba(255, 255, 255, 0.06);
     z-index: 500;
-    padding-right: 16px;
     backdrop-filter: blur(20px);
     box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.4);
 }
 
 .widget-tray-label {
-    padding: 0 20px;
-    font-family: var(--font-display);
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 2.5px;
-    color: var(--accent);
-    height: 100%;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
-    background: transparent;
-    user-select: none;
+    display: none;
+    /* label integrated into categories row now */
 }
 
 .widget-tray-categories {
     display: flex;
     gap: 4px;
-    padding: 0 14px;
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
-    height: 100%;
+    padding: 6px 16px 4px;
     align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    flex-shrink: 0;
+}
+
+.widget-tray-categories::before {
+    content: '🔥 WIDGETS';
+    font-family: var(--font-display);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: var(--accent);
+    margin-right: 8px;
+    white-space: nowrap;
 }
 
 .wc-cat-btn {
@@ -1843,9 +1841,9 @@ body {
     align-items: center;
     gap: 8px;
     overflow-x: auto;
-    padding: 0 16px;
+    padding: 6px 16px 8px;
     flex: 1;
-    height: 100%;
+    min-height: 48px;
     scrollbar-width: none;
     /* Firefox */
 }
