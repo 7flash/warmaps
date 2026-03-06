@@ -281,30 +281,138 @@ export function renderRadarFeed() {
     const radarContainers = document.querySelectorAll('.wm-container[data-widget-type="intel"]');
     radarContainers.forEach((container: Element) => {
         const body = (container.querySelector('.wm-container-body') || container) as HTMLElement;
-        if (marketData.length === 0 && threatAlerts.length === 0) {
-            render(<div className="loading-state"><span>No prediction market data available</span></div>, body);
+        const hasData = marketData.length > 0 || threatAlerts.length > 0 || (seismicData?.features?.length > 0) || firePoints.length > 0;
+        if (!hasData) {
+            render(<div className="loading-state"><span>No intelligence data available</span></div>, body);
             return;
         }
 
+        // Track collapsed state per container
+        const cid = (container as HTMLElement).id || 'intel-default';
+        if (!(window as any).__intelCollapsed) (window as any).__intelCollapsed = {};
+        const collapsed = (window as any).__intelCollapsed[cid] || {};
+        const toggle = (section: string) => {
+            collapsed[section] = !collapsed[section];
+            (window as any).__intelCollapsed[cid] = collapsed;
+            renderRadarFeed(); // re-render
+        };
+
+        const criticalAlerts = threatAlerts.filter((a: any) => a.level === 'critical' || a.level === 'high');
+        const otherAlerts = threatAlerts.filter((a: any) => a.level !== 'critical' && a.level !== 'high');
+        const seismicFeatures = (seismicData?.features || []).slice(0, 5);
+        const topFires = firePoints.slice(0, 5);
+
         render(
-            <>
-                {threatAlerts.slice(0, 5).map((alert: any) => {
-                    const levelClass = `radar-alert--${alert.level}`;
-                    const icon = alert.level === 'critical' ? '🚨' : alert.level === 'high' ? '⚠️' : '📊';
-                    return (
-                        <div className={`radar-alert ${levelClass}`}>
-                            <div className="radar-alert-header">
-                                <span className="radar-alert-icon">{icon}</span>
-                                <span className="radar-alert-level">{alert.level.toUpperCase()}</span>
-                                <span className="radar-alert-time">{formatTime(alert.timestamp || alert.created_at || '')}</span>
-                            </div>
-                            <div className="radar-alert-title">{alert.title.replace(/^[🚨⚠📊️\s]+/, '')}</div>
-                            <div className="radar-alert-desc">{alert.description}</div>
+            <div className="intel-categorized">
+                {/* ── Threats Section ── */}
+                {(criticalAlerts.length > 0 || otherAlerts.length > 0) && (
+                    <div className="intel-section">
+                        <div className="intel-section-header" onClick={() => toggle('threats')}>
+                            <span className="intel-section-icon">🚨</span>
+                            <span className="intel-section-title">THREAT ALERTS</span>
+                            <span className="intel-section-count">{threatAlerts.length}</span>
+                            <span className="intel-section-chevron">{collapsed.threats ? '▸' : '▾'}</span>
                         </div>
-                    );
-                })}
-                {renderMarketCards(marketData.slice(0, 8))}
-            </>,
+                        {!collapsed.threats && (
+                            <div className="intel-section-body">
+                                {criticalAlerts.slice(0, 5).map((alert: any) => {
+                                    const levelClass = `radar-alert--${alert.level}`;
+                                    const icon = alert.level === 'critical' ? '🚨' : '⚠️';
+                                    return (
+                                        <div className={`radar-alert ${levelClass}`}>
+                                            <div className="radar-alert-header">
+                                                <span className="radar-alert-icon">{icon}</span>
+                                                <span className="radar-alert-level">{alert.level.toUpperCase()}</span>
+                                                <span className="radar-alert-time">{formatTime(alert.timestamp || alert.created_at || '')}</span>
+                                            </div>
+                                            <div className="radar-alert-title">{alert.title.replace(/^[🚨⚠📊️\s]+/, '')}</div>
+                                            <div className="radar-alert-desc">{alert.description}</div>
+                                        </div>
+                                    );
+                                })}
+                                {otherAlerts.slice(0, 3).map((alert: any) => (
+                                    <div className="radar-alert radar-alert--info">
+                                        <div className="radar-alert-header">
+                                            <span className="radar-alert-icon">📊</span>
+                                            <span className="radar-alert-level">{alert.level.toUpperCase()}</span>
+                                            <span className="radar-alert-time">{formatTime(alert.timestamp || alert.created_at || '')}</span>
+                                        </div>
+                                        <div className="radar-alert-title">{alert.title.replace(/^[🚨⚠📊️\s]+/, '')}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Predictions Section ── */}
+                {marketData.length > 0 && (
+                    <div className="intel-section">
+                        <div className="intel-section-header" onClick={() => toggle('predictions')}>
+                            <span className="intel-section-icon">📊</span>
+                            <span className="intel-section-title">PREDICTIONS</span>
+                            <span className="intel-section-count">{marketData.length}</span>
+                            <span className="intel-section-chevron">{collapsed.predictions ? '▸' : '▾'}</span>
+                        </div>
+                        {!collapsed.predictions && (
+                            <div className="intel-section-body">
+                                {renderMarketCards(marketData.slice(0, 6))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Seismic Section ── */}
+                {seismicFeatures.length > 0 && (
+                    <div className="intel-section">
+                        <div className="intel-section-header" onClick={() => toggle('seismic')}>
+                            <span className="intel-section-icon">🌍</span>
+                            <span className="intel-section-title">SEISMIC</span>
+                            <span className="intel-section-count">{seismicFeatures.length}</span>
+                            <span className="intel-section-chevron">{collapsed.seismic ? '▸' : '▾'}</span>
+                        </div>
+                        {!collapsed.seismic && (
+                            <div className="intel-section-body">
+                                {seismicFeatures.map((f: any) => {
+                                    const p = f.properties;
+                                    const mag = p.mag || 0;
+                                    const magColor = mag >= 5 ? '#ef4444' : mag >= 4 ? '#f59e0b' : '#22c55e';
+                                    return (
+                                        <div className="feed-item feed-item--seismic" style={{ cursor: 'default' }}>
+                                            <div className="feed-item-source" style={{ color: magColor }}>
+                                                {p.is_kinetic ? '💥 KINETIC' : '🌍'} M{mag.toFixed(1)}
+                                            </div>
+                                            <div className="feed-item-title">{p.title}</div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Hotspots Section ── */}
+                {topFires.length > 0 && (
+                    <div className="intel-section">
+                        <div className="intel-section-header" onClick={() => toggle('fires')}>
+                            <span className="intel-section-icon">🔥</span>
+                            <span className="intel-section-title">HOTSPOTS</span>
+                            <span className="intel-section-count">{topFires.length}</span>
+                            <span className="intel-section-chevron">{collapsed.fires ? '▸' : '▾'}</span>
+                        </div>
+                        {!collapsed.fires && (
+                            <div className="intel-section-body">
+                                {topFires.map((fire: any) => (
+                                    <div className="feed-item feed-item--fire">
+                                        <div className="feed-item-source firms">🔥 {fire.country || 'Unknown'}</div>
+                                        <div className="feed-item-title">{fire.lat.toFixed(2)}°, {fire.lon.toFixed(2)}° — {fire.brightness.toFixed(0)}K</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>,
             body
         );
     });

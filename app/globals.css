@@ -2518,6 +2518,113 @@ body::before {
     line-height: 1.5;
 }
 
+/* ── Intel Categorized Sections ── */
+.intel-categorized {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
+}
+
+.intel-section {
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.intel-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.intel-section-header:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.intel-section-icon {
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.intel-section-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: #94a3b8;
+    flex: 1;
+}
+
+.intel-section-count {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #64748b;
+    min-width: 20px;
+    text-align: center;
+}
+
+.intel-section-chevron {
+    font-size: 0.7rem;
+    color: #475569;
+    flex-shrink: 0;
+    width: 12px;
+    text-align: center;
+}
+
+.intel-section-body {
+    animation: intel-fade-in 0.2s ease;
+}
+
+@keyframes intel-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Section accent colors */
+
+.intel-section:nth-child(1) .intel-section-header {
+    border-left: 3px solid #ef4444;
+}
+
+.intel-section:nth-child(2) .intel-section-header {
+    border-left: 3px solid #06b6d4;
+}
+
+.intel-section:nth-child(3) .intel-section-header {
+    border-left: 3px solid #f59e0b;
+}
+
+.intel-section:nth-child(4) .intel-section-header {
+    border-left: 3px solid #f97316;
+}
+
+/* radar-alert--info variant for lower-level alerts */
+.radar-alert--info {
+    border-left-color: #475569;
+    padding-bottom: 6px;
+}
+
+.radar-alert--info .radar-alert-level {
+    color: #64748b;
+}
+
 /* Market Cards */
 .radar-market {
     padding: 8px 14px;
