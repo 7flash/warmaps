@@ -50,6 +50,8 @@
 - [x] ~~**Configurable Map Widgets**~~ — ✅ DONE. Added multi-instance support to MapLibre initialization, added layers config drop-down.
 - [x] ~~**Isolated News Feed Widgets**~~ — ✅ DONE. Re-wired reRenderWidget for news to support multiple containers.
 - [x] ~~**Isolated Telegram Widgets**~~ — ✅ DONE. Telegram channels split into individual widgets, configured per channel via config gear.
+- [x] ~~**Widget Drag & Drop from Tray**~~ — ✅ DONE. Widgets can now be dragged from the bottom tray and dropped at any position on the canvas. Screen-to-canvas coordinate conversion for accurate placement.
+- [x] ~~**Widget Right-Click Context Menu**~~ — ✅ DONE. Right-click on any widget shows glassmorphism popup: Configure, Duplicate, Detach to Window, Remove. Menu auto-repositions to stay in viewport.
 
 ## 📝 Architecture Notes
 - **Production**: `root@202.155.132.139:/opt/starwar/`
