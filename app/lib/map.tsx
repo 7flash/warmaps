@@ -95,7 +95,8 @@ export function toggleMapSync() {
 
 /**
  * Toggle 3D terrain rendering on all map instances.
- * Uses MapTiler's free terrain-rgb DEM tiles.
+ * Uses MapLibre's official DEM tiles (free, no API key).
+ * Based on: https://maplibre.org/maplibre-gl-js/docs/examples/3d-terrain/
  */
 export function toggle3DTerrain(): boolean {
     is3DTerrainEnabled = !is3DTerrainEnabled;
@@ -105,25 +106,59 @@ export function toggle3DTerrain(): boolean {
         if (!document.body.contains(m.getContainer())) continue;
 
         if (is3DTerrainEnabled) {
-            // Add terrain source if not already present
+            // Add terrain DEM source (for terrain mesh)
             if (!m.getSource('terrain-dem')) {
                 m.addSource('terrain-dem', {
                     type: 'raster-dem',
-                    tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-                    encoding: 'terrarium',
+                    url: 'https://demotiles.maplibre.org/terrain-tiles/tiles.json',
                     tileSize: 256,
-                    maxzoom: 15,
                 });
             }
 
+            // Add hillshade source (separate from terrain for render quality)
+            if (!m.getSource('hillshade-dem')) {
+                m.addSource('hillshade-dem', {
+                    type: 'raster-dem',
+                    url: 'https://demotiles.maplibre.org/terrain-tiles/tiles.json',
+                    tileSize: 256,
+                });
+            }
+
+            // Add hillshade layer for visual shadow/highlight
+            if (!m.getLayer('terrain-hillshade')) {
+                m.addLayer({
+                    id: 'terrain-hillshade',
+                    type: 'hillshade',
+                    source: 'hillshade-dem',
+                    layout: { visibility: 'visible' },
+                    paint: {
+                        'hillshade-shadow-color': '#473B24',
+                        'hillshade-exaggeration': 0.5,
+                    },
+                }, m.getLayer('country-flag-labels') ? 'country-flag-labels' : undefined);
+            }
+
             // Enable terrain exaggeration
-            m.setTerrain({ source: 'terrain-dem', exaggeration: 1.8 });
+            m.setTerrain({ source: 'terrain-dem', exaggeration: 1.5 });
+
+            // Add sky for atmospheric depth
+            if (!m.getLayer('sky-layer')) {
+                m.addLayer({
+                    id: 'sky-layer',
+                    type: 'sky' as any,
+                    paint: {} as any,
+                });
+            }
 
             // Cinematic pitch transition
             m.easeTo({ pitch: 60, duration: 1000 });
         } else {
             // Disable terrain
             m.setTerrain(null as any);
+
+            // Remove hillshade and sky
+            if (m.getLayer('terrain-hillshade')) m.removeLayer('terrain-hillshade');
+            if (m.getLayer('sky-layer')) m.removeLayer('sky-layer');
 
             // Flatten back to 2D
             m.easeTo({ pitch: 0, duration: 800 });
