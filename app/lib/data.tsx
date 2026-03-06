@@ -158,6 +158,7 @@ export async function fetchAllData() {
 export async function fetchAcled() {
     await cachedFetch('/api/acled', 'acled', (data) => {
         setAcledEvents(data);
+        markFresh('acled');
         const aSrc = map?.getSource('acled');
         if (aSrc) aSrc.setData(acledEvents);
     });
@@ -303,6 +304,7 @@ export async function fetchCrypto() {
             ctx.fillStyle = lineColor;
             ctx.fill();
         }
+        markFresh('crypto');
     } catch (e) {
         console.error('[WARMAPS] Crypto data fetch failed:', e);
     }
@@ -311,6 +313,7 @@ export async function fetchCrypto() {
 export async function fetchAssets() {
     await cachedFetch('/api/assets', 'assets', (data) => {
         setStrategicAssets(data);
+        markFresh('assets');
         const aSrc = map?.getSource('assets');
         if (aSrc) aSrc.setData(data);
     });
@@ -343,6 +346,7 @@ export async function fetchMarkets() {
     await cachedFetch('/api/markets', 'markets', (data) => {
         setMarketData(data.markets || []);
         setThreatAlerts(data.alerts || []);
+        markFresh('markets');
         renderRadarFeed();
         updateMapSources();
 
@@ -370,6 +374,7 @@ export async function fetchTelegramAlerts() {
         if (!res.ok) return;
         const alerts = await res.json();
         if (Array.isArray(alerts) && alerts.length > 0) {
+            markFresh('telegram');
             renderTelegramFeed(alerts);
             const countEl = document.getElementById('tg-count');
             if (countEl) countEl.textContent = String(alerts.length);
@@ -387,6 +392,7 @@ export async function fetchFlights() {
 export async function fetchWebcams() {
     await cachedFetch('/api/webcams', 'webcams', (data) => {
         setWebcamData(data.webcams || []);
+        markFresh('webcams');
 
         const webcamGeoJSON = {
             type: 'FeatureCollection',

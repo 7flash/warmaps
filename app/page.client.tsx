@@ -22,6 +22,7 @@
  */
 
 import { FF, measure, measureSync, dataPaused } from './lib/state';
+import { dataFreshness, getFreshnessLabel } from './lib/state';
 import { initMap } from './lib/map';
 import { fetchAllData, fetchFlights, fetchCrypto } from './lib/data';
 import { updateStats, reRenderWidget } from './lib/feeds';
@@ -517,6 +518,92 @@ function getCurrentInstances(): WidgetInstance[] {
     return instances;
 }
 
+// ─── Feed Health Indicators ─────────────────────────────────
+
+// Map widget type → data source name in dataFreshness
+const WIDGET_DATA_SOURCE: Record<string, string> = {
+    'map': 'gdelt',
+    'heatmap': 'fires',
+    'news': 'news',
+    'news-reuters': 'news',
+    'news-ap': 'news',
+    'news-aljazeera': 'news',
+    'news-bbc': 'news',
+    'news-dw': 'news',
+    'telegram': 'telegram',
+    'tg-all': 'telegram',
+    'tg-ddgeopolitics': 'telegram',
+    'tg-intelslava': 'telegram',
+    'tg-mod-russia': 'telegram',
+    'tg-zoka': 'telegram',
+    'tg-nexta': 'telegram',
+    'tg-liveukraine': 'telegram',
+    'tokens': 'pumpfun',
+    'markets': 'markets',
+    'intel': 'markets',
+    'gdelt': 'gdelt',
+    'fires': 'fires',
+    'seismic': 'seismic',
+    'ai': '', // no data source
+    'chat': '', // no data source
+    'tv': '', // no data source
+};
+
+function initFeedHealthIndicators() {
+    // Inject status dots into all widget headers
+    function updateAllDots() {
+        document.querySelectorAll('.wm-container').forEach(container => {
+            const el = container as HTMLElement;
+            const typeId = el.dataset.widgetType || '';
+            const source = WIDGET_DATA_SOURCE[typeId];
+            if (source === undefined || source === '') return; // skip widgets without data
+
+            const header = el.querySelector('.wm-container-header');
+            if (!header) return;
+
+            // Find or create status dot
+            let dot = header.querySelector('.wm-feed-dot') as HTMLElement;
+            if (!dot) {
+                dot = document.createElement('span');
+                dot.className = 'wm-feed-dot';
+                dot.title = 'Data freshness';
+                // Insert after title
+                const title = header.querySelector('.wm-c-title');
+                if (title && title.nextSibling) {
+                    header.insertBefore(dot, title.nextSibling);
+                } else if (title) {
+                    title.parentNode?.insertBefore(dot, title.nextSibling);
+                }
+            }
+
+            const ts = dataFreshness[source];
+            if (!ts) {
+                // Never loaded
+                dot.dataset.status = 'unknown';
+                dot.title = `${source}: waiting for data...`;
+            } else {
+                const ageSec = Math.floor((Date.now() - ts) / 1000);
+                const label = getFreshnessLabel(source);
+                if (ageSec < 120) {
+                    dot.dataset.status = 'live';
+                    dot.title = `${source}: live (${label} ago)`;
+                } else if (ageSec < 600) {
+                    dot.dataset.status = 'stale';
+                    dot.title = `${source}: ${label} ago`;
+                } else {
+                    dot.dataset.status = 'dead';
+                    dot.title = `${source}: stale (${label} ago)`;
+                }
+            }
+        });
+    }
+
+    // Initial run after data has had time to load
+    setTimeout(updateAllDots, 5000);
+    // Then update every 10 seconds
+    setInterval(updateAllDots, 10_000);
+}
+
 // ─── Mount ──────────────────────────────────────────────────
 
 export default function mount() {
@@ -839,6 +926,9 @@ export default function mount() {
         initWidgetCatalog();
         initPresets();
         initLinks();
+
+        // ─── Feed Health Indicators ─────────────────────────────
+        initFeedHealthIndicators();
 
         // Performance monitoring
         measureSync('FPS counter', () => startFPSCounter());
