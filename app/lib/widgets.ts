@@ -262,6 +262,39 @@ export function getWidgetType(typeId: string): WidgetType | undefined {
 const INSTANCES_KEY = 'warmaps:instances';
 let nextInstanceId = 1;
 
+// ─── Preset Management ────────────────────────────────────
+
+export const LAYOUT_PRESETS: Record<string, WidgetInstance[]> = {
+    'monitoring': getDefaultInstances(),
+    'trading': [
+        { id: 'wm-c-tokens', typeId: 'tokens', x: 200, y: 100, width: 380, height: 340, collapsed: false, config: {} },
+        { id: 'wm-c-markets', typeId: 'markets', x: 600, y: 100, width: 380, height: 340, collapsed: false, config: { category: 'all' } },
+        { id: 'wm-c-intel', typeId: 'intel', x: 1000, y: 100, width: 380, height: 340, collapsed: false, config: {} },
+        { id: 'wm-c-chat', typeId: 'chat', x: 1400, y: 100, width: 340, height: 400, collapsed: false, config: {} },
+        { id: 'wm-c-pulse', typeId: 'news', x: 200, y: 460, width: 380, height: 500, collapsed: false, config: { filter: 'all', source: 'all' } },
+        { id: 'wm-c-ai', typeId: 'ai', x: 600, y: 460, width: 360, height: 340, collapsed: false, config: {} },
+    ],
+    'analysis': [
+        { id: 'wm-c-map', typeId: 'map', x: 100, y: 100, width: 800, height: 600, collapsed: false, config: { layers: ['events', 'fires', 'flights', 'seismic', 'acled'] } },
+        { id: 'wm-c-data', typeId: 'gdelt', x: 920, y: 100, width: 380, height: 300, collapsed: false, config: {} },
+        { id: 'wm-c-fires', typeId: 'fires', x: 920, y: 420, width: 380, height: 300, collapsed: false, config: {} },
+        { id: 'wm-c-seismic', typeId: 'seismic', x: 1320, y: 100, width: 380, height: 280, collapsed: false, config: {} },
+        { id: 'wm-c-pulse', typeId: 'news', x: 1320, y: 400, width: 380, height: 500, collapsed: false, config: { filter: 'all', source: 'all' } },
+    ]
+};
+
+export function loadUserPresets(): Record<string, WidgetInstance[]> {
+    try {
+        const saved = localStorage.getItem('warmaps:user_layouts');
+        if (saved) return JSON.parse(saved);
+    } catch { }
+    return {};
+}
+
+export function saveUserPresets(presets: Record<string, WidgetInstance[]>) {
+    localStorage.setItem('warmaps:user_layouts', JSON.stringify(presets));
+}
+
 export function loadInstances(): WidgetInstance[] {
     try {
         const saved = localStorage.getItem(INSTANCES_KEY);

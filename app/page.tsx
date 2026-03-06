@@ -61,6 +61,14 @@ export default function Page() {
                     </div>
                 </div>
                 <div class="top-bar-right">
+                    <select id="wm-preset-select" class="top-select" title="Layout Presets">
+                        <option value="" disabled selected>Presets...</option>
+                        <option value="monitoring">Monitoring</option>
+                        <option value="trading">Trading Desk</option>
+                        <option value="analysis">Data Analysis</option>
+                        <option disabled>──────</option>
+                        <option value="save_current">+ Save Current</option>
+                    </select>
                     <button id="wm-add-widget" class="top-btn top-btn--add" title="Add widget">＋</button>
                     <button id="wm-share" class="top-btn" title="Share this layout">🔗</button>
                     <button id="wm-reset-layout" class="top-btn" title="Reset to default layout">↺</button>

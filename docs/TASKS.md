@@ -25,7 +25,7 @@
 - [x] ~~**Widget catalog**~~ — ✅ DONE. 13 widget types across 6 categories (map, feed, data, social, media, ai). ＋ button opens slide-out catalog panel with category filtering. Add/remove widgets. MULTI badge for multi-instance widgets. `app/lib/widgets.ts` registry.
 - [x] ~~**Share layout links**~~ — ✅ DONE. 🔗 button encodes widget layout as base64 URL parameter, copies to clipboard. Toast notification on success.
 - [x] ~~**Widget config per-instance**~~ — ✅ DONE. Each widget instance has a config panel (gears icon) to select data source, filters, and channels which instantly map to rendered datasets. Config persists to localStorage.
-- [ ] **Saved canvas layouts** — Let users save/load multiple layout presets (e.g., "Monitoring", "Trading Desk", "Analysis"). Store in localStorage or user preferences.
+- [x] ~~**Saved canvas layouts**~~ — ✅ DONE. Let users save/load multiple layout presets (e.g., "Monitoring", "Trading Desk", "Analysis"). Store in localStorage. Added Top-right dropdown menu.
 - [ ] **Container linking** — Draw connection lines between containers to show data relationships (similar to GitMaps interwingled files). E.g., connecting an ACLED event marker on the map to a Telegram OSINT message.
 - [ ] **Detachable containers** — Allow containers to be "popped out" into separate browser windows for multi-monitor setups.
 

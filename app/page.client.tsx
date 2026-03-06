@@ -38,7 +38,7 @@ import { setDataPaused, setTimelineHours } from './lib/state';
 import { initAlerts } from './lib/alerts';
 import { initAuth } from './lib/user-auth';
 import { initCanvas, fitAllContainers, initMinimapClick, updateMinimap } from './lib/canvas';
-import { WIDGET_TYPES, encodeShareLink, loadInstances, saveInstances, createInstance, getDefaultInstances } from './lib/widgets';
+import { WIDGET_TYPES, encodeShareLink, loadInstances, saveInstances, createInstance, getDefaultInstances, LAYOUT_PRESETS, loadUserPresets, saveUserPresets } from './lib/widgets';
 import type { WidgetInstance, ConfigField } from './lib/widgets';
 
 // ─── Widget Config Panel ────────────────────────────────────
@@ -253,6 +253,63 @@ function initWidgetCatalog() {
     renderCatalog();
 }
 
+function initPresets() {
+    const select = document.getElementById('wm-preset-select') as HTMLSelectElement;
+    if (!select) return;
+
+    // Load user presets into dropdown
+    const userPresets = loadUserPresets();
+    Object.keys(userPresets).forEach(name => {
+        const option = document.createElement('option');
+        option.value = `user_${name}`;
+        option.textContent = name;
+        select.insertBefore(option, select.options[select.options.length - 2]); // Insert before separator
+    });
+
+    select.addEventListener('change', () => {
+        const val = select.value;
+        if (!val) return;
+
+        if (val === 'save_current') {
+            const name = prompt('Enter a name for this layout preset:');
+            if (name) {
+                const current = getCurrentInstances();
+                const presets = loadUserPresets();
+                presets[name] = current;
+                saveUserPresets(presets);
+                alert(`Layout "${name}" saved!`);
+                window.location.reload();
+            }
+            select.value = '';
+            return;
+        }
+
+        const applyLayout = (instances: WidgetInstance[]) => {
+            saveInstances(instances);
+            const layouts = instances.map(inst => ({
+                id: inst.id,
+                x: inst.x,
+                y: inst.y,
+                w: inst.width,
+                h: inst.height,
+                collapsed: inst.collapsed
+            }));
+            localStorage.setItem('warmaps:layout', JSON.stringify(layouts));
+            window.location.reload();
+        };
+
+        if (val.startsWith('user_')) {
+            const name = val.replace('user_', '');
+            const presets = loadUserPresets();
+            if (presets[name]) applyLayout(presets[name]);
+        } else if (LAYOUT_PRESETS[val]) {
+            applyLayout(LAYOUT_PRESETS[val]);
+        }
+
+        select.value = '';
+    });
+}
+
 function addWidgetToCanvas(typeId: string) {
     const wt = WIDGET_TYPES.find(w => w.id === typeId);
     if (!wt) return;
@@ -348,6 +405,50 @@ export default function mount() {
         // Apply saved configurations to DOM before anything else reads them
         measureSync('Load Configs', () => {
             const instances = loadInstances();
+
+            // Reconstruct missing DOM elements for custom widgets/presets
+            instances.forEach(inst => {
+                let el = document.getElementById(inst.id);
+                if (!el) {
+                    const wt = WIDGET_TYPES.find(w => w.id === inst.typeId);
+                    if (wt) {
+                        const content = document.getElementById('wm-content');
+                        if (content) {
+                            const container = document.createElement('div');
+                            container.id = inst.id;
+                            container.className = `wm-container ${inst.collapsed ? 'collapsed' : ''}`;
+                            container.dataset.widgetType = inst.typeId;
+                            container.style.cssText = `left:${inst.x}px;top:${inst.y}px;width:${inst.width}px;height:${inst.height}px`;
+                            container.innerHTML = `
+                                <div class="wm-container-header">
+                                    <span class="wm-c-icon">${wt.icon}</span>
+                                    <span class="wm-c-title">${wt.name.toUpperCase()}</span>
+                                    <div class="wm-c-actions">
+                                        <button class="wm-c-remove" title="Remove widget">×</button>
+                                    </div>
+                                </div>
+                                <div class="wm-container-body">
+                                    <div class="loading-state" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">
+                                        <span class="spinner"></span>
+                                        <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim)">Initializing ${wt.name}...</span>
+                                    </div>
+                                </div>
+                            `;
+                            content.appendChild(container);
+                        }
+                    }
+                }
+            });
+
+            // Remove default widgets that are not in the current layout instance
+            const currentContainers = Array.from(document.querySelectorAll('.wm-container'));
+            currentContainers.forEach(el => {
+                if (!instances.some(inst => inst.id === el.id)) {
+                    el.remove();
+                }
+            });
+
+            // Apply configurations to datasets
             instances.forEach(inst => {
                 const el = document.getElementById(inst.id);
                 if (el && inst.config) {
@@ -393,8 +494,9 @@ export default function mount() {
         // Fit-all button
         document.getElementById('wm-fit-all')?.addEventListener('click', () => fitAllContainers());
 
-        // ─── Widget Catalog ─────────────────────────────────
+        // ─── Widget Catalog & Presets ──────────────────────────
         initWidgetCatalog();
+        initPresets();
 
         // Performance monitoring
         measureSync('FPS counter', () => startFPSCounter());
