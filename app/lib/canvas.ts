@@ -141,8 +141,13 @@ export function initCanvas() {
                 newX = Math.round(newX / GRID_SIZE) * GRID_SIZE;
                 newY = Math.round(newY / GRID_SIZE) * GRID_SIZE;
                 viewport!.classList.add('snap-grid');
+                clearSnapGuides();
             } else {
                 viewport!.classList.remove('snap-grid');
+                // Snap to other container edges (guidelines)
+                const snapped = snapToGuides(draggingContainer, newX, newY);
+                newX = snapped.x;
+                newY = snapped.y;
             }
             draggingContainer.style.left = `${newX}px`;
             draggingContainer.style.top = `${newY}px`;
@@ -161,6 +166,7 @@ export function initCanvas() {
         if (draggingContainer) {
             draggingContainer.classList.remove('dragging');
             viewport?.classList.remove('snap-grid');
+            clearSnapGuides();
             saveLayout();
             draggingContainer = null;
             return;
@@ -301,6 +307,144 @@ export function initCanvas() {
 
     updateTransform();
     updateMinimap();
+}
+
+// ─── Snap Guidelines ────────────────────────────────────
+const SNAP_THRESHOLD = 8; // world pixels
+
+let snapGuideOverlay: SVGElement | null = null;
+
+function getOrCreateSnapOverlay(): SVGElement {
+    if (snapGuideOverlay) return snapGuideOverlay;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('snap-guide-overlay');
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '100%');
+    svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:99999;';
+    content?.appendChild(svg);
+    snapGuideOverlay = svg;
+    return svg;
+}
+
+function clearSnapGuides() {
+    if (snapGuideOverlay) {
+        snapGuideOverlay.innerHTML = '';
+    }
+}
+
+function drawGuideLine(x1: number, y1: number, x2: number, y2: number) {
+    const svg = getOrCreateSnapOverlay();
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', String(x1));
+    line.setAttribute('y1', String(y1));
+    line.setAttribute('x2', String(x2));
+    line.setAttribute('y2', String(y2));
+    line.setAttribute('stroke', '#38bdf8');
+    line.setAttribute('stroke-width', '1');
+    line.setAttribute('stroke-dasharray', '4,3');
+    line.setAttribute('opacity', '0.8');
+    svg.appendChild(line);
+}
+
+function snapToGuides(
+    dragged: HTMLElement,
+    x: number,
+    y: number,
+): { x: number; y: number } {
+    clearSnapGuides();
+
+    const dw = dragged.offsetWidth || 380;
+    const dh = dragged.offsetHeight || 300;
+
+    // Edges of the dragged container
+    const dLeft = x;
+    const dRight = x + dw;
+    const dCenterX = x + dw / 2;
+    const dTop = y;
+    const dBottom = y + dh;
+    const dCenterY = y + dh / 2;
+
+    const containers = document.querySelectorAll('.wm-container');
+    let snappedX = x;
+    let snappedY = y;
+
+    // Collect edges from all other containers
+    const xEdges: { val: number; src: HTMLElement }[] = [];
+    const yEdges: { val: number; src: HTMLElement }[] = [];
+
+    containers.forEach(c => {
+        const el = c as HTMLElement;
+        if (el === dragged) return;
+        const ex = parseFloat(el.style.left) || 0;
+        const ey = parseFloat(el.style.top) || 0;
+        const ew = el.offsetWidth || 380;
+        const eh = el.offsetHeight || 300;
+
+        xEdges.push({ val: ex, src: el });           // left
+        xEdges.push({ val: ex + ew, src: el });       // right
+        xEdges.push({ val: ex + ew / 2, src: el });   // center
+        yEdges.push({ val: ey, src: el });             // top
+        yEdges.push({ val: ey + eh, src: el });        // bottom
+        yEdges.push({ val: ey + eh / 2, src: el });    // center
+    });
+
+    // Check X snaps (left, right, center)
+    const checkX = [
+        { edge: dLeft, offset: 0 },
+        { edge: dRight, offset: dw },
+        { edge: dCenterX, offset: dw / 2 },
+    ];
+
+    let bestDx = SNAP_THRESHOLD + 1;
+    let bestSnapX = x;
+    let matchedXVal = 0;
+
+    for (const { edge, offset } of checkX) {
+        for (const target of xEdges) {
+            const dist = Math.abs(edge - target.val);
+            if (dist < bestDx) {
+                bestDx = dist;
+                bestSnapX = target.val - offset;
+                matchedXVal = target.val;
+            }
+        }
+    }
+
+    if (bestDx <= SNAP_THRESHOLD) {
+        snappedX = bestSnapX;
+        // Draw vertical guide line spanning the canvas
+        drawGuideLine(matchedXVal, -10000, matchedXVal, 10000);
+    }
+
+    // Check Y snaps (top, bottom, center)
+    const checkY = [
+        { edge: dTop, offset: 0 },
+        { edge: dBottom, offset: dh },
+        { edge: dCenterY, offset: dh / 2 },
+    ];
+
+    let bestDy = SNAP_THRESHOLD + 1;
+    let bestSnapY = y;
+    let matchedYVal = 0;
+
+    for (const { edge, offset } of checkY) {
+        for (const target of yEdges) {
+            const dist = Math.abs(edge - target.val);
+            if (dist < bestDy) {
+                bestDy = dist;
+                bestSnapY = target.val - offset;
+                matchedYVal = target.val;
+            }
+        }
+    }
+
+    if (bestDy <= SNAP_THRESHOLD) {
+        snappedY = bestSnapY;
+        // Draw horizontal guide line spanning the canvas
+        drawGuideLine(-10000, matchedYVal, 10000, matchedYVal);
+    }
+
+    return { x: snappedX, y: snappedY };
 }
 
 function updateTransform() {
