@@ -577,6 +577,9 @@ function initFeedHealthIndicators() {
             }
 
             const ts = dataFreshness[source];
+            let statusClass = 'unknown';
+            let footerText = `⟳ ${source}: waiting…`;
+
             if (!ts) {
                 // Never loaded
                 dot.dataset.status = 'unknown';
@@ -587,14 +590,30 @@ function initFeedHealthIndicators() {
                 if (ageSec < 120) {
                     dot.dataset.status = 'live';
                     dot.title = `${source}: live (${label} ago)`;
+                    statusClass = 'live';
+                    footerText = `⟳ Updated ${label} ago`;
                 } else if (ageSec < 600) {
                     dot.dataset.status = 'stale';
                     dot.title = `${source}: ${label} ago`;
+                    statusClass = 'stale';
+                    footerText = `⟳ Updated ${label} ago`;
                 } else {
                     dot.dataset.status = 'dead';
                     dot.title = `${source}: stale (${label} ago)`;
+                    statusClass = 'dead';
+                    footerText = `⚠ Stale — ${label} ago`;
                 }
             }
+
+            // Find or create freshness footer
+            let footer = el.querySelector('.wm-feed-footer') as HTMLElement;
+            if (!footer) {
+                footer = document.createElement('div');
+                footer.className = 'wm-feed-footer';
+                el.appendChild(footer);
+            }
+            footer.textContent = footerText;
+            footer.dataset.status = statusClass;
         });
     }
 
