@@ -128,10 +128,11 @@ export default function Page() {
                     <div class="widget-tray-categories">
                         <button class="wc-cat-btn active" data-cat="all">All</button>
                         <button class="wc-cat-btn" data-cat="map">🗺 Maps</button>
-                        <button class="wc-cat-btn" data-cat="feed">📡 Feeds</button>
+                        <button class="wc-cat-btn" data-cat="telegram">💬 Telegram</button>
+                        <button class="wc-cat-btn" data-cat="rss">📰 News</button>
                         <button class="wc-cat-btn" data-cat="data">📊 Data</button>
-                        <button class="wc-cat-btn" data-cat="social">💬 Social</button>
                         <button class="wc-cat-btn" data-cat="media">📺 Media</button>
+                        <button class="wc-cat-btn" data-cat="social">💬 Social</button>
                     </div>
                     <div id="widget-tray-grid" class="widget-tray-grid">
                         {/* Populated by JS */}

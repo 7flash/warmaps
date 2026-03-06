@@ -435,7 +435,22 @@ function addWidgetToCanvas(typeId: string, dropX?: number, dropY?: number) {
     const container = document.createElement('div');
     container.id = `wm-c-${typeId}-${Date.now()}`;
     container.className = 'wm-container';
-    container.dataset.widgetType = typeId;
+
+    // Map widget IDs to their renderer type for feed compatibility
+    // tg-* → 'telegram', news-* → 'news', everything else stays as-is
+    let rendererType = typeId;
+    if (typeId.startsWith('tg-')) rendererType = 'telegram';
+    else if (typeId.startsWith('news-')) rendererType = 'news';
+
+    container.dataset.widgetType = rendererType;
+
+    // Apply default config as data attributes (e.g. cfgChannel for telegram)
+    if (wt.defaultConfig) {
+        Object.entries(wt.defaultConfig).forEach(([key, val]) => {
+            container.dataset[`cfg${key.charAt(0).toUpperCase()}${key.slice(1)}`] = String(val);
+        });
+    }
+
     container.style.cssText = `left:${x}px;top:${y}px;width:${wt.defaultWidth}px;height:${wt.defaultHeight}px`;
 
     container.innerHTML = `
@@ -469,9 +484,9 @@ function addWidgetToCanvas(typeId: string, dropX?: number, dropY?: number) {
 
     // Re-render widget data asynchronously so it shows up instantly without reloading page
     import('./lib/feeds').then(({ reRenderWidget }) => {
-        reRenderWidget(typeId);
+        reRenderWidget(rendererType);
     });
-    if (typeId === 'map') {
+    if (rendererType === 'map' || typeId === 'heatmap') {
         import('./lib/map').then(({ initMap }) => initMap());
     }
 }
