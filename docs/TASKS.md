@@ -9,7 +9,11 @@
 - [x] ~~**Image markers cluttering map**~~ — ✅ DONE. Disabled `FF.imageMarkers` by default. Streaming news images no longer float over the global map. Can be re-enabled via `window.FF.imageMarkers = true` in console.
 - [x] ~~**Widget tray redesign**~~ — ✅ DONE. Complete visual overhaul: 64px height, frosted glass gradient background, pill-shaped category buttons with active state, rounded widget cards with hover lift effect, hidden scrollbar, subtle MULTI badges, premium typography.
 
-## 🟡 Priority: Improve
+## 🔴 Priority: Fix
+- [x] ~~**Empty default canvas**~~ — ✅ DONE. First-time users got a blank canvas with no widgets. Fixed: `getDefaultInstances()` now returns a "Command Center" preset with 6 widgets (global map, news feed, Intel Slava telegram, intel panel, AI analyst, Al Jazeera TV). Existing users unaffected (their layout is in localStorage).
+- [ ] **Feed health indicators** — Show a small status dot (green/yellow/red) on each widget header indicating data freshness. Users can't tell if a feed is live, stale, or broken.
+- [ ] **Data freshness timestamps** — Show "Last updated: 3m ago" in each data widget footer. Currently impossible to tell if data is from 30 seconds ago or 3 hours ago.
+- [ ] **Guided first-run onboarding** — Show a quick 3-step tooltip tour for first-time users: (1) drag widgets to rearrange, (2) click ＋ to add widgets, (3) use ⚙ to configure each widget. Dismiss with "Got it" button, persist to localStorage.
 - [x] ~~**Performance**~~ — ✅ `page.client.tsx` split from 3400 lines → ~150-line orchestrator + 14 modules in `app/lib/` (state, utils, perf, map, data, feeds, markers, tokens, modals, panels, tv, chat, ai, betting, spotlight)
 - [x] ~~**Token detail view**~~ — ✅ DONE. DexScreener live chart embed, token details, action buttons.
 - [x] ~~**Mobile responsive**~~ — ✅ DONE. 4 breakpoints, bottom-sheet panels, touch targets.

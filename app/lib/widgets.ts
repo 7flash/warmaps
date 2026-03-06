@@ -447,8 +447,71 @@ export function saveInstances(instances: WidgetInstance[]) {
 }
 
 export function getDefaultInstances(): WidgetInstance[] {
-    nextInstanceId = 1;
-    return []; // Empty canvas for game-engine style builder
+    nextInstanceId = 100; // Start high to avoid collisions with preset IDs
+    // Curated "Command Center" — a useful starting point for first-time users
+    // Gives immediate value: map with events, news feed, telegram, intel panel, AI
+    return [
+        {
+            id: 'wm-default-map',
+            typeId: 'map',
+            x: 40,
+            y: 40,
+            width: 720,
+            height: 520,
+            collapsed: false,
+            config: { layers: 'events' },
+        },
+        {
+            id: 'wm-default-news',
+            typeId: 'news',
+            x: 780,
+            y: 40,
+            width: 380,
+            height: 520,
+            collapsed: false,
+            config: { filter: 'all', source: 'all', search: '' },
+        },
+        {
+            id: 'wm-default-tg',
+            typeId: 'tg-intelslava',
+            x: 1180,
+            y: 40,
+            width: 380,
+            height: 520,
+            collapsed: false,
+            config: { channel: 'intelslava' },
+        },
+        {
+            id: 'wm-default-intel',
+            typeId: 'intel',
+            x: 40,
+            y: 580,
+            width: 380,
+            height: 340,
+            collapsed: false,
+            config: {},
+        },
+        {
+            id: 'wm-default-ai',
+            typeId: 'ai',
+            x: 440,
+            y: 580,
+            width: 360,
+            height: 340,
+            collapsed: false,
+            config: {},
+        },
+        {
+            id: 'wm-default-tv',
+            typeId: 'tv',
+            x: 820,
+            y: 580,
+            width: 400,
+            height: 340,
+            collapsed: false,
+            config: { channel: 'aljazeeraenglish' },
+        },
+    ];
 }
 
 export function createInstance(typeId: string, x: number, y: number): WidgetInstance | null {
