@@ -228,22 +228,49 @@ function initWidgetCatalog() {
         window.location.reload();
     });
 
-    // Add remove buttons to existing containers
+    // Add remove, detach, and link handles to existing containers
     document.querySelectorAll('.wm-container-header').forEach(header => {
-        const actions = header.querySelector('.wm-c-actions') || header;
-        const removeBtn = document.createElement('button');
-        removeBtn.className = 'wm-c-remove';
-        removeBtn.title = 'Remove widget';
-        removeBtn.textContent = '×';
-        removeBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const container = (header as HTMLElement).closest('.wm-container') as HTMLElement;
-            if (container && confirm(`Remove ${container.querySelector('.wm-c-title')?.textContent}?`)) {
-                container.remove();
-                updateMinimap();
-            }
-        });
-        actions.appendChild(removeBtn);
+        let actions = header.querySelector('.wm-c-actions') as HTMLElement;
+        if (!actions) {
+            actions = document.createElement('div');
+            actions.className = 'wm-c-actions';
+            header.appendChild(actions);
+        }
+
+        // Add link handle if missing
+        if (!actions.querySelector('.wm-c-link-handle')) {
+            const linkBtn = document.createElement('button');
+            linkBtn.className = 'wm-c-link-handle wm-link-handle';
+            linkBtn.title = 'Drag to link';
+            linkBtn.textContent = '🔗';
+            actions.appendChild(linkBtn);
+        }
+
+        // Add detach if missing
+        if (!actions.querySelector('.wm-c-detach')) {
+            const detachBtn = document.createElement('button');
+            detachBtn.className = 'wm-c-detach';
+            detachBtn.title = 'Detach to new window';
+            detachBtn.textContent = '⎘';
+            actions.appendChild(detachBtn);
+        }
+
+        // Add remove if missing
+        if (!actions.querySelector('.wm-c-remove')) {
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'wm-c-remove';
+            removeBtn.title = 'Remove widget';
+            removeBtn.textContent = '×';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const container = (header as HTMLElement).closest('.wm-container') as HTMLElement;
+                if (container && confirm(`Remove ${container.querySelector('.wm-c-title')?.textContent}?`)) {
+                    container.remove();
+                    updateMinimap();
+                }
+            });
+            actions.appendChild(removeBtn);
+        }
     });
 
     // Add config gear to containers that have configurable fields
@@ -348,6 +375,7 @@ function addWidgetToCanvas(typeId: string) {
             <span class="wm-c-title">${wt.name.toUpperCase()}</span>
             <div class="wm-c-actions">
                 <button class="wm-c-link-handle wm-link-handle" title="Drag to link">🔗</button>
+                <button class="wm-c-detach" title="Detach to new window">⎘</button>
                 <button class="wm-c-remove" title="Remove widget">×</button>
             </div>
         </div>
@@ -403,7 +431,123 @@ function getCurrentInstances(): WidgetInstance[] {
 // ─── Mount ──────────────────────────────────────────────────
 
 export default function mount() {
+    // Global container listeners
+    document.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        // Detach button
+        if (target.closest('.wm-c-detach')) {
+            const container = target.closest('.wm-container') as HTMLElement;
+            if (!container) return;
+
+            // Get bounds for popup geometry
+            const rect = container.getBoundingClientRect();
+            const typeId = container.dataset.widgetType || '';
+
+            // Pass configurations across via URL hash
+            const configParams = new URLSearchParams();
+            Object.keys(container.dataset).forEach(key => {
+                if (key.startsWith('cfg')) {
+                    configParams.append(key.slice(3).toLowerCase(), container.dataset[key]!);
+                }
+            });
+
+            // Remove from canvas immediately
+            container.remove();
+            updateMinimap();
+
+            // Build detached window URL
+            const popupUrl = `/?detached=true&type=${typeId}&${configParams.toString()}`;
+            window.open(popupUrl, `warmaps_detach_${typeId}_${Date.now()}`, `width=${rect.width},height=${rect.height + 40},left=${window.screenX + rect.left},top=${window.screenY + rect.top}`);
+        }
+    });
+
     measure('Mount WARMAPS', async (m) => {
+        // ─── Detached Window Mode ──────────────────────────────────
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('detached') === 'true') {
+            document.body.classList.add('is-detached');
+            const typeId = urlParams.get('type');
+            if (!typeId) return;
+
+            // Hide topbar, ticker, minimap, etc.
+            const hideIds = ['top-bar', 'ticker', 'wm-minimap', 'shortcuts-overlay', 'widget-catalog', 'share-toast'];
+            hideIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+
+            // Adjust viewport for fullscreen widget
+            const vp = document.getElementById('wm-viewport');
+            if (vp) {
+                vp.style.top = '0';
+                vp.style.height = '100vh';
+                vp.style.background = 'var(--bg-primary)';
+            }
+
+            const content = document.getElementById('wm-content');
+            if (content) {
+                // Remove all default widgets
+                content.innerHTML = '';
+                content.style.width = '100%';
+                content.style.height = '100%';
+                content.style.transform = 'none';
+                content.style.left = '0';
+                content.style.top = '0';
+
+                // Construct the requested widget
+                const wt = WIDGET_TYPES.find(w => w.id === typeId);
+                if (wt) {
+                    const container = document.createElement('div');
+                    container.id = `wm-c-${typeId}-detached`;
+                    container.className = `wm-container detached-mode`;
+                    container.dataset.widgetType = typeId;
+
+                    // Pass configs back in
+                    Array.from(urlParams.keys()).forEach(k => {
+                        if (k !== 'detached' && k !== 'type') {
+                            container.dataset['cfg' + k] = urlParams.get(k) || '';
+                        }
+                    });
+
+                    container.style.cssText = `left:0px;top:0px;width:100%;height:100%;border-radius:0;border:none;box-shadow:none;background:var(--bg-primary)`;
+                    container.innerHTML = `
+                        <div class="wm-container-header" style="cursor:default;border-radius:0;">
+                            <span class="wm-c-icon">${wt.icon}</span>
+                            <span class="wm-c-title">${wt.name.toUpperCase()} (DETACHED)</span>
+                            <div class="wm-c-actions">
+                                <button onclick="window.close()" title="Close detached window" style="background:none;border:none;color:var(--text-dim);cursor:pointer;padding:0 8px;">×</button>
+                            </div>
+                        </div>
+                        <div class="wm-container-body" style="height:calc(100% - 32px)">
+                            <div class="loading-state" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">
+                                <span class="spinner"></span>
+                                <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim)">Initializing ${wt.name}...</span>
+                            </div>
+                        </div>
+                    `;
+                    content.appendChild(container);
+                }
+            }
+
+            // Only boot the necessary modules for data parsing
+            measureSync('Boot sequence', () => initBootSequence());
+            if (typeId === 'map') measureSync('Init map', () => initMap());
+            if (typeId === 'tv') measureSync('TV channels', () => initTVChannels());
+            if (['news', 'events', 'markets'].includes(typeId)) measureSync('Filters', () => initFilters());
+            if (typeId === 'chat' || typeId === 'ai') measureSync('Chat', () => initChat());
+            if (typeId === 'telegram') measureSync('Telegram', () => initTelegram());
+            initAuth();
+
+            // Re-render specifically this widget type
+            setTimeout(() => {
+                import('./lib/feeds').then(({ reRenderWidget }) => {
+                    reRenderWidget(typeId);
+                });
+            }, 500);
+
+            return; // Terminate normal canvas boot flow
+        }
+
         // Apply saved configurations to DOM before anything else reads them
         measureSync('Load Configs', () => {
             const instances = loadInstances();
@@ -427,6 +571,7 @@ export default function mount() {
                                     <span class="wm-c-title">${wt.name.toUpperCase()}</span>
                                     <div class="wm-c-actions">
                                         <button class="wm-c-link-handle wm-link-handle" title="Drag to link">🔗</button>
+                                        <button class="wm-c-detach" title="Detach to new window">⎘</button>
                                         <button class="wm-c-remove" title="Remove widget">×</button>
                                     </div>
                                 </div>

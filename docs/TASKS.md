@@ -27,7 +27,7 @@
 - [x] ~~**Widget config per-instance**~~ — ✅ DONE. Each widget instance has a config panel (gears icon) to select data source, filters, and channels which instantly map to rendered datasets. Config persists to localStorage.
 - [x] ~~**Saved canvas layouts**~~ — ✅ DONE. Let users save/load multiple layout presets (e.g., "Monitoring", "Trading Desk", "Analysis"). Store in localStorage. Added Top-right dropdown menu.
 - [x] ~~**Container linking**~~ — ✅ DONE. Added an SVG-based linking system allowing users to drag connection lines between containers, feed items, and map points. State is persisted to localStorage.
-- [ ] **Detachable containers** — Allow containers to be "popped out" into separate browser windows for multi-monitor setups.
+- [x] ~~**Detachable containers**~~ — ✅ DONE. Allow containers to be "popped out" into separate browser windows for multi-monitor setups.
 
 ## 🟡 Priority: Deploy
 - [ ] **Deploy canvas rewrite to production** — Push latest canvas changes to `root@202.155.132.139:/opt/starwar/`. Test container dragging, minimap, and layout persistence on production.
