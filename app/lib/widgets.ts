@@ -51,11 +51,24 @@ export const WIDGET_TYPES: WidgetType[] = [
         name: 'Global Map',
         icon: '🌍',
         category: 'map',
-        description: 'Interactive MapLibre conflict map with events, fires, flights, and satellite data.',
+        description: 'Interactive map. Configure data layers like flights or earthquakes.',
         defaultWidth: 700,
         defaultHeight: 500,
-        defaultConfig: { layers: ['events', 'fires', 'flights', 'acled'] },
-        multi: false,
+        defaultConfig: { layers: 'events' },
+        multi: true,
+        configFields: [
+            {
+                key: 'layers', label: 'Data Layer', type: 'select', options: [
+                    { value: 'events', label: '⚡ Conflict Events' },
+                    { value: 'fires', label: '🔥 NASA Fires' },
+                    { value: 'flights', label: '✈ ADSB Flights' },
+                    { value: 'seismic', label: '🌍 USGS Seismic' },
+                    { value: 'acled', label: '📊 ACLED Data' },
+                    { value: 'assets', label: '🚢 Strategic Assets' },
+                    { value: 'all', label: '🌐 All (Cluttered)' },
+                ]
+            },
+        ],
     },
     {
         id: 'heatmap',
@@ -114,20 +127,21 @@ export const WIDGET_TYPES: WidgetType[] = [
         name: 'Telegram OSINT',
         icon: '💬',
         category: 'feed',
-        description: 'Live Telegram channel feed. Choose channels to monitor.',
+        description: 'Live Telegram feed for a specific channel.',
         defaultWidth: 380,
         defaultHeight: 400,
-        defaultConfig: { channels: 'all' },
+        defaultConfig: { channel: 'all' },
         multi: true,
         configFields: [
             {
-                key: 'channels', label: 'Channel Category', type: 'select', options: [
-                    { value: 'all', label: '📡 All Channels (23)' },
-                    { value: 'state', label: '🏛 State Media (6)' },
-                    { value: 'conflict', label: '⚔ Conflict Media (10)' },
-                    { value: 'cyber', label: '💻 Cyber Networks (2)' },
-                    { value: 'geoVerify', label: '📍 Geo Verification (2)' },
-                    { value: 'ukraine', label: '🇺🇦 Ukraine Theater (3)' },
+                key: 'channel', label: 'Telegram Channel', type: 'select', options: [
+                    { value: 'all', label: '📡 All Channels' },
+                    { value: 'DDGeopolitics', label: 'DD Geopolitics' },
+                    { value: 'intelslava', label: 'Intel Slava Z' },
+                    { value: 'mod_russia', label: 'MoD Russia' },
+                    { value: 'zoka200', label: 'Zoka' },
+                    { value: 'nexta_tv', label: 'NEXTA' },
+                    { value: 'liveukraine_media', label: 'Live Ukraine' },
                 ]
             },
         ],
@@ -317,16 +331,7 @@ export function saveInstances(instances: WidgetInstance[]) {
 
 export function getDefaultInstances(): WidgetInstance[] {
     nextInstanceId = 1;
-    return [
-        { id: 'wm-c-map', typeId: 'map', x: 0, y: 0, width: 700, height: 500, collapsed: false, config: { layers: ['events', 'fires', 'flights'] } },
-        { id: 'wm-c-pulse', typeId: 'news', x: 720, y: 0, width: 380, height: 500, collapsed: false, config: { filter: 'all', source: 'all' } },
-        { id: 'wm-c-intel', typeId: 'intel', x: 1120, y: 0, width: 380, height: 340, collapsed: false, config: {} },
-        { id: 'wm-c-signal', typeId: 'telegram', x: 1120, y: 360, width: 380, height: 340, collapsed: false, config: { channels: 'all' } },
-        { id: 'wm-c-tokens', typeId: 'tokens', x: 0, y: 520, width: 380, height: 340, collapsed: false, config: {} },
-        { id: 'wm-c-markets', typeId: 'markets', x: 400, y: 520, width: 380, height: 340, collapsed: false, config: { category: 'all' } },
-        { id: 'wm-c-data', typeId: 'gdelt', x: 800, y: 520, width: 380, height: 300, collapsed: false, config: {} },
-        { id: 'wm-c-ai', typeId: 'ai', x: 1200, y: 520, width: 360, height: 340, collapsed: false, config: {} },
-    ];
+    return []; // Empty canvas for game-engine style builder
 }
 
 export function createInstance(typeId: string, x: number, y: number): WidgetInstance | null {

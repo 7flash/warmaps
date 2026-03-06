@@ -147,14 +147,12 @@ function toggleConfigPanel(container: HTMLElement, fields: ConfigField[]) {
 // ─── Widget Catalog Management ──────────────────────────────
 
 function initWidgetCatalog() {
-    const addBtn = document.getElementById('wm-add-widget');
-    const catalog = document.getElementById('widget-catalog');
-    const closeBtn = document.getElementById('wc-close');
-    const grid = document.getElementById('wc-grid');
+    const tray = document.getElementById('widget-tray');
+    const grid = document.getElementById('widget-tray-grid');
     const shareBtn = document.getElementById('wm-share');
     const resetBtn = document.getElementById('wm-reset-layout');
 
-    if (!addBtn || !catalog || !grid) return;
+    if (!tray || !grid) return;
 
     let activeCategory = 'all';
 
@@ -177,30 +175,27 @@ function initWidgetCatalog() {
                 </div>
                 ${wt.multi ? '<span class="wc-widget-badge">MULTI</span>' : ''}
             `;
+            // Optional: Support drag & drop or click to add
             card.addEventListener('click', () => addWidgetToCanvas(wt.id));
+
+            // Allow native drag dropping from tray
+            card.draggable = true;
+            card.addEventListener('dragstart', (e) => {
+                e.dataTransfer?.setData('text/plain', wt.id);
+            });
+
             grid.appendChild(card);
         });
     }
 
     // Category filtering
-    catalog.querySelectorAll('.wc-cat-btn').forEach(btn => {
+    tray.querySelectorAll('.wc-cat-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            catalog.querySelectorAll('.wc-cat-btn').forEach(b => b.classList.remove('active'));
+            tray.querySelectorAll('.wc-cat-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             activeCategory = (btn as HTMLElement).dataset.cat || 'all';
             renderCatalog();
         });
-    });
-
-    // Toggle catalog
-    addBtn.addEventListener('click', () => {
-        const isVisible = catalog.style.display !== 'none';
-        catalog.style.display = isVisible ? 'none' : 'flex';
-        if (!isVisible) renderCatalog();
-    });
-
-    closeBtn?.addEventListener('click', () => {
-        catalog.style.display = 'none';
     });
 
     // Share button
@@ -395,11 +390,16 @@ function addWidgetToCanvas(typeId: string) {
     });
 
     content.appendChild(container);
+    addConfigGearToContainer(container);
     updateMinimap();
 
-    // Close catalog after adding
-    const catalog = document.getElementById('widget-catalog');
-    if (catalog) catalog.style.display = 'none';
+    // Re-render widget data asynchronously so it shows up instantly without reloading page
+    import('./lib/feeds').then(({ reRenderWidget }) => {
+        reRenderWidget(typeId);
+    });
+    if (typeId === 'map') {
+        import('./lib/map').then(({ initMap }) => initMap());
+    }
 }
 
 function getCurrentInstances(): WidgetInstance[] {

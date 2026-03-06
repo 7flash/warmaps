@@ -1560,68 +1560,110 @@ body {
     }
 }
 
-/* ─── Ticker ───────────────────────────────────────────────── */
+/* ─── Widget Tray (Bottom Boilerplates) ────────────────── */
 
-.ticker {
+.widget-tray {
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 36px;
+    height: 52px;
     display: flex;
     align-items: center;
-    background: rgba(5, 9, 19, 0.92);
+    background: rgba(5, 9, 19, 0.95);
     border-top: 1px solid var(--border);
-    overflow: hidden;
     z-index: 500;
+    padding-right: 16px;
+    backdrop-filter: blur(10px);
 }
 
-.ticker-label {
-    padding: 0 14px;
+.widget-tray-label {
+    padding: 0 16px;
     font-family: var(--font-display);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    color: var(--bg-primary);
-    background: var(--red);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: var(--accent);
     height: 100%;
     display: flex;
     align-items: center;
-    flex-shrink: 0;
-    animation: tickerFlash 3s infinite;
+    border-right: 1px solid var(--border);
+    background: rgba(34, 197, 94, 0.05);
 }
 
-@keyframes tickerFlash {
-
-    0%,
-    100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.7;
-    }
+.widget-tray-categories {
+    display: flex;
+    gap: 6px;
+    padding: 0 16px;
+    border-right: 1px solid var(--border);
+    height: 100%;
+    align-items: center;
 }
 
-.ticker-content {
+.widget-tray-grid {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 0 16px;
     flex: 1;
-    white-space: nowrap;
+    height: 100%;
+    scrollbar-width: thin;
+}
+
+.widget-tray-grid::-webkit-scrollbar {
+    height: 2px;
+}
+
+/* Override wc-widget-card for the horizontal tray */
+.widget-tray .wc-widget-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 160px;
+    max-width: 220px;
+    height: 36px;
+    cursor: grab;
+}
+
+.widget-tray .wc-widget-card:active {
+    cursor: grabbing;
+}
+
+.widget-tray .wc-widget-icon {
+    font-size: 16px;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+}
+
+.widget-tray .wc-widget-name {
+    font-size: 10px;
+    margin-bottom: 0;
     overflow: hidden;
-    padding: 0 20px;
-    font-size: 11px;
-    color: var(--text-secondary);
-    animation: tickerScroll 30s linear infinite;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-@keyframes tickerScroll {
-    0% {
-        transform: translateX(0);
-    }
-
-    100% {
-        transform: translateX(-50%);
-    }
+.widget-tray .wc-widget-desc {
+    display: none;
+    /* Hide desc in horizontal tray */
 }
+
+.widget-tray .wc-widget-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    font-size: 7px;
+    padding: 1px 4px;
+    background: var(--accent);
+    color: var(--bg-primary);
+}
+
 
 /* ─── TV Player ────────────────────────────────────────────── */
 

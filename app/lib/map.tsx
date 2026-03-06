@@ -85,254 +85,278 @@ const COUNTRY_FLAGS: Array<{ iso: string; flag: string; lat: number; lon: number
 ];
 
 export function initMap() {
-    const mapEl = document.getElementById('map');
-    if (!mapEl || map) return;
+    const mapContainers = document.querySelectorAll('.wm-container[data-widget-type="map"]');
+    if (mapContainers.length === 0) return;
 
-    // Parse map position from URL hash: #map=zoom/lat/lng
-    let initCenter: [number, number] = [45, 30];
-    let initZoom = 3;
-    const hashMatch = location.hash.match(/map=(\d+\.?\d*)\/(-?\d+\.?\d*)\/(-?\d+\.?\d*)/);
-    if (hashMatch) {
-        initZoom = parseFloat(hashMatch[1]);
-        initCenter = [parseFloat(hashMatch[3]), parseFloat(hashMatch[2])];
-    }
+    mapContainers.forEach((container, index) => {
+        const body = container.querySelector('.wm-container-body');
+        if (!body) return;
 
-    const m = new maplibregl.Map({
-        container: 'map',
-        style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-        center: initCenter,
-        zoom: initZoom,
-        pitch: 0,
-        attributionControl: false,
-    });
-    setMap(m);
+        // Skip if already initialized
+        if (body.querySelector('.maplibregl-canvas-container')) return;
 
-    // Update URL hash on move (debounced)
-    let hashTimer: ReturnType<typeof setTimeout> | null = null;
-    m.on('moveend', () => {
-        if (hashTimer) clearTimeout(hashTimer);
-        hashTimer = setTimeout(() => {
-            const c = m.getCenter();
-            const z = m.getZoom().toFixed(1);
-            const newHash = `map=${z}/${c.lat.toFixed(2)}/${c.lng.toFixed(2)}`;
-            history.replaceState(null, '', `#${newHash}`);
-        }, 500);
-    });
+        const mapId = `map-${index}-${Date.now()}`;
 
-    m.addControl(new maplibregl.NavigationControl(), 'top-right');
+        let mapEl = body.querySelector('.wm-map-inner') as HTMLElement | null;
+        if (!mapEl) {
+            body.innerHTML = '';
+            mapEl = document.createElement('div');
+            mapEl.id = mapId;
+            mapEl.className = 'wm-map-inner';
+            mapEl.style.width = '100%';
+            mapEl.style.height = '100%';
+            body.appendChild(mapEl);
+        } else {
+            mapEl.id = mapId;
+        }
 
-    m.on('load', () => {
-        // Create airplane icon for flights
-        const planeSize = 24;
-        const planeCanvas = document.createElement('canvas');
-        planeCanvas.width = planeSize;
-        planeCanvas.height = planeSize;
-        const ctx = planeCanvas.getContext('2d')!;
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.moveTo(12, 2);
-        ctx.lineTo(14, 10);
-        ctx.lineTo(22, 12);
-        ctx.lineTo(22, 14);
-        ctx.lineTo(14, 13);
-        ctx.lineTo(14, 19);
-        ctx.lineTo(17, 21);
-        ctx.lineTo(17, 22);
-        ctx.lineTo(12, 20);
-        ctx.lineTo(7, 22);
-        ctx.lineTo(7, 21);
-        ctx.lineTo(10, 19);
-        ctx.lineTo(10, 13);
-        ctx.lineTo(2, 14);
-        ctx.lineTo(2, 12);
-        ctx.lineTo(10, 10);
-        ctx.closePath();
-        ctx.fill();
+        // Parse map position from URL hash: #map=zoom/lat/lng
+        let initCenter: [number, number] = [45, 30];
+        let initZoom = 3;
+        const hashMatch = location.hash.match(/map=(\d+\.?\d*)\/(-?\d+\.?\d*)\/(-?\d+\.?\d*)/);
+        if (hashMatch) {
+            initZoom = parseFloat(hashMatch[1]);
+            initCenter = [parseFloat(hashMatch[3]), parseFloat(hashMatch[2])];
+        }
 
-        const imageData = ctx.getImageData(0, 0, planeSize, planeSize);
-        m.addImage('airplane-icon', imageData, { sdf: true });
-
-        // --- Sources ---
-        m.addSource('fires', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        m.addSource('flights', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        m.addSource('events', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        m.addSource('assets', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        m.addSource('acled', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        m.addSource('webcams', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        m.addSource('seismic', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        m.addSource('pumpfun-tokens', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-
-        // Country flag labels
-        const flagFeatures = COUNTRY_FLAGS.map(c => ({
-            type: 'Feature' as const,
-            geometry: { type: 'Point' as const, coordinates: [c.lon, c.lat] },
-            properties: { name: c.name, iso: c.iso }
-        }));
-        m.addSource('country-flags', { type: 'geojson', data: { type: 'FeatureCollection', features: flagFeatures } });
-
-        // --- Layers ---
-        m.addLayer({
-            id: 'country-flag-labels', type: 'symbol', source: 'country-flags',
-            layout: {
-                'text-field': ['get', 'iso'],
-                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                'text-size': ['interpolate', ['linear'], ['zoom'], 2, 9, 5, 11, 8, 14],
-                'text-allow-overlap': false, 'text-ignore-placement': false, 'text-letter-spacing': 0.1,
-            },
-            paint: {
-                'text-color': '#64748b',
-                'text-halo-color': 'rgba(0,0,0,0.8)', 'text-halo-width': 1.5,
-                'text-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.5, 4, 0.7, 6, 0.9],
-            },
-            minzoom: 2,
+        const m = new maplibregl.Map({
+            container: mapId,
+            style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+            center: initCenter,
+            zoom: initZoom,
+            pitch: 0,
+            attributionControl: false,
         });
 
-        // Thermal Anomalies (Heatmap)
-        m.addLayer({
-            id: 'fires-heat', type: 'heatmap', source: 'fires',
-            paint: {
-                'heatmap-weight': ['interpolate', ['linear'], ['get', 'brightness'], 300, 0.2, 400, 1],
-                'heatmap-intensity': 1.5,
-                'heatmap-color': [
-                    'interpolate', ['linear'], ['heatmap-density'],
-                    0, 'rgba(255, 107, 53, 0)', 0.2, 'rgba(255, 107, 53, 0.4)', 1, 'rgba(255, 68, 68, 1)'
-                ],
-                'heatmap-radius': 15, 'heatmap-opacity': 0.8
-            }
+        // Use first map for global flyTo singleton backwards compatibility
+        if (index === 0 && !map) setMap(m);
+
+        // Update URL hash on move (debounced)
+        let hashTimer: ReturnType<typeof setTimeout> | null = null;
+        m.on('moveend', () => {
+            if (hashTimer) clearTimeout(hashTimer);
+            hashTimer = setTimeout(() => {
+                const c = m.getCenter();
+                const z = m.getZoom().toFixed(1);
+                const newHash = `map=${z}/${c.lat.toFixed(2)}/${c.lng.toFixed(2)}`;
+                history.replaceState(null, '', `#${newHash}`);
+            }, 500);
         });
 
-        // Aircraft
-        m.addLayer({
-            id: 'flights-point', type: 'symbol', source: 'flights',
-            layout: {
-                'icon-image': 'airplane-icon',
-                'icon-size': ['match', ['get', 'type'], 'military', 0.85, 'sigint', 1.0, 'government', 0.75, 0.55],
-                'icon-rotate': ['get', 'heading'], 'icon-rotation-alignment': 'map',
-                'icon-allow-overlap': true, 'icon-ignore-placement': true,
-            },
-            paint: {
-                'icon-color': ['match', ['get', 'type'], 'military', '#ef4444', 'sigint', '#a855f7', 'government', '#f59e0b', '#22d3ee'],
-                'icon-opacity': ['match', ['get', 'type'], 'military', 1, 'sigint', 1, 0.7],
-            }
-        });
+        m.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-        // Conflict Heatmap
-        m.addLayer({
-            id: 'events-heat', type: 'heatmap', source: 'events',
-            paint: {
-                'heatmap-weight': ['interpolate', ['linear'], ['get', 'confidence'], 0, 0.3, 0.5, 0.6, 1, 1],
-                'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 0.6, 6, 1.5, 10, 2],
-                'heatmap-color': [
-                    'interpolate', ['linear'], ['heatmap-density'],
-                    0, 'rgba(255, 100, 50, 0)', 0.15, 'rgba(255, 80, 30, 0.25)',
-                    0.4, 'rgba(255, 50, 20, 0.5)', 0.7, 'rgba(240, 30, 10, 0.75)', 1, 'rgba(220, 20, 5, 1)'
-                ],
-                'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 15, 5, 25, 10, 40],
-                'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 0, 0.7, 8, 0.4, 12, 0.15],
-            }
-        });
+        m.on('load', () => {
+            // Create airplane icon for flights
+            const planeSize = 24;
+            const planeCanvas = document.createElement('canvas');
+            planeCanvas.width = planeSize;
+            planeCanvas.height = planeSize;
+            const ctx = planeCanvas.getContext('2d')!;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.moveTo(12, 2);
+            ctx.lineTo(14, 10);
+            ctx.lineTo(22, 12);
+            ctx.lineTo(22, 14);
+            ctx.lineTo(14, 13);
+            ctx.lineTo(14, 19);
+            ctx.lineTo(17, 21);
+            ctx.lineTo(17, 22);
+            ctx.lineTo(12, 20);
+            ctx.lineTo(7, 22);
+            ctx.lineTo(7, 21);
+            ctx.lineTo(10, 19);
+            ctx.lineTo(10, 13);
+            ctx.lineTo(2, 14);
+            ctx.lineTo(2, 12);
+            ctx.lineTo(10, 10);
+            ctx.closePath();
+            ctx.fill();
 
-        // Individual event dots
-        m.addLayer({
-            id: 'events-point', type: 'circle', source: 'events', minzoom: 4,
-            paint: {
-                'circle-color': ['match', ['get', 'type'], 'gdelt', '#ff6b35', 'market-hot', '#ef4444', 'market', '#f59e0b', '#ff6b35'],
-                'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 5, 12, 7],
-                'circle-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0.5, 8, 0.8],
-                'circle-stroke-width': 1.5, 'circle-stroke-color': 'rgba(255, 107, 53, 0.3)', 'circle-blur': 0.3,
-            }
-        });
+            const imageData = ctx.getImageData(0, 0, planeSize, planeSize);
+            m.addImage('airplane-icon', imageData, { sdf: true });
 
-        // Strategic Assets
-        m.addLayer({
-            id: 'assets-nuclear', type: 'circle', source: 'assets', filter: ['==', ['get', 'type'], 'nuclear'],
-            paint: { 'circle-color': '#22d3ee', 'circle-radius': 7, 'circle-stroke-width': 2, 'circle-stroke-color': '#000', 'circle-opacity': ['match', ['get', 'confidence'], 'High', 1, 'Moderate', 0.6, 0.3] }
-        });
-        m.addLayer({
-            id: 'assets-base', type: 'circle', source: 'assets', filter: ['==', ['get', 'type'], 'base'],
-            paint: { 'circle-color': '#3b82f6', 'circle-radius': 6, 'circle-stroke-width': 2, 'circle-stroke-color': '#000', 'circle-opacity': ['match', ['get', 'confidence'], 'High', 1, 'Moderate', 0.6, 0.3] }
-        });
+            // --- Sources ---
+            m.addSource('fires', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            m.addSource('flights', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            m.addSource('events', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            m.addSource('assets', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            m.addSource('acled', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            m.addSource('webcams', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            m.addSource('seismic', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            m.addSource('pumpfun-tokens', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 
-        // ACLED Kinetic
-        m.addLayer({
-            id: 'acled-kinetic', type: 'circle', source: 'acled',
-            paint: { 'circle-color': '#ef4444', 'circle-radius': 7, 'circle-stroke-width': 2, 'circle-stroke-color': '#000', 'circle-pitch-alignment': 'map', 'circle-opacity': ['match', ['get', 'confidence'], 'High', 1, 'Moderate', 0.7, 0.4] }
-        });
+            // Country flag labels
+            const flagFeatures = COUNTRY_FLAGS.map(c => ({
+                type: 'Feature' as const,
+                geometry: { type: 'Point' as const, coordinates: [c.lon, c.lat] },
+                properties: { name: c.name, iso: c.iso }
+            }));
+            m.addSource('country-flags', { type: 'geojson', data: { type: 'FeatureCollection', features: flagFeatures } });
 
-        // Webcams
-        m.addLayer({
-            id: 'webcams-point', type: 'circle', source: 'webcams',
-            paint: { 'circle-radius': 5, 'circle-color': '#ffffff', 'circle-opacity': 0.9, 'circle-stroke-width': 2, 'circle-stroke-color': '#6366f1', 'circle-pitch-alignment': 'map' }
-        });
+            // --- Layers ---
+            m.addLayer({
+                id: 'country-flag-labels', type: 'symbol', source: 'country-flags',
+                layout: {
+                    'text-field': ['get', 'iso'],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-size': ['interpolate', ['linear'], ['zoom'], 2, 9, 5, 11, 8, 14],
+                    'text-allow-overlap': false, 'text-ignore-placement': false, 'text-letter-spacing': 0.1,
+                },
+                paint: {
+                    'text-color': '#64748b',
+                    'text-halo-color': 'rgba(0,0,0,0.8)', 'text-halo-width': 1.5,
+                    'text-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.5, 4, 0.7, 6, 0.9],
+                },
+                minzoom: 2,
+            });
 
-        // Seismic
-        m.addLayer({
-            id: 'seismic-kinetic', type: 'circle', source: 'seismic',
-            paint: { 'circle-radius': 12, 'circle-color': '#fbbf24', 'circle-opacity': 0.8, 'circle-stroke-width': 4, 'circle-stroke-color': '#b45309', 'circle-pitch-alignment': 'map' }
-        });
+            // Thermal Anomalies (Heatmap)
+            m.addLayer({
+                id: 'fires-heat', type: 'heatmap', source: 'fires',
+                paint: {
+                    'heatmap-weight': ['interpolate', ['linear'], ['get', 'brightness'], 300, 0.2, 400, 1],
+                    'heatmap-intensity': 1.5,
+                    'heatmap-color': [
+                        'interpolate', ['linear'], ['heatmap-density'],
+                        0, 'rgba(255, 107, 53, 0)', 0.2, 'rgba(255, 107, 53, 0.4)', 1, 'rgba(255, 68, 68, 1)'
+                    ],
+                    'heatmap-radius': 15, 'heatmap-opacity': 0.8
+                }
+            });
 
-        // --- Interactive Popups ---
-        const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, className: 'tactical-popup' });
+            // Aircraft
+            m.addLayer({
+                id: 'flights-point', type: 'symbol', source: 'flights',
+                layout: {
+                    'icon-image': 'airplane-icon',
+                    'icon-size': ['match', ['get', 'type'], 'military', 0.85, 'sigint', 1.0, 'government', 0.75, 0.55],
+                    'icon-rotate': ['get', 'heading'], 'icon-rotation-alignment': 'map',
+                    'icon-allow-overlap': true, 'icon-ignore-placement': true,
+                },
+                paint: {
+                    'icon-color': ['match', ['get', 'type'], 'military', '#ef4444', 'sigint', '#a855f7', 'government', '#f59e0b', '#22d3ee'],
+                    'icon-opacity': ['match', ['get', 'type'], 'military', 1, 'sigint', 1, 0.7],
+                }
+            });
 
-        const setupInteractiveLayer = (layerId: string) => {
-            m.on('mouseenter', layerId, (e: any) => {
-                m.getCanvas().style.cursor = 'pointer';
-                const coordinates = e.features[0].geometry.coordinates.slice();
+            // Conflict Heatmap
+            m.addLayer({
+                id: 'events-heat', type: 'heatmap', source: 'events',
+                paint: {
+                    'heatmap-weight': ['interpolate', ['linear'], ['get', 'confidence'], 0, 0.3, 0.5, 0.6, 1, 1],
+                    'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 0.6, 6, 1.5, 10, 2],
+                    'heatmap-color': [
+                        'interpolate', ['linear'], ['heatmap-density'],
+                        0, 'rgba(255, 100, 50, 0)', 0.15, 'rgba(255, 80, 30, 0.25)',
+                        0.4, 'rgba(255, 50, 20, 0.5)', 0.7, 'rgba(240, 30, 10, 0.75)', 1, 'rgba(220, 20, 5, 1)'
+                    ],
+                    'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 15, 5, 25, 10, 40],
+                    'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 0, 0.7, 8, 0.4, 12, 0.15],
+                }
+            });
+
+            // Individual event dots
+            m.addLayer({
+                id: 'events-point', type: 'circle', source: 'events', minzoom: 4,
+                paint: {
+                    'circle-color': ['match', ['get', 'type'], 'gdelt', '#ff6b35', 'market-hot', '#ef4444', 'market', '#f59e0b', '#ff6b35'],
+                    'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 5, 12, 7],
+                    'circle-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0.5, 8, 0.8],
+                    'circle-stroke-width': 1.5, 'circle-stroke-color': 'rgba(255, 107, 53, 0.3)', 'circle-blur': 0.3,
+                }
+            });
+
+            // Strategic Assets
+            m.addLayer({
+                id: 'assets-nuclear', type: 'circle', source: 'assets', filter: ['==', ['get', 'type'], 'nuclear'],
+                paint: { 'circle-color': '#22d3ee', 'circle-radius': 7, 'circle-stroke-width': 2, 'circle-stroke-color': '#000', 'circle-opacity': ['match', ['get', 'confidence'], 'High', 1, 'Moderate', 0.6, 0.3] }
+            });
+            m.addLayer({
+                id: 'assets-base', type: 'circle', source: 'assets', filter: ['==', ['get', 'type'], 'base'],
+                paint: { 'circle-color': '#3b82f6', 'circle-radius': 6, 'circle-stroke-width': 2, 'circle-stroke-color': '#000', 'circle-opacity': ['match', ['get', 'confidence'], 'High', 1, 'Moderate', 0.6, 0.3] }
+            });
+
+            // ACLED Kinetic
+            m.addLayer({
+                id: 'acled-kinetic', type: 'circle', source: 'acled',
+                paint: { 'circle-color': '#ef4444', 'circle-radius': 7, 'circle-stroke-width': 2, 'circle-stroke-color': '#000', 'circle-pitch-alignment': 'map', 'circle-opacity': ['match', ['get', 'confidence'], 'High', 1, 'Moderate', 0.7, 0.4] }
+            });
+
+            // Webcams
+            m.addLayer({
+                id: 'webcams-point', type: 'circle', source: 'webcams',
+                paint: { 'circle-radius': 5, 'circle-color': '#ffffff', 'circle-opacity': 0.9, 'circle-stroke-width': 2, 'circle-stroke-color': '#6366f1', 'circle-pitch-alignment': 'map' }
+            });
+
+            // Seismic
+            m.addLayer({
+                id: 'seismic-kinetic', type: 'circle', source: 'seismic',
+                paint: { 'circle-radius': 12, 'circle-color': '#fbbf24', 'circle-opacity': 0.8, 'circle-stroke-width': 4, 'circle-stroke-color': '#b45309', 'circle-pitch-alignment': 'map' }
+            });
+
+            // --- Interactive Popups ---
+            const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, className: 'tactical-popup' });
+
+            const setupInteractiveLayer = (layerId: string) => {
+                m.on('mouseenter', layerId, (e: any) => {
+                    m.getCanvas().style.cursor = 'pointer';
+                    const coordinates = e.features[0].geometry.coordinates.slice();
+                    const props = e.features[0].properties;
+
+                    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                    }
+
+                    let htmlContent = '';
+
+                    if (props.type === 'nuclear' || props.type === 'base') {
+                        const icon = props.type === 'nuclear' ? '☢️' : '🔵';
+                        const confColor = props.confidence === 'High' ? '#22c55e' : props.confidence === 'Moderate' ? '#eab308' : '#ef4444';
+                        htmlContent = `<div class="intel-card"><div class="intel-card-header">${icon} ${props.name} <button class="wm-link-handle wm-c-link-handle" data-geo-lat="${coordinates[1]}" data-geo-lon="${coordinates[0]}" style="float:right" title="Drag to link">🔗</button></div><div class="intel-card-body"><p>${props.description || 'No detailed intel available.'}</p></div><div class="intel-card-footer"><span>TYPE: ${props.type.toUpperCase()}</span><span>CONF: <span style="color:${confColor}">${props.confidence}</span></span></div></div>`;
+                    } else if (props.type === 'gdelt' || props.type === 'market-hot' || props.type === 'market') {
+                        htmlContent = `<div class="intel-card"><div class="intel-card-header">📍 EVENT <button class="wm-link-handle wm-c-link-handle" data-geo-lat="${coordinates[1]}" data-geo-lon="${coordinates[0]}" style="float:right" title="Drag to link">🔗</button></div><div class="intel-card-body"><p>${props.title}</p></div><div class="intel-card-footer"><span>DATE: ${props.date ? props.date.slice(0, 10) : 'LIVE'}</span></div></div>`;
+                    } else if (props.type === 'acled-kinetic') {
+                        htmlContent = `<div class="intel-card"><div class="intel-card-header" style="color: #ef4444;">💥 ${props.sub_type.toUpperCase()} <button class="wm-link-handle wm-c-link-handle" data-geo-lat="${coordinates[1]}" data-geo-lon="${coordinates[0]}" style="float:right;color:#ef4444;border-color:#ef4444" title="Drag to link">🔗</button></div><div class="intel-card-body"><div style="margin-bottom: 8px; font-weight: bold; color: #f8fafc;">${props.actor1} <span style="opacity: 0.5;">VS</span> ${props.actor2}</div><p>${props.notes || ''}</p></div><div class="intel-card-footer"><span>LOC: ${props.location}</span><span>FATALITIES: ${props.fatalities}</span></div></div>`;
+                    } else if (props.type === 'cyber') {
+                        htmlContent = `<div class="intel-card"><div class="intel-card-header" style="color: #a855f7;">🚨 CYBER ANOMALY</div><div class="intel-card-body"><p style="font-weight:bold; color: #f8fafc;">Severe Regional Internet Blackout Detected</p><p>Type: ${props.anomaly_type.toUpperCase()}</p></div><div class="intel-card-footer"><span>LOC: ${props.region}</span><span style="color:#ef4444">DROP: ${props.drop}%</span></div></div>`;
+                    } else if (props.type === 'seismic') {
+                        htmlContent = `<div class="intel-card"><div class="intel-card-header" style="color: #fbbf24;">🚨 CRITICAL SEISMIC EVENT</div><div class="intel-card-body"><p style="font-weight:bold; color: #f8fafc;">Suspected Deep-Earth Kinetic Detonation</p><p>${props.title}</p></div><div class="intel-card-footer"><span style="color:#ef4444">DEPTH: ${props.depth} km</span><span>MAG: ${props.mag}</span></div></div>`;
+                    }
+
+                    if (htmlContent) {
+                        popup.setLngLat(coordinates).setHTML(htmlContent).addTo(m);
+                    }
+                });
+
+                m.on('mouseleave', layerId, () => {
+                    m.getCanvas().style.cursor = '';
+                    popup.remove();
+                });
+            };
+
+            setupInteractiveLayer('assets-nuclear');
+            setupInteractiveLayer('assets-base');
+            setupInteractiveLayer('events-point');
+            setupInteractiveLayer('acled-kinetic');
+            setupInteractiveLayer('webcams-point');
+            setupInteractiveLayer('seismic-kinetic');
+
+            // Click-to-open webcam viewer
+            m.on('click', 'webcams-point', (e: any) => {
+                const props = e.features?.[0]?.properties;
+                if (props?.playerUrl) window.open(props.playerUrl, '_blank', 'width=800,height=600');
+            });
+
+            // Click on GDELT event → show detailed article popup
+            m.on('click', 'events-point', (e: any) => {
+                if (!e.features || e.features.length === 0) return;
                 const props = e.features[0].properties;
-
-                while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-                    coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-                }
-
-                let htmlContent = '';
-
-                if (props.type === 'nuclear' || props.type === 'base') {
-                    const icon = props.type === 'nuclear' ? '☢️' : '🔵';
-                    const confColor = props.confidence === 'High' ? '#22c55e' : props.confidence === 'Moderate' ? '#eab308' : '#ef4444';
-                    htmlContent = `<div class="intel-card"><div class="intel-card-header">${icon} ${props.name} <button class="wm-link-handle wm-c-link-handle" data-geo-lat="${coordinates[1]}" data-geo-lon="${coordinates[0]}" style="float:right" title="Drag to link">🔗</button></div><div class="intel-card-body"><p>${props.description || 'No detailed intel available.'}</p></div><div class="intel-card-footer"><span>TYPE: ${props.type.toUpperCase()}</span><span>CONF: <span style="color:${confColor}">${props.confidence}</span></span></div></div>`;
-                } else if (props.type === 'gdelt' || props.type === 'market-hot' || props.type === 'market') {
-                    htmlContent = `<div class="intel-card"><div class="intel-card-header">📍 EVENT <button class="wm-link-handle wm-c-link-handle" data-geo-lat="${coordinates[1]}" data-geo-lon="${coordinates[0]}" style="float:right" title="Drag to link">🔗</button></div><div class="intel-card-body"><p>${props.title}</p></div><div class="intel-card-footer"><span>DATE: ${props.date ? props.date.slice(0, 10) : 'LIVE'}</span></div></div>`;
-                } else if (props.type === 'acled-kinetic') {
-                    htmlContent = `<div class="intel-card"><div class="intel-card-header" style="color: #ef4444;">💥 ${props.sub_type.toUpperCase()} <button class="wm-link-handle wm-c-link-handle" data-geo-lat="${coordinates[1]}" data-geo-lon="${coordinates[0]}" style="float:right;color:#ef4444;border-color:#ef4444" title="Drag to link">🔗</button></div><div class="intel-card-body"><div style="margin-bottom: 8px; font-weight: bold; color: #f8fafc;">${props.actor1} <span style="opacity: 0.5;">VS</span> ${props.actor2}</div><p>${props.notes || ''}</p></div><div class="intel-card-footer"><span>LOC: ${props.location}</span><span>FATALITIES: ${props.fatalities}</span></div></div>`;
-                } else if (props.type === 'cyber') {
-                    htmlContent = `<div class="intel-card"><div class="intel-card-header" style="color: #a855f7;">🚨 CYBER ANOMALY</div><div class="intel-card-body"><p style="font-weight:bold; color: #f8fafc;">Severe Regional Internet Blackout Detected</p><p>Type: ${props.anomaly_type.toUpperCase()}</p></div><div class="intel-card-footer"><span>LOC: ${props.region}</span><span style="color:#ef4444">DROP: ${props.drop}%</span></div></div>`;
-                } else if (props.type === 'seismic') {
-                    htmlContent = `<div class="intel-card"><div class="intel-card-header" style="color: #fbbf24;">🚨 CRITICAL SEISMIC EVENT</div><div class="intel-card-body"><p style="font-weight:bold; color: #f8fafc;">Suspected Deep-Earth Kinetic Detonation</p><p>${props.title}</p></div><div class="intel-card-footer"><span style="color:#ef4444">DEPTH: ${props.depth} km</span><span>MAG: ${props.mag}</span></div></div>`;
-                }
-
-                if (htmlContent) {
-                    popup.setLngLat(coordinates).setHTML(htmlContent).addTo(m);
-                }
-            });
-
-            m.on('mouseleave', layerId, () => {
-                m.getCanvas().style.cursor = '';
-                popup.remove();
-            });
-        };
-
-        setupInteractiveLayer('assets-nuclear');
-        setupInteractiveLayer('assets-base');
-        setupInteractiveLayer('events-point');
-        setupInteractiveLayer('acled-kinetic');
-        setupInteractiveLayer('webcams-point');
-        setupInteractiveLayer('seismic-kinetic');
-
-        // Click-to-open webcam viewer
-        m.on('click', 'webcams-point', (e: any) => {
-            const props = e.features?.[0]?.properties;
-            if (props?.playerUrl) window.open(props.playerUrl, '_blank', 'width=800,height=600');
-        });
-
-        // Click on GDELT event → show detailed article popup
-        m.on('click', 'events-point', (e: any) => {
-            if (!e.features || e.features.length === 0) return;
-            const props = e.features[0].properties;
-            const coords = e.features[0].geometry.coordinates.slice();
-            const imgHtml = props.imageUrl ? `<img src="${proxyImg(props.imageUrl)}" style="width:100%;height:120px;object-fit:cover;border-bottom:1px solid rgba(34,197,94,0.1)" onerror="this.style.display='none'" />` : '';
-            new maplibregl.Popup({ className: 'tactical-popup', closeButton: true, maxWidth: '320px' })
-                .setLngLat(coords)
-                .setHTML(`
+                const coords = e.features[0].geometry.coordinates.slice();
+                const imgHtml = props.imageUrl ? `<img src="${proxyImg(props.imageUrl)}" style="width:100%;height:120px;object-fit:cover;border-bottom:1px solid rgba(34,197,94,0.1)" onerror="this.style.display='none'" />` : '';
+                new maplibregl.Popup({ className: 'tactical-popup', closeButton: true, maxWidth: '320px' })
+                    .setLngLat(coords)
+                    .setHTML(`
                 <div class="intel-card">
                     ${imgHtml}
                     <div style="padding:10px">
@@ -342,27 +366,27 @@ export function initMap() {
                     </div>
                 </div>
             `)
-                .addTo(m);
-        });
+                    .addTo(m);
+            });
 
-        // Cursor pointers
-        m.on('mouseenter', 'events-point', () => { m.getCanvas().style.cursor = 'pointer'; });
-        m.on('mouseleave', 'events-point', () => { m.getCanvas().style.cursor = ''; });
-        m.on('mouseenter', 'fires-cluster', () => { m.getCanvas().style.cursor = 'pointer'; });
-        m.on('mouseleave', 'fires-cluster', () => { m.getCanvas().style.cursor = ''; });
+            // Cursor pointers
+            m.on('mouseenter', 'events-point', () => { m.getCanvas().style.cursor = 'pointer'; });
+            m.on('mouseleave', 'events-point', () => { m.getCanvas().style.cursor = ''; });
+            m.on('mouseenter', 'fires-cluster', () => { m.getCanvas().style.cursor = 'pointer'; });
+            m.on('mouseleave', 'fires-cluster', () => { m.getCanvas().style.cursor = ''; });
 
-        // Flight airplane click popup
-        m.on('mouseenter', 'flights-point', () => { m.getCanvas().style.cursor = 'pointer'; });
-        m.on('mouseleave', 'flights-point', () => { m.getCanvas().style.cursor = ''; });
-        m.on('click', 'flights-point', (e: any) => {
-            if (!e.features || e.features.length === 0) return;
-            const f = e.features[0];
-            const p = f.properties;
-            const coords = f.geometry.coordinates;
-            const typeLabel = p.type === 'military' ? '🔴 MILITARY' : p.type === 'sigint' ? '🟣 SIGINT' : p.type === 'government' ? '🟡 GOV' : '🔵 CIVILIAN';
-            new maplibregl.Popup({ className: 'tactical-popup', closeButton: true, maxWidth: '260px' })
-                .setLngLat(coords)
-                .setHTML(`
+            // Flight airplane click popup
+            m.on('mouseenter', 'flights-point', () => { m.getCanvas().style.cursor = 'pointer'; });
+            m.on('mouseleave', 'flights-point', () => { m.getCanvas().style.cursor = ''; });
+            m.on('click', 'flights-point', (e: any) => {
+                if (!e.features || e.features.length === 0) return;
+                const f = e.features[0];
+                const p = f.properties;
+                const coords = f.geometry.coordinates;
+                const typeLabel = p.type === 'military' ? '🔴 MILITARY' : p.type === 'sigint' ? '🟣 SIGINT' : p.type === 'government' ? '🟡 GOV' : '🔵 CIVILIAN';
+                new maplibregl.Popup({ className: 'tactical-popup', closeButton: true, maxWidth: '260px' })
+                    .setLngLat(coords)
+                    .setHTML(`
                     <div style="padding:10px;">
                         <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:6px;font-family:var(--font-mono);">${p.callsign || 'N/A'}</div>
                         <div style="font-size:10px;color:var(--text-secondary);line-height:1.6;">
@@ -373,30 +397,52 @@ export function initMap() {
                         </div>
                     </div>
                 `)
-                .addTo(m);
+                    .addTo(m);
+            });
+
+            // Initialize panel toggle system
+            initPanelToggles();
+            initAIChat();
+            initWallet();
+
+            updateMapSources();
+
+            // Force MapLibre into continuous 120fps repaint mode
+            startContinuousRepaint();
+
+            // ─── Country Profile Click ──────────────────────────
+            m.on('click', 'country-flag-labels', (e: any) => {
+                if (!e.features || e.features.length === 0) return;
+                const iso = e.features[0].properties.iso;
+                const country = COUNTRY_FLAGS.find(c => c.iso === iso);
+                if (!country) return;
+                showCountryProfile(country, m);
+            });
+            m.on('mouseenter', 'country-flag-labels', () => { m.getCanvas().style.cursor = 'pointer'; });
+            m.on('mouseleave', 'country-flag-labels', () => { m.getCanvas().style.cursor = ''; });
+
+            applyMapLayers(m, container as HTMLElement);
         });
-
-        // Initialize panel toggle system
-        initPanelToggles();
-        initAIChat();
-        initWallet();
-
-        updateMapSources();
-
-        // Force MapLibre into continuous 120fps repaint mode
-        startContinuousRepaint();
-
-        // ─── Country Profile Click ──────────────────────────
-        m.on('click', 'country-flag-labels', (e: any) => {
-            if (!e.features || e.features.length === 0) return;
-            const iso = e.features[0].properties.iso;
-            const country = COUNTRY_FLAGS.find(c => c.iso === iso);
-            if (!country) return;
-            showCountryProfile(country, m);
-        });
-        m.on('mouseenter', 'country-flag-labels', () => { m.getCanvas().style.cursor = 'pointer'; });
-        m.on('mouseleave', 'country-flag-labels', () => { m.getCanvas().style.cursor = ''; });
     });
+}
+
+function applyMapLayers(m: any, container: HTMLElement) {
+    const cfgLayers = (container.dataset.cfglayers || 'events').split(',');
+
+    const setVisibility = (layerId: string, isVisible: boolean) => {
+        if (m.getLayer(layerId)) m.setLayoutProperty(layerId, 'visibility', isVisible ? 'visible' : 'none');
+    };
+
+    const isAll = cfgLayers.includes('all');
+
+    setVisibility('fires-heat', isAll || cfgLayers.includes('fires'));
+    setVisibility('flights-point', isAll || cfgLayers.includes('flights'));
+    setVisibility('events-heat', isAll || cfgLayers.includes('events'));
+    setVisibility('events-point', isAll || cfgLayers.includes('events'));
+    setVisibility('assets-nuclear', isAll || cfgLayers.includes('assets'));
+    setVisibility('assets-base', isAll || cfgLayers.includes('assets'));
+    setVisibility('acled-kinetic', isAll || cfgLayers.includes('acled'));
+    setVisibility('seismic-kinetic', isAll || cfgLayers.includes('seismic'));
 }
 
 // ─── Country Profile Modal ──────────────────────────────────

@@ -30,8 +30,15 @@
 - [x] ~~**Detachable containers**~~ — ✅ DONE. Allow containers to be "popped out" into separate browser windows for multi-monitor setups.
 
 ## 🟡 Priority: Deploy
-- [ ] **Deploy canvas rewrite to production** — Push latest canvas changes to `root@202.155.132.139:/opt/starwar/`. Test container dragging, minimap, and layout persistence on production.
-- [ ] **Deploy user accounts to production** — Set `GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET` env vars on `root@202.155.132.139:/opt/starwar/`. OAuth callback URL must be configured on GitHub as `https://warmaps.live/api/auth/github/callback`. Test login flow on production.
+- [x] ~~**Deploy canvas rewrite to production**~~ — ✅ DONE. Push latest canvas changes to `root@202.155.132.139:/opt/starwar/`. Test container dragging, minimap, and layout persistence on production.
+- [x] ~~**Deploy user accounts to production**~~ — ✅ Removed. Wallet connection handles identity; GitHub auth no longer needed.
+
+## 🔴 Priority: Modular Widgets Pipeline
+- [x] ~~**Game-engine style widget folder**~~ — ✅ DONE. At the bottom of the screen, instead of a news feed, implement a "folder" or "tray" of boilerplate widgets that can be dragged and dropped onto the canvas.
+- [x] ~~**Declutter Default Map**~~ — ✅ DONE. Removed the cluttered default map with streaming images. Map is now just a boilerplate widget.
+- [x] ~~**Configurable Map Widgets**~~ — ✅ DONE. Added multi-instance support to MapLibre initialization, added layers config drop-down.
+- [x] ~~**Isolated News Feed Widgets**~~ — ✅ DONE. Re-wired reRenderWidget for news to support multiple containers.
+- [x] ~~**Isolated Telegram Widgets**~~ — ✅ DONE. Telegram channels split into individual widgets, configured per channel via config gear.
 
 ## 📝 Architecture Notes
 - **Production**: `root@202.155.132.139:/opt/starwar/`
