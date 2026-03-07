@@ -676,6 +676,113 @@ export function initCanvas() {
 
     // Initial render
     updateMinimap();
+
+    // ─── Keyboard shortcuts ─────────────────────────────
+    initKeyboardShortcuts();
+}
+
+// ─── Keyboard Shortcuts ─────────────────────────────────
+
+function initKeyboardShortcuts() {
+    let helpVisible = false;
+
+    window.addEventListener('keydown', (e) => {
+        // Skip when typing in inputs
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        if ((e.target as HTMLElement)?.isContentEditable) return;
+
+        switch (e.key.toLowerCase()) {
+            case 'f':
+                e.preventDefault();
+                fitAllContainers();
+                break;
+
+            case 'a':
+                if (!e.ctrlKey && !e.metaKey) {
+                    e.preventDefault();
+                    autoArrangeContainers();
+                }
+                break;
+
+            case 'r':
+                e.preventDefault();
+                if (_gd) {
+                    const s = _gd.state.getSnapshot();
+                    _gd.state.set(1, s.offsetX, s.offsetY); // Reset zoom to 1:1
+                }
+                break;
+
+            case '0':
+                e.preventDefault();
+                if (_gd) _gd.state.set(1, 0, 0); // Reset pan + zoom to origin
+                break;
+
+            case '?':
+            case '/':
+                if (e.key === '/' && !e.shiftKey) break; // Only ? (Shift+/)
+                e.preventDefault();
+                toggleShortcutHelp();
+                break;
+        }
+    });
+
+    function toggleShortcutHelp() {
+        const existing = document.getElementById('wm-shortcut-help');
+        if (existing) {
+            existing.remove();
+            helpVisible = false;
+            return;
+        }
+        helpVisible = true;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'wm-shortcut-help';
+        overlay.style.cssText = `
+            position: fixed; inset: 0; z-index: 99999;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+            animation: fadeIn 0.15s ease-out;
+        `;
+        overlay.onclick = (ev) => {
+            if (ev.target === overlay) { overlay.remove(); helpVisible = false; }
+        };
+
+        overlay.innerHTML = `
+            <div style="
+                background: rgba(15, 23, 42, 0.95);
+                border: 1px solid rgba(100, 116, 139, 0.25);
+                border-radius: 16px;
+                padding: 28px 36px;
+                max-width: 420px;
+                color: #e2e8f0;
+                font-family: var(--font-mono, 'SF Mono', monospace);
+                box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            ">
+                <div style="font-size: 14px; font-weight: 700; color: #22d3ee; margin-bottom: 16px; letter-spacing: 2px;">
+                    ⌨ KEYBOARD SHORTCUTS
+                </div>
+                <div style="display: grid; grid-template-columns: 50px 1fr; gap: 8px 12px; font-size: 13px;">
+                    <kbd style="background: rgba(51,65,85,0.6); padding: 2px 8px; border-radius: 4px; text-align: center; color: #67e8f9; font-weight: 600;">F</kbd>
+                    <span>Fit all containers to view</span>
+                    <kbd style="background: rgba(51,65,85,0.6); padding: 2px 8px; border-radius: 4px; text-align: center; color: #67e8f9; font-weight: 600;">A</kbd>
+                    <span>Auto-arrange grid layout</span>
+                    <kbd style="background: rgba(51,65,85,0.6); padding: 2px 8px; border-radius: 4px; text-align: center; color: #67e8f9; font-weight: 600;">R</kbd>
+                    <span>Reset zoom to 1:1</span>
+                    <kbd style="background: rgba(51,65,85,0.6); padding: 2px 8px; border-radius: 4px; text-align: center; color: #67e8f9; font-weight: 600;">0</kbd>
+                    <span>Reset pan + zoom to origin</span>
+                    <kbd style="background: rgba(51,65,85,0.6); padding: 2px 8px; border-radius: 4px; text-align: center; color: #67e8f9; font-weight: 600;">?</kbd>
+                    <span>Toggle this help</span>
+                </div>
+                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(100,116,139,0.2); font-size: 11px; color: #64748b;">
+                    Hold <kbd style="background: rgba(51,65,85,0.4); padding: 1px 4px; border-radius: 3px; color: #94a3b8;">Shift</kbd> while dragging → snap to grid  ·
+                    <kbd style="background: rgba(51,65,85,0.4); padding: 1px 4px; border-radius: 3px; color: #94a3b8;">Scroll</kbd> → zoom  ·
+                    <kbd style="background: rgba(51,65,85,0.4); padding: 1px 4px; border-radius: 3px; color: #94a3b8;">Drag</kbd> → pan
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    }
 }
 
 // ─── Bring to front ─────────────────────────────────────
