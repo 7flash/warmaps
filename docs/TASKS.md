@@ -93,12 +93,12 @@
 
 ## 🔴 Priority: Fix
 - [ ] **DNS warmaps.org** — A record still points to Squarespace. Needs registrar login to set A → `202.155.132.139`.
-- [ ] **Telegram auto-reconnect on deploy** — After a server restart, Telegram session sometimes hangs. Add health check + auto-reconnect in `src/telegram.ts`.
+- [x] ~~**Telegram auto-reconnect on deploy**~~ — ✅ DONE. Added heartbeat that checks connection every 5m via `getMe()`, auto-reconnects if session drops. Deployed to production.
 
 ## 🟡 Priority: Improve
-- [ ] **Container resize extraction** — Extract the 40-line resize logic from warmaps-canvas.ts into `container-resize.ts` for consistency with other extracted modules.
+- [x] ~~**Container resize extraction**~~ — ✅ DONE. Extracted the 40-line resize logic from warmaps-canvas.ts into `container-resize.ts` for consistency with other extracted modules.
 - [ ] **E2E browser tests** — Add Playwright tests for critical user flows: boot sequence, drag container, add widget from tray, command palette (Ctrl+K).
-- [ ] **Performance monitoring** — Add a `/api/metrics` endpoint exposing response times per route, active WebSocket connections, and Telegram feed health as Prometheus-compatible metrics.
+- [x] ~~**Performance monitoring**~~ — ✅ DONE. Added a `/api/metrics` endpoint exposing response times per route, active WebSocket connections, and Telegram feed health as Prometheus-compatible metrics.
 - [ ] **Melina compiled output** — Publish melina with `.d.ts` declarations so downstream consumers (gxai) don't get 45 node_modules type errors from raw `.ts` source.
 
 ## 🟢 Priority: Features

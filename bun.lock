@@ -11,15 +11,16 @@
         "bs58": "^6.0.0",
         "fflate": "^0.8.2",
         "galaxydraw": "^0.1.0",
-        "jsx-ai": "^0.1.1",
+        "jsx-ai": "0.1.1",
         "maplibre-gl": "^5.19.0",
         "maplibre-gl-temporal-control": "^1.2.0",
         "measure-fn": "^3.10.2",
-        "melina": "2.3.2",
+        "melina": "^2.3.4",
         "sqlite-zod-orm": "3.26.1",
         "telegram": "^2.26.22",
       },
       "devDependencies": {
+        "@playwright/test": "^1.58.2",
         "@types/bn.js": "^5.2.0",
         "@types/bun": "latest",
       },
@@ -76,6 +77,8 @@
     "@noble/curves": ["@noble/curves@1.9.7", "", { "dependencies": { "@noble/hashes": "1.8.0" } }, "sha512-gbKGcRUYIjA3/zCCNaWDciTMFI0dCkvou3TL8Zmy5Nc7sJ47a0jtOeZoTaMxkuqRo9cRhjOdZJXegxYE5FN/xw=="],
 
     "@noble/hashes": ["@noble/hashes@1.8.0", "", {}, "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="],
+
+    "@playwright/test": ["@playwright/test@1.58.2", "", { "dependencies": { "playwright": "1.58.2" }, "bin": { "playwright": "cli.js" } }, "sha512-akea+6bHYBBfA9uQqSYmlJXn61cTa+jbO87xVLCWbTqbWadRVmhxlXATaOjOgcBaWU4ePo0wB41KMFv3o35IXA=="],
 
     "@pump-fun/pump-swap-sdk": ["@pump-fun/pump-swap-sdk@1.14.1", "", { "dependencies": { "@coral-xyz/anchor": "^0.31.1", "@solana/spl-token": "^0.4.9", "@solana/web3.js": "^1.98.2", "bn.js": "^5.2.2", "bs58": "^6.0.0" } }, "sha512-U3vFL1Plhl/sBYUAHQhrFkmzXLxJp/gmuqHDn+odgwC1cRj15DJLVlRxnksGBMnf8dlScX9I+DdVng6rGbUnzg=="],
 
@@ -255,6 +258,8 @@
 
     "fraction.js": ["fraction.js@5.3.4", "", {}, "sha512-1X1NTtiJphryn/uLQz3whtY6jK3fTqoE3ohKs0tT+Ujr1W59oopxmoEh7Lu5p6vBaPbgoM0bzveAW4Qi5RyWDQ=="],
 
+    "fsevents": ["fsevents@2.3.2", "", { "os": "darwin" }, "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA=="],
+
     "galaxydraw": ["galaxydraw@0.1.0", "", {}, "sha512-CaDIqj7htm5dYPhLTuFXwYawqYYDAox+G1Frx2/6VIUAoMynMVeC/r0DR+5Q+iOfP6Gb3b6X7IsWJOqiLfmmPg=="],
 
     "get-stream": ["get-stream@6.0.1", "", {}, "sha512-ts6Wi+2j3jQjqi70w5AlN8DFnkSwC+MqmxEzdEALB2qXZYV3X/b1CTfgPLGJNMeAWxdPfU8FO1ms3NUfaHCPYg=="],
@@ -321,7 +326,7 @@
 
     "measure-fn": ["measure-fn@3.10.2", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-wNDbSwDn3gDMI1sizFyr/31rt546cGcM4utSQt8ruiUKNJ/134bSN0okOqjzZw/AE5AYGB6QJTShlYXAzddmiQ=="],
 
-    "melina": ["melina@2.3.2", "", { "dependencies": { "@tailwindcss/postcss": "^4.1.10", "autoprefixer": "^10.4.21", "measure-fn": "3.10.0", "postcss": "^8.5.6", "ts-dedent": "^2.2.0" }, "bin": { "melina": "bin/melina.ts" } }, "sha512-RNNi5o9mCA5XMDwu83iNBsrmnfJEzO63hKjYzVL7zjMxL4bld0au4rol5Qe/Os+fFLW8HV6gnELx07fDBi7U0g=="],
+    "melina": ["melina@2.3.4", "", { "dependencies": { "@tailwindcss/postcss": "^4.1.10", "autoprefixer": "^10.4.21", "measure-fn": "3.10.0", "postcss": "^8.5.6", "ts-dedent": "^2.2.0" }, "bin": { "melina": "bin/melina.ts" } }, "sha512-NMJRe6l/IUC+uZGQ26jGxFVcy9xI4lIwKPAmWzIPKlnTa7LrqdleWXsrTh1N21ZdppVpcowWzZCs9TyyeC0xnw=="],
 
     "mime": ["mime@3.0.0", "", { "bin": { "mime": "cli.js" } }, "sha512-jSCU7/VB1loIWBZe14aEYHU/+1UMEHoaO7qxCOVJOw9GgH72VAWppxNcjU+x9a2k3GSIBXNKxXQFqRvvZ7vr3A=="],
 
@@ -350,6 +355,10 @@
     "pbf": ["pbf@4.0.1", "", { "dependencies": { "resolve-protobuf-schema": "^2.1.0" }, "bin": { "pbf": "bin/pbf" } }, "sha512-SuLdBvS42z33m8ejRbInMapQe8n0D3vN/Xd5fmWM3tufNgRQFBpaW2YVJxQZV4iPNqb0vEFvssMEo5w9c6BTIA=="],
 
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
+
+    "playwright": ["playwright@1.58.2", "", { "dependencies": { "playwright-core": "1.58.2" }, "optionalDependencies": { "fsevents": "2.3.2" }, "bin": { "playwright": "cli.js" } }, "sha512-vA30H8Nvkq/cPBnNw4Q8TWz1EJyqgpuinBcHET0YVJVFldr8JDNiU9LaWAE1KqSkRYazuaBhTpB5ZzShOezQ6A=="],
+
+    "playwright-core": ["playwright-core@1.58.2", "", { "bin": { "playwright-core": "cli.js" } }, "sha512-yZkEtftgwS8CsfYo7nm0KE8jsvm6i/PTgVtB8DL726wNf6H2IMsDuxCpJj59KDaxCtSnrWan2AeDqM7JBaultg=="],
 
     "postcss": ["postcss@8.5.6", "", { "dependencies": { "nanoid": "^3.3.11", "picocolors": "^1.1.1", "source-map-js": "^1.2.1" } }, "sha512-3Ybi1tAuwAP9s0r1UQ2J4n5Y0G05bJkpUIO0/bI9MhwmD70S5aTWbXGBwxHrelT+XM1k6dM0pk+SwNkpTRN7Pg=="],
 

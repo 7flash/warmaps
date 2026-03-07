@@ -1,0 +1,7 @@
+Cinematic boot sequence progresses successfully 
+ [31mTest timeout of 30000ms exceeded.[39m
+Drag and resize container 
+ Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+Expected: > [32m730[39m
+Received:   [31m720[39m

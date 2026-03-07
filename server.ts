@@ -68,106 +68,145 @@ const router = createAppRouter({
 
 // ─── Bun Server with WebSocket ──────────────────────────────
 
+const routeMetrics = new Map<string, { count: number; sum: number }>();
+
 const server = Bun.serve({
     port,
     idleTimeout: 60, // seconds — allow slow external APIs (GDELT, FIRMS)
     async fetch(req, server) {
+        const start = performance.now();
         const url = new URL(req.url);
 
-        // SEO: serve robots.txt and sitemap.xml at root
-        if (url.pathname === '/robots.txt') {
-            return Response.redirect(new URL('/api/robots.txt', req.url), 301);
-        }
-        if (url.pathname === '/sitemap.xml') {
-            return Response.redirect(new URL('/api/sitemap.xml', req.url), 301);
+        if (url.pathname === '/api/metrics') {
+            const mem = process.memoryUsage();
+            let m = `# HELP warmaps_memory_rss_bytes Resident set size\n# TYPE warmaps_memory_rss_bytes gauge\nwarmaps_memory_rss_bytes ${mem.rss}\n\n`;
+            m += `# HELP warmaps_websocket_connections Active WebSocket connections\n# TYPE warmaps_websocket_connections gauge\n`;
+            m += `warmaps_websocket_connections{room="chat"} ${server.subscriberCount('chat')}\n`;
+            m += `warmaps_websocket_connections{room="sync"} ${syncPeers.size}\n\n`;
+            const tgStatus = tg.getStatus();
+            m += `# HELP warmaps_telegram_connected Telegram OSINT connection status\n# TYPE warmaps_telegram_connected gauge\n`;
+            m += `warmaps_telegram_connected ${tgStatus.status === 'connected' ? 1 : 0}\n\n`;
+            m += `# HELP warmaps_http_requests_total Total number of HTTP requests\n# TYPE warmaps_http_requests_total counter\n`;
+            for (const [route, stats] of routeMetrics.entries()) {
+                const [method, path] = route.split(' ');
+                m += `warmaps_http_requests_total{method="${method}",path="${path}"} ${stats.count}\n`;
+            }
+            m += `\n# HELP warmaps_http_request_duration_ms Total sum of HTTP request durations\n# TYPE warmaps_http_request_duration_ms summary\n`;
+            for (const [route, stats] of routeMetrics.entries()) {
+                const [method, path] = route.split(' ');
+                m += `warmaps_http_request_duration_ms{method="${method}",path="${path}"} ${stats.sum.toFixed(2)}\n`;
+            }
+            return new Response(m, { headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-cache' } });
         }
 
-        // WebSocket upgrade for chat
-        if (url.pathname === '/ws/chat') {
-            const cookie = req.headers.get('cookie') || '';
-            const sessionMatch = cookie.match(/wm_session=([a-f0-9]+)/);
-            let username = generateGuestName();
-            let isAuthenticated = false;
-            if (sessionMatch) {
-                const user = getSessionUser(sessionMatch[1]);
-                if (user) {
-                    username = user.displayName || user.username;
-                    isAuthenticated = true;
+        const handle = async () => {
+
+            // SEO: serve robots.txt and sitemap.xml at root
+            if (url.pathname === '/robots.txt') {
+                return Response.redirect(new URL('/api/robots.txt', req.url), 301);
+            }
+            if (url.pathname === '/sitemap.xml') {
+                return Response.redirect(new URL('/api/sitemap.xml', req.url), 301);
+            }
+
+            // WebSocket upgrade for chat
+            if (url.pathname === '/ws/chat') {
+                const cookie = req.headers.get('cookie') || '';
+                const sessionMatch = cookie.match(/wm_session=([a-f0-9]+)/);
+                let username = generateGuestName();
+                let isAuthenticated = false;
+                if (sessionMatch) {
+                    const user = getSessionUser(sessionMatch[1]);
+                    if (user) {
+                        username = user.displayName || user.username;
+                        isAuthenticated = true;
+                    }
                 }
+                const upgraded = server.upgrade(req, {
+                    data: { channel: 'chat', username, isAuthenticated } as any,
+                });
+                if (upgraded) return undefined as any;
+                return new Response('WebSocket upgrade failed', { status: 400 });
             }
-            const upgraded = server.upgrade(req, {
-                data: { channel: 'chat', username, isAuthenticated } as any,
-            });
-            if (upgraded) return undefined as any;
-            return new Response('WebSocket upgrade failed', { status: 400 });
-        }
 
-        // WebSocket upgrade for collaborative sync
-        if (url.pathname === '/ws/sync') {
-            const room = url.searchParams.get('room') || 'default';
-            const cookie = req.headers.get('cookie') || '';
-            const sessionMatch = cookie.match(/wm_session=([a-f0-9]+)/);
-            let peerName = generateGuestName();
-            if (sessionMatch) {
-                const user = getSessionUser(sessionMatch[1]);
-                if (user) peerName = user.displayName || user.username;
+            // WebSocket upgrade for collaborative sync
+            if (url.pathname === '/ws/sync') {
+                const room = url.searchParams.get('room') || 'default';
+                const cookie = req.headers.get('cookie') || '';
+                const sessionMatch = cookie.match(/wm_session=([a-f0-9]+)/);
+                let peerName = generateGuestName();
+                if (sessionMatch) {
+                    const user = getSessionUser(sessionMatch[1]);
+                    if (user) peerName = user.displayName || user.username;
+                }
+                const peerId = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+                const peerColor = SYNC_COLORS[syncColorIdx++ % SYNC_COLORS.length];
+                syncPeers.set(peerId, { name: peerName, color: peerColor });
+
+                const upgraded = server.upgrade(req, {
+                    data: { channel: 'sync', room: `sync:${room}`, peerId, peerName, peerColor } as any,
+                });
+                if (upgraded) return undefined as any;
+                return new Response('WebSocket upgrade failed', { status: 400 });
             }
-            const peerId = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-            const peerColor = SYNC_COLORS[syncColorIdx++ % SYNC_COLORS.length];
-            syncPeers.set(peerId, { name: peerName, color: peerColor });
 
-            const upgraded = server.upgrade(req, {
-                data: { channel: 'sync', room: `sync:${room}`, peerId, peerName, peerColor } as any,
-            });
-            if (upgraded) return undefined as any;
-            return new Response('WebSocket upgrade failed', { status: 400 });
-        }
-
-        // Serve built assets (CSS/JS) from melina's build cache
-        const asset = (builtAssets as any)[url.pathname];
-        if (asset) {
-            return new Response(asset.content, {
-                headers: {
-                    'Content-Type': asset.contentType,
-                    'Cache-Control': isDev ? 'no-cache' : 'public, max-age=31536000, immutable',
-                },
-            });
-        }
-
-        // Skip verbose logging for high-frequency polling routes
-        const QUIET_ROUTES = ['/api/ping', '/api/flights', '/api/news', '/api/fires',
-            '/api/markets', '/api/gdelt', '/api/seismic', '/api/acled', '/api/pumpfun',
-            '/api/mcap', '/api/telegram/status'];
-        const isQuiet = QUIET_ROUTES.includes(url.pathname);
-
-        if (isQuiet) {
-            // No-op measure that still executes and returns the fn result
-            const noopMeasure: any = (_label: any, fn?: any) => fn ? fn(noopMeasure) : undefined;
-            noopMeasure.assert = (_label: any, fn: any) => fn ? fn(noopMeasure) : undefined;
-            try {
-                return await router(req, noopMeasure) as Response;
-            } catch (error: any) {
-                console.error('[WARMAPS Error]', url.pathname, error?.message);
-                return new Response('Internal Server Error', { status: 500 });
-            }
-        }
-
-        // Only log non-polling requests (page loads, rare API calls)
-        const response = await measure(
-            { label: `${req.method} ${url.pathname}` },
-            async (m: any) => {
-                return await router(req, m);
-            },
-            (error: any) => {
-                console.error('[WARMAPS Error]', error);
-                return new Response(`<pre>${error?.stack || error}</pre>`, {
-                    status: 500,
-                    headers: { 'Content-Type': 'text/html' },
+            // Serve built assets (CSS/JS) from melina's build cache
+            const asset = (builtAssets as any)[url.pathname];
+            if (asset) {
+                return new Response(asset.content, {
+                    headers: {
+                        'Content-Type': asset.contentType,
+                        'Cache-Control': isDev ? 'no-cache' : 'public, max-age=31536000, immutable',
+                    },
                 });
             }
-        );
 
-        return response as Response;
+            // Skip verbose logging for high-frequency polling routes
+            const QUIET_ROUTES = ['/api/ping', '/api/flights', '/api/news', '/api/fires',
+                '/api/markets', '/api/gdelt', '/api/seismic', '/api/acled', '/api/pumpfun',
+                '/api/mcap', '/api/telegram/status'];
+            const isQuiet = QUIET_ROUTES.includes(url.pathname);
+
+            if (isQuiet) {
+                // No-op measure that still executes and returns the fn result
+                const noopMeasure: any = (_label: any, fn?: any) => fn ? fn(noopMeasure) : undefined;
+                noopMeasure.assert = (_label: any, fn: any) => fn ? fn(noopMeasure) : undefined;
+                try {
+                    return await router(req, noopMeasure) as Response;
+                } catch (error: any) {
+                    console.error('[WARMAPS Error]', url.pathname, error?.message);
+                    return new Response('Internal Server Error', { status: 500 });
+                }
+            }
+
+            // Only log non-polling requests (page loads, rare API calls)
+            const response = await measure(
+                { label: `${req.method} ${url.pathname}` },
+                async (m: any) => {
+                    return await router(req, m);
+                },
+                (error: any) => {
+                    console.error('[WARMAPS Error]', error);
+                    return new Response(`<pre>${error?.stack || error}</pre>`, {
+                        status: 500,
+                        headers: { 'Content-Type': 'text/html' },
+                    });
+                }
+            );
+
+            return response as Response;
+        };
+
+        const response = await handle();
+        if (response) {
+            const duration = performance.now() - start;
+            const routeKey = `${req.method} ${url.pathname}`;
+            const metric = routeMetrics.get(routeKey) || { count: 0, sum: 0 };
+            metric.count++;
+            metric.sum += duration;
+            routeMetrics.set(routeKey, metric);
+        }
+        return response as any;
     },
     websocket: {
         open(ws: any) {

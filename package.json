@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/bn.js": "^5.2.0",
     "@types/bun": "latest"
   },
@@ -21,7 +22,7 @@
     "maplibre-gl": "^5.19.0",
     "maplibre-gl-temporal-control": "^1.2.0",
     "measure-fn": "^3.10.2",
-    "melina": "2.3.2",
+    "melina": "^2.3.4",
     "sqlite-zod-orm": "3.26.1",
     "telegram": "^2.26.22"
   }
