@@ -1,8 +1,0 @@
-[Melina] Uncaught Exception (server kept alive):
-Error: Failed to start server. Is port 4444 in use?
-    at serve (unknown)
-    at /opt/starwar/server.ts:62:20
-    at moduleEvaluation (native:1:11)
-    at moduleEvaluation (native:1:11)
-    at loadAndEvaluateModule (native:2)
-    at processTicksAndRejections (native:7:39)

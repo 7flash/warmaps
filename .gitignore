@@ -40,6 +40,10 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .data/
 
 docs/
-.docs
-# Internal docs
 .docs/
+
+# Temp/debug files
+*.txt
+!README.txt
+test.ts
+server_config.toml
