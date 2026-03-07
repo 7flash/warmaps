@@ -562,7 +562,6 @@ export async function autoConnect() {
     const phone = process.env.TG_PHONE
     if (!appId || !appHash || !phone) return
 
-    // Check for existing session file
     const sessionStr = loadSession(phone)
     if (!sessionStr) {
         console.log('[telegram] No saved session for auto-connect')
@@ -573,10 +572,65 @@ export async function autoConnect() {
     const result = await sendCode(Number(appId), appHash, phone)
     if (result.ok && result.restored) {
         startPolling()
+        startHeartbeat()
         console.log(`[telegram] ✅ Auto-connected as @${state.me?.username || phone}`)
     } else {
         console.log('[telegram] Auto-connect failed — session expired, need manual auth')
     }
+}
+
+// ── Connection Heartbeat ──
+
+const HEARTBEAT_INTERVAL = 5 * 60_000 // 5 minutes
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null
+let lastHeartbeat: number = 0
+let heartbeatStatus: 'ok' | 'reconnecting' | 'failed' = 'ok'
+
+export function getHeartbeatStatus() {
+    return { status: heartbeatStatus, lastCheck: lastHeartbeat }
+}
+
+export function startHeartbeat() {
+    if (heartbeatTimer) clearInterval(heartbeatTimer)
+
+    heartbeatTimer = setInterval(async () => {
+        if (state.status !== 'connected' || !state.client) return
+        lastHeartbeat = Date.now()
+
+        try {
+            await state.client.getMe()
+            heartbeatStatus = 'ok'
+        } catch (err: any) {
+            console.error('[telegram] Heartbeat failed:', err.message)
+            heartbeatStatus = 'reconnecting'
+
+            try {
+                const appId = process.env.TG_APP_ID
+                const appHash = process.env.TG_APP_HASH
+                const phone = process.env.TG_PHONE
+                if (!appId || !appHash || !phone) { heartbeatStatus = 'failed'; return }
+
+                stopPolling()
+                const result = await sendCode(Number(appId), appHash, phone)
+                if (result.ok && result.restored) {
+                    startPolling()
+                    heartbeatStatus = 'ok'
+                    console.log('[telegram] ✅ Heartbeat reconnected')
+                } else {
+                    heartbeatStatus = 'failed'
+                    console.error('[telegram] Heartbeat reconnect failed — session expired')
+                }
+            } catch (e: any) {
+                heartbeatStatus = 'failed'
+                console.error('[telegram] Heartbeat reconnect error:', e.message)
+            }
+        }
+    }, HEARTBEAT_INTERVAL)
+    console.log(`[telegram] Heartbeat started (every ${HEARTBEAT_INTERVAL / 60_000}m)`)
+}
+
+export function stopHeartbeat() {
+    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null }
 }
 
 // Auto-connect on module load (non-blocking)
