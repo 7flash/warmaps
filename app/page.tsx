@@ -76,8 +76,8 @@ export default function Page() {
                     <button id="wm-sync-maps" class="top-btn" title="Sync Map Pan/Zoom (Off)">🔓</button>
                     <button id="wm-terrain-toggle" class="top-btn" title="Toggle 3D Terrain">🏔️</button>
                     <button id="wm-sync-collab" class="top-btn" title="War Room Sync (Off)">👤</button>
-                    <button id="wm-fit-all" class="top-btn" title="Fit all containers">⊞</button>
-                    <button id="wm-auto-arrange" class="top-btn" title="Auto-arrange layout">▦</button>
+                    <button id="wm-fit-all" class="top-btn" title="Fit all containers (F)">⊞<span class="shortcut-badge">F</span></button>
+                    <button id="wm-auto-arrange" class="top-btn" title="Auto-arrange layout (A)">▦<span class="shortcut-badge">A</span></button>
                     <span class="separator">│</span>
 
                     <button id="wallet-btn" class="wallet-btn" title="Connect Solana Wallet">
