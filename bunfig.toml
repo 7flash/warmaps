@@ -1,0 +1,4 @@
+[test]
+# Playwright E2E tests live in tests/e2e.playwright.ts
+# Run separately with: npx playwright test
+# The .playwright extension prevents bun test from picking them up
