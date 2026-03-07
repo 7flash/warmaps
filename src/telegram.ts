@@ -408,13 +408,48 @@ function extractLocation(text: string): TelegramAlert['location'] | undefined {
 
 function classifyThreat(text: string): TelegramAlert['threatLevel'] {
     const lower = text.toLowerCase()
-    if (/\b(explosion|missile|strike|bomb|intercept|nuclear|wmd|chemical)\b/.test(lower))
+    if (/\b(explosion|missile\s+hit|strike\s+on|nuclear|wmd|chemical\s+attack|casualt|killed|dead|intercept(?:ed|ion)|ballistic|hypersonic|cruise\s+missile)/.test(lower))
         return 'critical'
-    if (/\b(attack|shoot|drone|siren|alert|launch|fires?|escalat|raid|shelling)\b/.test(lower))
+    if (/\b(attack|shoot|drone\s+strike|siren|alert|launch|fire[sd]?\s+(?:at|on|upon)|raid|shell(?:ing|ed)|bomb(?:ing|ard)|air\s*strike|rocket|rpg|torpedo|ambush|IED|VBIED|sabotage)/.test(lower))
         return 'high'
-    if (/\b(troops|deploy|military|convoy|naval|airspace|closed|forces|mobiliz)\b/.test(lower))
+    if (/\b(troop|deploy|military|convoy|naval|airspace|forces|mobiliz|exercise|buildup|standoff|blockade|sanction|embargo|ceasefire|negotiat|escalat|tension|warning|provocat)/.test(lower))
         return 'medium'
     return 'low'
+}
+
+// Equipment type detection for military hardware mentions
+const EQUIPMENT_PATTERNS: Array<{ pattern: RegExp; type: string }> = [
+    // Missiles
+    { pattern: /\b(S-?300|S-?400|S-?500|Patriot|THAAD|Iron\s*Dome|David'?s?\s*Sling)\b/i, type: 'air-defense' },
+    { pattern: /\b(Iskander|Kalibr|Kinzhal|Shahed|Geran|Tomahawk|ATACMS|HIMARS|Storm\s*Shadow|SCALP|Tochka|Fateh|Emad|Khorramshahr|Sejjil)\b/i, type: 'missile' },
+    { pattern: /\b(ICBM|ballistic\s*missile|cruise\s*missile|hypersonic|Zircon|Brahmos)\b/i, type: 'missile' },
+
+    // Drones/UAV
+    { pattern: /\b(Shahed[- ]?136|Shahed[- ]?131|Mohajer|Bayraktar|TB2|Lancet|Orion|MQ-?9|Predator|Reaper|Heron|Hermes)\b/i, type: 'drone' },
+    { pattern: /\b(UAV|UAS|UCAV|kamikaze\s*drone|FPV\s*drone|loitering\s*munition)\b/i, type: 'drone' },
+
+    // Aircraft
+    { pattern: /\b(F-?15|F-?16|F-?35|Su-?34|Su-?35|Su-?57|MiG-?29|MiG-?31|Tu-?95|Tu-?160|B-?52|B-?2|A-?10|Eurofighter|Rafale)\b/i, type: 'aircraft' },
+    { pattern: /\b(Apache|Black\s*Hawk|Chinook|Ka-?52|Mi-?24|Mi-?28)\b/i, type: 'helicopter' },
+
+    // Naval
+    { pattern: /\b(aircraft\s*carrier|destroyer|frigate|corvette|submarine|cruiser|warship|gunboat|patrol\s*boat|USS|HMS)\b/i, type: 'naval' },
+
+    // Armor
+    { pattern: /\b(Leopard|Abrams|T-?72|T-?90|T-?80|Merkava|Challenger|Bradley|BMP|BTR|MRAP|APC|IFV)\b/i, type: 'armor' },
+
+    // Artillery
+    { pattern: /\b(howitzer|MLRS|Grad|Smerch|Uragan|M777|Caesar|PzH|CAESAR|Panzerhaubitze|artillery|mortar)\b/i, type: 'artillery' },
+
+    // Infantry
+    { pattern: /\b(Javelin|NLAW|Stinger|MANPAD|TOW|RPG-?\d|AT-?4|Carl\s*Gustaf|Kornet)\b/i, type: 'infantry-weapon' },
+]
+
+function extractEquipment(text: string): string | undefined {
+    for (const eq of EQUIPMENT_PATTERNS) {
+        if (eq.pattern.test(text)) return eq.type
+    }
+    return undefined
 }
 
 // Track last message ID per channel to avoid duplicates
@@ -486,6 +521,7 @@ export function startPolling(intervalMs = 15_000) {
                         mediaType: msg.media?.className?.replace('MessageMedia', '').toLowerCase(),
                         location: extractLocation(msg.message),
                         threatLevel: classifyThreat(msg.message),
+                        equipmentType: extractEquipment(msg.message),
                     }
 
                     pushAlert(alert)
