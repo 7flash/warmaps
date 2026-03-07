@@ -25,14 +25,17 @@ WARMAPS is a geospatial intelligence platform that aggregates conflict data, OSI
 Every deployment automatically:
 
 - 🗺️ **MapLibre GL** tactical dark map with GPU-rendered layers (fires, flights, events, assets)
-- 📡 **Telegram OSINT** — polls 23 intelligence channels every 15s via gramJS
+- 📡 **Telegram OSINT** — polls 22 intelligence channels every 15s via gramJS. 95 geolocation patterns, 80+ equipment type detections, threat classification
 - 🔥 **NASA FIRMS** satellite fire detection (global wildfire tracking)
 - ✈️ **ADSB.lol** military flight tracking with aircraft type classification
 - ⚔️ **ACLED** kinetic strike events with cross-referencing via GDELT
 - 📊 **Prediction Markets** — Polymarket/Kalshi threat radar
 - 📺 **Live TV** — Al Jazeera, France24, DW News embeds
-- 🤖 **AI Analyst** — Gemini-powered chat with full context awareness
+- 🤖 **AI Analyst** — Gemini-powered chat with OSINT context (Telegram alerts, GDELT events, threat data)
 - 🎰 **SOL Betting** — native Phantom wallet wagers on geopolitical outcomes
+- ⌨️ **Keyboard Shortcuts** — `F` fit, `A` arrange, `R` reset, `?` help, `Ctrl+K` command palette
+- 📱 **PWA** — installable as standalone app on mobile and desktop
+- 🔍 **SEO** — OG social cards, JSON-LD, robots.txt, sitemap.xml
 
 ## 🖥️ Infinite Canvas Architecture
 
@@ -50,6 +53,8 @@ WARMAPS is not a fixed dashboard — it's an **infinite 2D canvas** powered by t
 | **Widget sync** | Lock map widgets to synchronized pan/zoom/pitch |
 | **Auto-arrange** | One-click masonry tiling of all widgets |
 | **Collaborative** | WebSocket-based layout sync with peer cursors |
+| **Command palette** | `Ctrl+K` to fly to 10 conflict zones, run canvas commands |
+| **Auto-camera** | Spotlight cycles through OSINT alerts with cinematic flyTo |
 
 ## 🚀 Setup
 
@@ -87,11 +92,13 @@ starwar/
 │   ├── page.client.tsx    # Thin orchestrator (~150 lines)
 │   ├── globals.css        # Design system
 │   └── lib/
-│       ├── warmaps-canvas.ts  # GalaxyDraw adapter (pan/zoom/drag/resize)
+│       ├── warmaps-canvas.ts  # GalaxyDraw adapter + keyboard shortcuts + command palette
 │       ├── widgets.ts         # 13 widget types, instance management
 │       ├── data.tsx           # WebWorker-powered data layer
-│       ├── feeds.tsx          # Virtual-scrolled news/telegram feeds
+│       ├── feeds.tsx          # Virtual-scrolled news/telegram feeds + OSINT ticker
 │       ├── map.tsx            # MapLibre GL with 3D terrain
+│       ├── spotlight.tsx      # Auto-camera spotlight (OSINT + GDELT rotation)
+│       ├── ai.tsx             # AI analyst with Telegram OSINT context
 │       ├── cache.ts           # IndexedDB cache-first layer
 │       ├── sync.ts            # WebSocket collaborative editing
 │       └── virtual-feed.tsx   # Sentinel spacer virtual scroll
