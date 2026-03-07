@@ -3,7 +3,7 @@
 ## 🔴 Priority: Fix
 - [x] ~~**Canvas event passthrough broken**~~ — ✅ DONE. Map zoom triggered canvas zoom, feed scroll didn't work. Root cause: GalaxyDraw engine's `consumesWheel`/`consumesMouse` only looked for `.gd-card` elements, but WARMAPS containers are `.wm-container`. Fix: (1) engine now also checks `[data-card-type]` attribute, (2) warmaps-canvas.ts stamps `data-card-type` on containers. Published `galaxydraw@0.2.0` and deployed.
 - [x] ~~**SEO references wrong domain**~~ — ✅ DONE. All OG/Twitter/canonical/sitemap/robots.txt references changed from `warmaps.live` → `warmaps.xyz`.
-- [ ] **Telegram AUTH_KEY_DUPLICATED** — Retry logic deployed (3 retries × 10s delay in server.ts). Session file deleted but Telegram API still rate-limiting new auth keys from same app_id. Server runs without Telegram. Need to wait longer or use Telegram's `terminateAllSessions` API, then restart once cleanly.
+- [ ] **Telegram verification code** — AUTH_KEY_DUPLICATED resolved. Reconnect API added at `POST /api/telegram/connect` with `{retry:true}`. Status is now `awaiting_code` — need to enter the Telegram verification code via `POST /api/telegram/verify {code:"..."}`. Also fixed: old zombie bun process from Mar 6 was blocking fresh deploys, and `@tailwindcss/oxide` + `lightningcss` native bindings were missing after node_modules wipe.
 
 ## 🟡 Priority: Improve
 - [ ] **Consolidate domain choice** — Decide on one canonical domain (`warmaps.org` vs `warmaps.live`). Configure the other as a 301 redirect in Caddy. Update all code references.
@@ -16,7 +16,7 @@
 
 ## 📝 Architecture Notes
 - **Production**: `root@202.155.132.139:/opt/starwar/`
-- **Deploy**: `git push && ssh pull + restart bun server`
+- **Deploy**: `git push && ssh pull + restart bun server` — **IMPORTANT**: always `pkill -9 -f 'bun run server.ts'` before restart to avoid zombie processes. PID file alone is not reliable.
 - **HTTPS**: Caddy reverse proxy on port 443 → localhost:4444
 - **TypeScript**: Zero errors (`npx tsc --noEmit` = clean)
 - **Tests**: 59 passing (db integration + canvas modules + API endpoints). CI via GitHub Actions.
