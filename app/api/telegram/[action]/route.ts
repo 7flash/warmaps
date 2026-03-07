@@ -6,6 +6,7 @@ export async function POST(req: Request) {
     return measure('api:telegram', async () => {
         const url = new URL(req.url);
         const action = url.pathname.split('/').pop();
+        console.log('[telegram-route] url:', url.pathname, '-> action:', action);
         const body = await req.json().catch(() => ({}));
 
         switch (action) {
