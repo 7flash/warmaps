@@ -3,7 +3,7 @@
  */
 
 import { render } from 'melina/client';
-import { map, gdeltEvents, IMAGE_MARKERS } from './state';
+import { map, gdeltEvents, IMAGE_MARKERS, telegramAlerts } from './state';
 
 let spotlightActive = true;
 let spotlightPaused = false;
@@ -22,7 +22,7 @@ export function startConflictSpotlight() {
         render(<span>⏸</span>, btn);
         btn.addEventListener('click', () => {
             spotlightPaused = !spotlightPaused;
-            render(<span>{ spotlightPaused? '▶': '⏸' } </span>, btn);
+            render(<span>{spotlightPaused ? '▶' : '⏸'} </span>, btn);
             btn.title = spotlightPaused ? 'Resume auto-camera' : 'Pause auto-camera';
             if (spotlightPaused) {
                 clearActiveTooltip();
@@ -64,7 +64,19 @@ function clearActiveTooltip() {
 function cycleSpotlight() {
     if (!map || !spotlightActive || spotlightPaused) return;
 
-    const candidates = gdeltEvents.filter((ev: any) => {
+    // Alternate between Telegram OSINT (priority) and GDELT events
+    // Telegram alerts with locations + critical/high threat get priority
+    const tgCandidates = telegramAlerts.filter((a: any) => {
+        if (!a.location?.lat || !a.location?.lon) return false;
+        const eid = `tg-${a.id}`;
+        return !spotlightVisited.has(eid);
+    }).sort((a: any, b: any) => {
+        // Critical > high > medium > low
+        const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+        return (order[a.threatLevel] ?? 3) - (order[b.threatLevel] ?? 3);
+    });
+
+    const gdeltCandidates = gdeltEvents.filter((ev: any) => {
         if (!ev.imageUrl || !ev.lat) return false;
         const lon = ev.lon || ev.lng;
         if (!lon) return false;
@@ -72,12 +84,34 @@ function cycleSpotlight() {
         return !spotlightVisited.has(eid);
     });
 
-    if (candidates.length === 0) {
+    // Prioritize Telegram OSINT 60% of the time if available
+    const useTelegram = tgCandidates.length > 0 && (gdeltCandidates.length === 0 || Math.random() < 0.6);
+
+    if (useTelegram) {
+        const alert = tgCandidates[0];
+        const eid = `tg-${alert.id}`;
+        spotlightVisited.add(eid);
+        clearActiveTooltip();
+
+        map.flyTo({
+            center: [alert.location.lon, alert.location.lat],
+            zoom: 7,
+            duration: 3000,
+            essential: false,
+        });
+
+        const prefix = alert.threatLevel === 'critical' ? '🚨' : alert.threatLevel === 'high' ? '⚠️' : '📡';
+        const equip = alert.equipmentType ? ` [${alert.equipmentType.toUpperCase()}]` : '';
+        showDataFlash(`${prefix} ${alert.channelTitle}: ${alert.text.slice(0, 60)}${equip}`);
+        return;
+    }
+
+    if (gdeltCandidates.length === 0) {
         spotlightVisited.clear();
         return;
     }
 
-    const ev = candidates[0];
+    const ev = gdeltCandidates[0];
     const lon = ev.lon || ev.lng;
     const eid = ev.id || ev.url || `${ev.lat}-${lon}`;
     spotlightVisited.add(eid);
