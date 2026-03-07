@@ -42,5 +42,9 @@ server_config.toml
 .config.toml
 mm_state*.json
 
-# temp/debug
+# temp/debug/scratch
 test.ts
+test*.txt
+test.html
+buntest.ts
+tree_test*.ts
