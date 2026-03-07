@@ -103,7 +103,8 @@
 - [x] ~~**Global Search Hotkey**~~ — ✅ DONE. Added `/` as an alternative hotkey for the Command Palette (like GitHub). Updated `keyboard-shortcuts.ts` and the help overlay to reflect this new hotkey.
 - [x] ~~**Debounce Canvas State Save**~~ — ✅ Already handled. Canvas state save uses `cancelAnimationFrame`/`requestAnimationFrame` debounce in the `subscribe` callback. `saveLayout()` only fires on drag-end, resize-end, collapse, and auto-arrange — not per-frame.
 - [x] ~~**Widget Config UI Polish**~~ — ✅ DONE. Unified all container header action buttons (.wm-c-actions) with glassmorphism hover effects: green (gear), red (remove), cyan (detach), amber (export), purple (link). backdrop-filter blur(12px), inset glow box-shadows, scale bounce on active.
-- [ ] **Invalid LngLat runtime error** — "Uncaught Error: Invalid LngLat latitude value: must be between -90 and 90" on page load. Likely a data point with bad coordinates being fed to MapLibre.
+- [x] ~~**Invalid LngLat runtime error**~~ — ✅ DONE. Added `isValidCoord()` guard to all GeoJSON coordinate builder paths (GDELT, markets, telegram, seismic, webcams, flights, fires). Filters out lat/lon outside MapLibre's accepted range.
+- [ ] **VirtualFeed renderSlice TypeError** — "Cannot set properties of undefined (setting 'height')" in `createVirtualFeed` → `renderSlice` during news/GDELT feed rendering. Likely a race condition where the feed container is destroyed before the rAF render callback fires.
 
 ## 🟢 Priority: Features
 - [x] ~~**Widget templates**~~ — ✅ DONE. Let users save a container's config as a reusable template via the '⭐ Save Template' gear button. Stores config payload in localStorage `warmaps:templates`. Renders dynamically within the '⭐ Saved' and 'All' views in the widget tray catalog with a custom ⭐ badge filter.
