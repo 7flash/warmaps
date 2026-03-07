@@ -69,7 +69,7 @@
 - **Deploy**: `git push && ssh pull + restart bun server`
 - **HTTPS**: Caddy reverse proxy on port 443 → localhost:4444
 - **Map**: MapLibre GL with GeoJSON sources (fires, flights, events, assets, acled, webcams, seismic, crypto)
-- **Canvas engine**: `app/lib/canvas.ts` — pan/zoom/drag/resize/minimap/persistence/snap-grid/touch
+- **Canvas engine**: `app/lib/warmaps-canvas.ts` — GalaxyDraw adapter (pan/zoom/drag/resize/minimap/persistence/touch). Replaced legacy `canvas.ts` (760 lines → 400 lines). Engine from `galaxydraw` file: dependency (sibling galaxy-canvas repo).
 - **Widget system**: `app/lib/widgets.ts` — 13 widget types, instance management, share link encoding
 - **Client**: `app/page.client.tsx` → thin orchestrator importing 16 modules from `app/lib/` (state, utils, perf, map, data, feeds, markers, tokens, modals, panels, tv, chat, ai, betting, spotlight, canvas, widgets)
 - **API routes**: `/api/gdelt`, `/api/acled`, `/api/fires`, `/api/flights`, `/api/telegram/*`, `/api/mm`, `/api/bet`, `/api/image-proxy`
