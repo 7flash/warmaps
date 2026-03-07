@@ -375,10 +375,20 @@ export function initMap() {
             m.addLayer({
                 id: 'events-point', type: 'circle', source: 'events', minzoom: 4,
                 paint: {
-                    'circle-color': ['match', ['get', 'type'], 'gdelt', '#ff6b35', 'market-hot', '#ef4444', 'market', '#f59e0b', '#ff6b35'],
+                    'circle-color': ['match', ['get', 'type'],
+                        'gdelt', '#ff6b35',
+                        'market-hot', '#ef4444', 'market', '#f59e0b',
+                        'telegram-critical', '#ef4444', 'telegram-high', '#f59e0b', 'telegram', '#06b6d4',
+                        '#ff6b35'],
                     'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 5, 12, 7],
                     'circle-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0.5, 8, 0.8],
-                    'circle-stroke-width': 1.5, 'circle-stroke-color': 'rgba(255, 107, 53, 0.3)', 'circle-blur': 0.3,
+                    'circle-stroke-width': 1.5,
+                    'circle-stroke-color': ['match', ['get', 'type'],
+                        'telegram-critical', 'rgba(239, 68, 68, 0.5)',
+                        'telegram-high', 'rgba(245, 158, 11, 0.4)',
+                        'telegram', 'rgba(6, 182, 212, 0.4)',
+                        'rgba(255, 107, 53, 0.3)'],
+                    'circle-blur': 0.3,
                 }
             });
 
@@ -429,6 +439,10 @@ export function initMap() {
                         const icon = props.type === 'nuclear' ? '☢️' : '🔵';
                         const confColor = props.confidence === 'High' ? '#22c55e' : props.confidence === 'Moderate' ? '#eab308' : '#ef4444';
                         htmlContent = `<div class="intel-card"><div class="intel-card-header">${icon} ${props.name} <button class="wm-link-handle wm-c-link-handle" data-geo-lat="${coordinates[1]}" data-geo-lon="${coordinates[0]}" style="float:right" title="Drag to link">🔗</button></div><div class="intel-card-body"><p>${props.description || 'No detailed intel available.'}</p></div><div class="intel-card-footer"><span>TYPE: ${props.type.toUpperCase()}</span><span>CONF: <span style="color:${confColor}">${props.confidence}</span></span></div></div>`;
+                    } else if (props.type?.startsWith('telegram')) {
+                        const tColor = props.type === 'telegram-critical' ? '#ef4444' : props.type === 'telegram-high' ? '#f59e0b' : '#06b6d4';
+                        const eqBadge = props.equipmentType ? `<span style="font-size:9px;background:rgba(148,163,184,0.15);padding:1px 5px;border-radius:3px;margin-left:4px">${props.equipmentType.toUpperCase()}</span>` : '';
+                        htmlContent = `<div class="intel-card"><div class="intel-card-header" style="color:${tColor}">📡 TELEGRAM OSINT${eqBadge} <button class="wm-link-handle wm-c-link-handle" data-geo-lat="${coordinates[1]}" data-geo-lon="${coordinates[0]}" style="float:right" title="Drag to link">🔗</button></div><div class="intel-card-body"><p>${props.title}</p></div><div class="intel-card-footer"><span>CH: ${props.channel || 'OSINT'}</span></div></div>`;
                     } else if (props.type === 'gdelt' || props.type === 'market-hot' || props.type === 'market') {
                         htmlContent = `<div class="intel-card"><div class="intel-card-header">📍 EVENT <button class="wm-link-handle wm-c-link-handle" data-geo-lat="${coordinates[1]}" data-geo-lon="${coordinates[0]}" style="float:right" title="Drag to link">🔗</button></div><div class="intel-card-body"><p>${props.title}</p></div><div class="intel-card-footer"><span>DATE: ${props.date ? props.date.slice(0, 10) : 'LIVE'}</span></div></div>`;
                     } else if (props.type === 'acled-kinetic') {

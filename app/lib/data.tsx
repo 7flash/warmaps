@@ -16,6 +16,7 @@ import {
     webcamData, setWebcamData,
     newsItems, setNewsItems,
     pumpfunTokens, setPumpfunTokens,
+    telegramAlerts, setTelegramAlerts as storeTelegramAlerts,
     currentFilter, dataPaused,
     eventArrivalTime, markFresh,
 } from './state';
@@ -374,8 +375,10 @@ export async function fetchTelegramAlerts() {
         if (!res.ok) return;
         const alerts = await res.json();
         if (Array.isArray(alerts) && alerts.length > 0) {
+            storeTelegramAlerts(alerts);
             markFresh('telegram');
             renderTelegramFeed(alerts);
+            updateMapSources(); // Plot alerts with locations on the map
             const countEl = document.getElementById('tg-count');
             if (countEl) countEl.textContent = String(alerts.length);
         }
@@ -501,6 +504,25 @@ function _updateMapSourcesNow() {
                 type: 'Feature',
                 geometry: { type: 'Point', coordinates: [m.lon, m.lat] },
                 properties: { type: m.probability >= 60 ? 'market-hot' : 'market', title: m.title, opacity: 1.0 }
+            });
+        });
+    }
+
+    // Telegram OSINT alerts with extracted locations
+    if (FF.telegram) {
+        telegramAlerts.filter((a: any) => a.location?.lat && a.location?.lon).forEach((a: any) => {
+            const tType = a.threatLevel === 'critical' ? 'telegram-critical' :
+                a.threatLevel === 'high' ? 'telegram-high' : 'telegram';
+            features.push({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [a.location.lon, a.location.lat] },
+                properties: {
+                    type: tType,
+                    title: `📡 ${a.channelTitle}: ${a.text.slice(0, 80)}`,
+                    opacity: 1.0,
+                    equipmentType: a.equipmentType || null,
+                    channel: a.channel,
+                }
             });
         });
     }

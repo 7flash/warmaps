@@ -77,6 +77,9 @@ export function setWebcamData(data: any[]) { webcamData = data; }
 export let pumpfunTokens: any[] = [];
 export function setPumpfunTokens(tokens: any[]) { pumpfunTokens = tokens; }
 
+export let telegramAlerts: any[] = [];
+export function setTelegramAlerts(alerts: any[]) { telegramAlerts = alerts; }
+
 export let currentFilter = 'all';
 export function setCurrentFilter(filter: string) { currentFilter = filter; }
 
