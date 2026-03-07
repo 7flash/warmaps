@@ -79,17 +79,27 @@
 - [x] ~~**Spotlight auto-camera OSINT**~~ — ✅ DONE. `cycleSpotlight()` now interleaves Telegram OSINT alerts with GDELT events. Critical/high threats prioritized (60% camera time). Equipment type shown in data flash. Threat-colored emoji prefix.
 - [x] ~~**Breaking news ticker OSINT**~~ — ✅ DONE. Telegram critical/high alerts appear first in ticker as `[OSINT] channel: text [EQUIPMENT]`. Stats bar shows `telegram-count`. Freshness indicator includes telegram source.
 - [x] ~~**.gitignore security fix**~~ — ✅ DONE. Removed dangerous blanket ignores (`docs/`, `*.txt`). Recovered 8 hidden ADR docs. Fixed `_.log` → `*.log`. Added explicit secret patterns.
+- [x] ~~**PWA installable**~~ — ✅ DONE. Web App Manifest at `/api/manifest.json`. Standalone display, theme-color, apple-mobile-web-app-capable. Installable on mobile and desktop.
+- [x] ~~**SEO suite**~~ — ✅ DONE. `robots.txt`, `sitemap.xml`, JSON-LD (WebApplication schema), canonical URL, OG/Twitter social cards with banner image via `/api/og-image`.
+- [x] ~~**Health endpoint**~~ — ✅ DONE. `/api/health` returns uptime, memory (RSS/heap), Telegram status, channel count, alert count, version. For uptime monitoring.
+- [x] ~~**Cinematic boot sequence**~~ — ✅ DONE. Terminal-style animated status lines: canvas → MapLibre → OSINT → data feeds → AI → ready. Each line slides in, flips ▸→✓ with green color. Progress bar fills in sync. Once per session.
+- [x] ~~**Shortcut discovery badges**~~ — ✅ DONE. Tiny green `F`/`A` badges on toolbar buttons. Hidden by default, fade in on hover. `.shortcut-badge` CSS class reusable.
+- [x] ~~**SVG favicon**~~ — ✅ DONE. Inline SVG green ◆ diamond on dark background. Zero external files. Matches WARMAPS branding.
+- [x] ~~**Command palette extraction**~~ — ✅ DONE. Extracted `command-palette.ts` (131 lines) from `warmaps-canvas.ts` (966→718 lines). Dependency injection via `registerCanvasActions()`. Clean module boundary.
+- [x] ~~**TypeScript zero errors**~~ — ✅ DONE. Fixed 18 errors across 4 packages: measure-fn@3.10.0, melina@2.3.2, jsx-ai@0.1.1, sqlite-zod-orm@3.26.1. All published to npm. `npx tsc --noEmit` = clean.
 
 ## 📝 Architecture Notes
 - **Production**: `root@202.155.132.139:/opt/starwar/`
 - **Deploy**: `git push && ssh pull + restart bun server`
 - **HTTPS**: Caddy reverse proxy on port 443 → localhost:4444
+- **TypeScript**: Zero errors (`npx tsc --noEmit` = clean)
 - **Map**: MapLibre GL with GeoJSON sources (fires, flights, events, assets, acled, webcams, seismic, crypto, telegram)
-- **Canvas engine**: `app/lib/warmaps-canvas.ts` — GalaxyDraw adapter (pan/zoom/drag/resize/minimap/persistence/touch). Engine from `galaxydraw` npm package.
-- **Telegram OSINT**: `src/telegram.ts` — 22 channels, 95 location patterns, 8 equipment categories, auto-reconnect. Alerts stored in `state.telegramAlerts`, plotted on map via `_updateMapSourcesNow()`.
+- **Canvas engine**: `app/lib/warmaps-canvas.ts` (718 lines) — GalaxyDraw adapter. Engine from `galaxydraw` npm package.
+- **Command palette**: `app/lib/command-palette.ts` (131 lines) — Ctrl+K launcher with fly-to locations + canvas commands.
+- **Telegram OSINT**: `src/telegram.ts` — 22 channels, 95 location patterns, 8 equipment categories, auto-reconnect.
 - **Widget system**: `app/lib/widgets.ts` — 13 widget types, instance management, share link encoding
-- **Client**: `app/page.client.tsx` → thin orchestrator importing 16 modules from `app/lib/`
-- **API routes**: `/api/gdelt`, `/api/acled`, `/api/fires`, `/api/flights`, `/api/telegram/*`, `/api/mm`, `/api/bet`, `/api/image-proxy`
+- **Client**: `app/page.client.tsx` → thin orchestrator importing 17 modules from `app/lib/`
+- **API routes**: `/api/gdelt`, `/api/acled`, `/api/fires`, `/api/flights`, `/api/telegram/*`, `/api/mm`, `/api/bet`, `/api/image-proxy`, `/api/swap`, `/api/health`, `/api/manifest.json`, `/api/robots.txt`, `/api/sitemap.xml`, `/api/og-image`, `/api/ping`
 - **AI Chat**: Gemini streaming via `/api/ai`
 - **Betting**: Native SOL wagers via Phantom wallet
 - **Trading**: Native pump.fun token swaps via Phantom wallet (`/api/swap` + PumpSwap SDK)
