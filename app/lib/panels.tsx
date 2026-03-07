@@ -4,7 +4,7 @@
  */
 
 import { render } from 'melina/client';
-import { map, setCurrentFilter } from './state';
+import { map, setCurrentFilter, connectedWallet, setConnectedWallet } from './state';
 import { fetchNews } from './data';
 import { renderRadarFeed } from './feeds';
 
@@ -204,7 +204,7 @@ export function initSearchModal() {
                     }
                     }>
                         <span>{loc.name} </span>
-                        < span style={{ opacity: 0.5 }}> {loc.lat}, {loc.lng} </span>
+                        <span style={{ opacity: 0.5 }}>{loc.lat}, {loc.lng}</span>
                     </div>
                 )}</>,
             resultsContainer
@@ -330,9 +330,9 @@ export function setupLegendFilters() {
     bind('filter-flags', ['country-flag-labels']);
 }
 
-// ─── Wallet ─────────────────────────────────────────────────
 
-import { connectedWallet, setConnectedWallet } from './state';
+
+// ─── Wallet ─────────────────────────────────────────────────
 
 export function initWallet() {
     const btn = document.getElementById('wallet-btn');
