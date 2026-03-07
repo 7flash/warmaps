@@ -21,7 +21,8 @@ export default function Page() {
             <div id="boot-sequence" class="boot-sequence">
                 <div class="boot-content">
                     <div class="boot-logo">◆ WARMAPS</div>
-                    <div id="boot-text" class="boot-text">INITIALIZING PROTOCOL...</div>
+                    <div class="boot-version">v2.0 · {GIT_HASH || 'dev'}</div>
+                    <div id="boot-lines" class="boot-lines"></div>
                     <div class="boot-progress">
                         <div id="boot-bar" class="boot-bar"></div>
                     </div>

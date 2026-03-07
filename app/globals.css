@@ -2321,9 +2321,22 @@ body::before {
     border-radius: 3px;
     vertical-align: middle;
 }
-.tg-threat--critical { color: var(--red); background: var(--red-dim); animation: alertGlow 3s ease-in-out infinite; }
-.tg-threat--high { color: var(--amber); background: var(--amber-dim); }
-.tg-threat--medium { color: var(--cyan); background: var(--cyan-dim); }
+
+.tg-threat--critical {
+    color: var(--red);
+    background: var(--red-dim);
+    animation: alertGlow 3s ease-in-out infinite;
+}
+
+.tg-threat--high {
+    color: var(--amber);
+    background: var(--amber-dim);
+}
+
+.tg-threat--medium {
+    color: var(--cyan);
+    background: var(--cyan-dim);
+}
 
 /* Equipment type badge */
 .tg-equipment {
@@ -2969,12 +2982,39 @@ body::before {
     }
 }
 
-.boot-text {
-    font-size: 14px;
-    color: var(--text-secondary);
-    letter-spacing: 2px;
+.boot-version {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+    font-family: var(--font-mono);
+}
+
+.boot-lines {
+    text-align: left;
     margin-bottom: 16px;
-    animation: blink 1s infinite step-end;
+    min-height: 120px;
+}
+
+.boot-line {
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    padding: 2px 0;
+    opacity: 0;
+    transform: translateX(-8px);
+    animation: bootLineIn 0.2s ease-out forwards;
+}
+
+.boot-line--done {
+    color: var(--accent);
+}
+
+@keyframes bootLineIn {
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 .boot-progress {
@@ -2993,7 +3033,7 @@ body::before {
     width: 0%;
     background: var(--accent);
     box-shadow: 0 0 10px var(--accent);
-    animation: bootLoad 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    transition: width 0.25s ease-out;
 }
 
 @keyframes bootLoad {

@@ -231,12 +231,44 @@ export function initBootSequence() {
 
     sessionStorage.setItem('warmaps-booted', 'true');
 
-    setTimeout(() => {
-        bootEl.classList.add('done');
+    const lines = document.getElementById('boot-lines');
+    const bar = document.getElementById('boot-bar');
+    if (!lines || !bar) return;
+
+    const steps = [
+        '▸ Initializing GalaxyDraw canvas engine',
+        '▸ Loading MapLibre GL tactical renderer',
+        '▸ Connecting Telegram OSINT (22 channels)',
+        '▸ Mounting data feeds: GDELT · FIRMS · ADSB · ACLED',
+        '▸ Starting AI analyst (Gemini)',
+        '▸ System ready — press ? for shortcuts',
+    ];
+
+    let i = 0;
+    const interval = setInterval(() => {
+        if (i >= steps.length) {
+            clearInterval(interval);
+            setTimeout(() => {
+                bootEl.classList.add('done');
+                setTimeout(() => { bootEl.style.display = 'none'; }, 500);
+            }, 400);
+            return;
+        }
+
+        const div = document.createElement('div');
+        div.className = 'boot-line';
+        div.textContent = steps[i];
+        lines.appendChild(div);
+
+        // Animate checkmark after short delay
         setTimeout(() => {
-            bootEl.style.display = 'none';
-        }, 500);
-    }, 1500);
+            div.textContent = div.textContent!.replace('▸', '✓');
+            div.classList.add('boot-line--done');
+        }, 200);
+
+        bar.style.width = `${((i + 1) / steps.length) * 100}%`;
+        i++;
+    }, 250);
 }
 
 // ─── Legend Filters ─────────────────────────────────────────
