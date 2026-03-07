@@ -744,6 +744,9 @@ function initKeyboardShortcuts() {
                 document.getElementById('country-profile-overlay')?.remove();
                 // Close widget context menu
                 document.querySelector('.wm-context-menu')?.remove();
+                // Close old search modal
+                const searchModal = document.getElementById('search-modal');
+                if (searchModal) searchModal.style.display = 'none';
                 break;
         }
     });

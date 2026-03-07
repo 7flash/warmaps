@@ -187,21 +187,8 @@ export function initSearchModal() {
 
     if (!modal || !input || !resultsContainer) return;
 
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-            e.preventDefault();
-            const isVisible = modal.style.display === 'flex';
-            modal.style.display = isVisible ? 'none' : 'flex';
-            if (!isVisible) {
-                input.value = '';
-                renderResults(GLOBE_LOCATIONS);
-                setTimeout(() => input.focus(), 50);
-            }
-        }
-        if (e.key === 'Escape' && modal.style.display === 'flex') {
-            modal.style.display = 'none';
-        }
-    });
+    // Note: Ctrl+K is now handled by command palette in warmaps-canvas.ts
+    // This search modal can still be opened programmatically if needed
 
     modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.style.display = 'none';
