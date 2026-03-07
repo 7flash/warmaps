@@ -362,15 +362,38 @@ function loadConfig(): { appId?: number; apiHash?: string; phone?: string } {
 (async () => {
     const config = loadConfig();
     if (config.appId && config.apiHash && config.phone) {
-        console.log(`[telegram] Auto-connecting as ${config.phone}...`);
-        const result = await tg.sendCode(config.appId, config.apiHash, config.phone);
-        if (result.ok && result.restored) {
-            tg.startPolling();
-            console.log(`[telegram] ✓ Connected & polling ${tg.OSINT_CHANNELS.length} channels`);
-        } else if (result.ok) {
-            console.log('[telegram] Auth code required — use the dashboard UI to verify');
-        } else {
-            console.error('[telegram] Auto-connect failed:', result.error);
+        // Set env vars so telegram.ts heartbeat can use them for reconnect
+        process.env.TG_APP_ID = String(config.appId);
+        process.env.TG_APP_HASH = config.apiHash;
+        process.env.TG_PHONE = config.phone;
+
+        const MAX_RETRIES = 3;
+        const RETRY_DELAY = 10_000;
+
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            console.log(`[telegram] Auto-connect attempt ${attempt}/${MAX_RETRIES} as ${config.phone}...`);
+            const result = await tg.sendCode(config.appId, config.apiHash, config.phone);
+            if (result.ok && result.restored) {
+                tg.startPolling();
+                tg.startHeartbeat();
+                console.log(`[telegram] ✓ Connected & polling ${tg.OSINT_CHANNELS.length} channels`);
+                return;
+            }
+
+            // AUTH_KEY_DUPLICATED: previous process session hasn't released yet — retry
+            const isRetryable = result.error?.includes('AUTH_KEY');
+            if (isRetryable && attempt < MAX_RETRIES) {
+                console.log(`[telegram] Session conflict — retrying in ${RETRY_DELAY / 1000}s...`);
+                await new Promise(r => setTimeout(r, RETRY_DELAY));
+                continue;
+            }
+
+            if (result.ok) {
+                console.log('[telegram] Auth code required — use the dashboard UI to verify');
+            } else {
+                console.error('[telegram] Auto-connect failed:', result.error);
+            }
+            return;
         }
     } else {
         console.log('[telegram] No config found — Telegram OSINT disabled');
