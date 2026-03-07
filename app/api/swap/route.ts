@@ -21,7 +21,6 @@ import {
     PUMP_AMM_SDK,
     canonicalPumpPoolPda,
 } from '@pump-fun/pump-swap-sdk';
-// @ts-ignore — bn.js lacks declaration file
 import BN from 'bn.js';
 import * as fs from 'fs';
 import path from 'path';
