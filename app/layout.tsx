@@ -13,28 +13,28 @@ export default function RootLayout({ children }: { children: any }) {
                 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
                 <meta property="og:title" content="WARMAPS — Global Conflict Monitor" />
                 <meta property="og:description" content="Real-time OSINT intelligence dashboard with tactical map, Telegram feeds, and AI analyst." />
-                <meta property="og:image" content="https://warmaps.live/api/og-image" />
-                <meta property="og:url" content="https://warmaps.live" />
+                <meta property="og:image" content="https://warmaps.xyz/api/og-image" />
+                <meta property="og:url" content="https://warmaps.xyz" />
                 <meta property="og:type" content="website" />
                 <meta property="og:site_name" content="WARMAPS" />
                 <meta name="twitter:card" content="summary_large_image" />
                 <meta name="twitter:title" content="WARMAPS — Global Conflict Monitor" />
                 <meta name="twitter:description" content="Real-time OSINT intelligence dashboard with tactical map, Telegram feeds, and AI analyst." />
-                <meta name="twitter:image" content="https://warmaps.live/api/og-image" />
+                <meta name="twitter:image" content="https://warmaps.xyz/api/og-image" />
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
                 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-                <link rel="canonical" href="https://warmaps.live" />
+                <link rel="canonical" href="https://warmaps.xyz" />
                 <script type="application/ld+json" dangerouslySetInnerHTML={{
                     __html: JSON.stringify({
                         "@context": "https://schema.org",
                         "@type": "WebApplication",
                         "name": "WARMAPS",
-                        "url": "https://warmaps.live",
+                        "url": "https://warmaps.xyz",
                         "description": "Real-time OSINT intelligence dashboard with tactical map, Telegram feeds, and AI analyst.",
                         "applicationCategory": "SecurityApplication",
                         "operatingSystem": "Web",
-                        "image": "https://warmaps.live/api/og-image",
+                        "image": "https://warmaps.xyz/api/og-image",
                         "author": { "@type": "Organization", "name": "WARMAPS" }
                     })
                 }} />

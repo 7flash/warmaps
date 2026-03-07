@@ -272,6 +272,8 @@ export function initCanvas() {
         const containers = existingContent.querySelectorAll('.wm-container');
         containers.forEach((el) => {
             const c = el as HTMLElement;
+            // Stamp card type so GalaxyDraw engine routes events through the plugin
+            c.dataset.cardType = WARMAPS_CARD_TYPE;
             gdCanvas.appendChild(c);
         });
         // Remove the old content div since GD has its own

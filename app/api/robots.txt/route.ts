@@ -3,7 +3,7 @@ export function GET() {
     const body = `User-agent: *
 Allow: /
 
-Sitemap: https://warmaps.live/api/sitemap.xml
+Sitemap: https://warmaps.xyz/api/sitemap.xml
 `;
     return new Response(body, {
         headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'public, max-age=86400' },
