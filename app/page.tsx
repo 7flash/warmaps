@@ -130,6 +130,7 @@ export default function Page() {
                         <button class="tray-scroll-arrow tray-scroll-left" data-target=".widget-tray-categories" aria-label="Scroll left">‹</button>
                         <div class="widget-tray-categories">
                             <button class="wc-cat-btn active" data-cat="all">All</button>
+                            <button class="wc-cat-btn" data-cat="saved">⭐ Saved</button>
                             <button class="wc-cat-btn" data-cat="map">🗺 Maps</button>
                             <button class="wc-cat-btn" data-cat="telegram">💬 Telegram</button>
                             <button class="wc-cat-btn" data-cat="rss">📰 News</button>

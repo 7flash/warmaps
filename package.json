@@ -22,7 +22,7 @@
     "maplibre-gl": "^5.19.0",
     "maplibre-gl-temporal-control": "^1.2.0",
     "measure-fn": "^3.10.2",
-    "melina": "^2.3.4",
+    "melina": "^2.3.5",
     "sqlite-zod-orm": "3.26.1",
     "telegram": "^2.26.22"
   }

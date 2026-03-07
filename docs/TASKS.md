@@ -102,7 +102,7 @@
 - [x] ~~**Melina compiled output**~~ — ✅ DONE. Published `melina@2.3.5` with `.d.ts` declarations so downstream consumers (gxai) don't get 45 node_modules type errors from raw `.ts` source.
 
 ## 🟢 Priority: Features
-- [ ] **Widget templates** — Let users save a container's config as a reusable template. Store in localStorage, show in the widget tray with a ⭐ badge.
+- [x] ~~**Widget templates**~~ — ✅ DONE. Let users save a container's config as a reusable template via the '⭐ Save Template' gear button. Stores config payload in localStorage `warmaps:templates`. Renders dynamically within the '⭐ Saved' and 'All' views in the widget tray catalog with a custom ⭐ badge filter.
 - [ ] **Multi-user cursor colors** — When collaborative dashboarding is active, assign each peer a unique color from a curated palette instead of random.
 - [ ] **Data export** — Add a 📥 button to data widgets that exports the current feed content as CSV/JSON.
 

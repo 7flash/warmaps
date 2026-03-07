@@ -136,6 +136,19 @@ function toggleConfigPanel(container: HTMLElement, fields: ConfigField[]) {
         panel.appendChild(row);
     });
 
+    const saveTplBtn = document.createElement('button');
+    saveTplBtn.className = 'wm-config-btn';
+    saveTplBtn.innerHTML = '⭐ Save Template';
+    saveTplBtn.style.cssText = 'width:calc(100% - 32px);margin:12px 16px 16px 16px;padding:8px;background:rgba(34,211,238,0.1);color:#22d3ee;border:1px solid rgba(34,211,238,0.3);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:var(--font-mono)';
+    saveTplBtn.addEventListener('click', () => {
+        const tplName = prompt("Enter a name for this template:");
+        if (!tplName) return;
+        saveWidgetAsTemplate(container, tplName);
+        document.getElementById('widget-tray')?.dispatchEvent(new CustomEvent('refresh-catalog'));
+        container.querySelector('.wm-c-gear')?.dispatchEvent(new MouseEvent('click')); // Close config
+    });
+    panel.appendChild(saveTplBtn);
+
     // Insert panel after header
     const header = container.querySelector('.wm-container-header');
     if (header && header.nextSibling) {
@@ -143,6 +156,48 @@ function toggleConfigPanel(container: HTMLElement, fields: ConfigField[]) {
     } else {
         container.appendChild(panel);
     }
+}
+
+// ─── Widget Templates ────────────────────────────────────────
+
+export interface WidgetTemplate {
+    id: string;
+    name: string;
+    typeId: string;
+    config: Record<string, string>;
+}
+
+export function loadWidgetTemplates(): WidgetTemplate[] {
+    try {
+        const saved = localStorage.getItem('warmaps:templates');
+        if (saved) return JSON.parse(saved);
+    } catch { }
+    return [];
+}
+
+export function saveWidgetAsTemplate(container: HTMLElement, name: string) {
+    const typeId = container.dataset.originalTypeId || container.dataset.widgetType;
+    if (!typeId) return;
+    const config: Record<string, string> = {};
+    for (const key in container.dataset) {
+        if (key.startsWith('cfg')) {
+            config[key] = container.dataset[key] as string;
+        }
+    }
+    const tpl: WidgetTemplate = {
+        id: 'tpl-' + Date.now(),
+        name,
+        typeId,
+        config
+    };
+    const tpls = loadWidgetTemplates();
+    tpls.push(tpl);
+    localStorage.setItem('warmaps:templates', JSON.stringify(tpls));
+
+    // Flash container
+    container.style.transition = 'box-shadow 0.2s';
+    container.style.boxShadow = '0 0 0 2px var(--accent)';
+    setTimeout(() => { container.style.boxShadow = ''; }, 400);
 }
 
 // ─── Widget Catalog Management ──────────────────────────────
@@ -160,9 +215,49 @@ function initWidgetCatalog() {
 
     let activeCategory = 'all';
 
+    tray.addEventListener('refresh-catalog', renderCatalog);
+
     function renderCatalog() {
         if (!grid) return;
         grid.innerHTML = '';
+
+        if (activeCategory === 'saved' || activeCategory === 'all') {
+            const templates = loadWidgetTemplates();
+            templates.forEach(tpl => {
+                const baseType = WIDGET_TYPES.find(w => w.id === tpl.typeId);
+                if (!baseType) return;
+                const card = document.createElement('div');
+                card.className = 'wc-widget-card';
+                card.dataset.templateId = tpl.id;
+                card.innerHTML = `
+                    <div class="wc-widget-icon" style="filter: drop-shadow(0 0 8px rgba(34,211,238,0.7))">⭐</div>
+                    <div class="wc-widget-info">
+                        <div class="wc-widget-name">${tpl.name.toUpperCase()}</div>
+                        <div class="wc-widget-desc">Custom template of ${baseType.name}</div>
+                    </div>
+                `;
+                const rmBtn = document.createElement('button');
+                rmBtn.textContent = '×';
+                rmBtn.style.cssText = 'position:absolute;top:4px;right:4px;background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;';
+                rmBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (confirm('Delete template?')) {
+                        const remaining = loadWidgetTemplates().filter(t => t.id !== tpl.id);
+                        localStorage.setItem('warmaps:templates', JSON.stringify(remaining));
+                        renderCatalog();
+                    }
+                };
+                card.prepend(rmBtn);
+
+                card.addEventListener('click', () => addWidgetToCanvas(tpl.typeId, undefined, undefined, tpl.config, tpl.name));
+                card.draggable = true;
+                card.addEventListener('dragstart', (e) => {
+                    e.dataTransfer?.setData('text/plain', tpl.id);
+                });
+                grid.appendChild(card);
+            });
+        }
+
         const filtered = activeCategory === 'all'
             ? WIDGET_TYPES
             : WIDGET_TYPES.filter(w => w.category === activeCategory);
@@ -426,7 +521,7 @@ function initPresets() {
     });
 }
 
-function addWidgetToCanvas(typeId: string, dropX?: number, dropY?: number) {
+function addWidgetToCanvas(typeId: string, dropX?: number, dropY?: number, tplConfig?: Record<string, string>, titlePrefix?: string) {
     const wt = WIDGET_TYPES.find(w => w.id === typeId);
     if (!wt) return;
 
@@ -477,10 +572,13 @@ function addWidgetToCanvas(typeId: string, dropX?: number, dropY?: number) {
     if (typeId.startsWith('tg-')) rendererType = 'telegram';
     else if (typeId.startsWith('news-')) rendererType = 'news';
 
+    container.dataset.originalTypeId = typeId;
     container.dataset.widgetType = rendererType;
 
-    // Apply default config as data attributes (e.g. cfgChannel for telegram)
-    if (wt.defaultConfig) {
+    // Apply config
+    if (tplConfig) {
+        Object.entries(tplConfig).forEach(([k, v]) => container.dataset[k] = String(v));
+    } else if (wt.defaultConfig) {
         Object.entries(wt.defaultConfig).forEach(([key, val]) => {
             container.dataset[`cfg${key.charAt(0).toUpperCase()}${key.slice(1)}`] = String(val);
         });
@@ -488,10 +586,11 @@ function addWidgetToCanvas(typeId: string, dropX?: number, dropY?: number) {
 
     container.style.cssText = `left:${x}px;top:${y}px;width:${wt.defaultWidth}px;height:${wt.defaultHeight}px`;
 
+    const titleStr = titlePrefix ? `⭐ ${titlePrefix.toUpperCase()}` : wt.name.toUpperCase();
     container.innerHTML = `
         <div class="wm-container-header">
             <span class="wm-c-icon">${wt.icon}</span>
-            <span class="wm-c-title">${wt.name.toUpperCase()}</span>
+            <span class="wm-c-title">${titleStr}</span>
             <div class="wm-c-actions">
                 <button class="wm-c-link-handle wm-link-handle" title="Drag to link">🔗</button>
                 <button class="wm-c-detach" title="Detach to new window">⎘</button>
@@ -815,8 +914,13 @@ export default function mount() {
         viewport.addEventListener('drop', (e) => {
             e.preventDefault();
             const typeId = e.dataTransfer?.getData('text/plain');
-            if (typeId && WIDGET_TYPES.find(w => w.id === typeId)) {
-                addWidgetToCanvas(typeId, e.clientX, e.clientY);
+            if (typeId) {
+                if (typeId.startsWith('tpl-')) {
+                    const tpl = loadWidgetTemplates().find(t => t.id === typeId);
+                    if (tpl) addWidgetToCanvas(tpl.typeId, e.clientX, e.clientY, tpl.config, tpl.name);
+                } else if (WIDGET_TYPES.find(w => w.id === typeId)) {
+                    addWidgetToCanvas(typeId, e.clientX, e.clientY);
+                }
             }
         });
     }
