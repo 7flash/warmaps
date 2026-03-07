@@ -68,10 +68,10 @@ function appendChatMessage(msg: { user: string; text: string; time: string }) {
     div.className = 'chat-msg';
     render(
         <>
-        <span className="chat-msg-time" > { timeStr } </span>
-    < span className = "chat-msg-user" > { msg.user }: </span>
-    < span className = "chat-msg-text" > { msg.text } </span>
-    </>,
+            <span className="chat-msg-time">{timeStr}</span>
+            <span className="chat-msg-user">{msg.user}:</span>
+            <span className="chat-msg-text">{msg.text}</span>
+        </>,
         div
     );
     messagesEl.appendChild(div);
