@@ -64,13 +64,47 @@ function appendAIMessage(role: 'user' | 'assistant', content: string): HTMLEleme
 }
 
 function formatAIContent(text: string): string {
-    return text
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        .replace(/^- (.+)$/gm, '<li>$1</li>')
-        .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
-        .replace(/\n/g, '<br>');
+    // Process line by line to avoid nested list issues
+    const lines = text.split('\n');
+    const out: string[] = [];
+    let inList = false;
+
+    for (const raw of lines) {
+        let line = raw
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>');
+
+        // Headers
+        if (/^#{1,3}\s/.test(raw)) {
+            if (inList) { out.push('</ul>'); inList = false; }
+            const level = raw.match(/^(#+)/)?.[1].length || 2;
+            const content = line.replace(/^#{1,3}\s+/, '');
+            out.push(`<h${Math.min(level + 1, 5)}>${content}</h${Math.min(level + 1, 5)}>`);
+            continue;
+        }
+
+        // Unordered list
+        if (/^[-•]\s/.test(raw)) {
+            if (!inList) { out.push('<ul>'); inList = true; }
+            out.push(`<li>${line.replace(/^[-•]\s+/, '')}</li>`);
+            continue;
+        }
+
+        // Numbered list
+        if (/^\d+\.\s/.test(raw)) {
+            if (!inList) { out.push('<ol>'); inList = true; }
+            out.push(`<li>${line.replace(/^\d+\.\s+/, '')}</li>`);
+            continue;
+        }
+
+        // Non-list line closes any open list
+        if (inList) { out.push('</ul>'); inList = false; }
+        out.push(line ? `<p>${line}</p>` : '');
+    }
+    if (inList) out.push('</ul>');
+
+    return out.join('');
 }
 
 function gatherLiveContext(): string {
