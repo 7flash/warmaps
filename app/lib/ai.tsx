@@ -2,7 +2,7 @@
  * ai.ts — AI Chat with Gemini streaming
  */
 
-import { map, IMAGE_MARKERS } from './state';
+import { map, IMAGE_MARKERS, telegramAlerts } from './state';
 
 interface AIChatMessage {
     role: 'user' | 'assistant';
@@ -20,7 +20,7 @@ export function initAIChat() {
     if (!input || !sendBtn || !messagesEl) return;
 
     // Add welcome message
-    appendAIMessage('assistant', `**WARMAPS AI** ready. I have access to real-time conflict data from GDELT, FIRMS, ACLED, and prediction markets.\n\nAsk me anything about current global conflicts, threat assessments, or geopolitical analysis.`);
+    appendAIMessage('assistant', `**WARMAPS AI** ready. I have access to real-time conflict data from GDELT, FIRMS, ACLED, Telegram OSINT channels, and prediction markets.\n\nAsk me anything about current global conflicts, threat assessments, equipment sightings, or geopolitical analysis.`);
 
     function sendMessage() {
         const text = input.value.trim();
@@ -179,6 +179,20 @@ function gatherLiveContext(): string {
             if (minfo.length > 0) {
                 parts.push(`### Prediction Markets\n${minfo.join('\n')}`);
             }
+        }
+    } catch { }
+
+    // 8. Telegram OSINT alerts
+    try {
+        if (telegramAlerts.length > 0) {
+            const tgItems: string[] = [];
+            telegramAlerts.slice(0, 15).forEach((a: any) => {
+                const loc = a.location ? ` [📍 ${a.location.name}]` : '';
+                const equip = a.equipmentType ? ` [${a.equipmentType.toUpperCase()}]` : '';
+                const threat = a.threatLevel ? ` (${a.threatLevel})` : '';
+                tgItems.push(`- ${a.channelTitle}: "${a.text.slice(0, 120)}"${loc}${equip}${threat}`);
+            });
+            parts.push(`### Telegram OSINT Alerts (${telegramAlerts.length} total, showing latest ${tgItems.length})\n${tgItems.join('\n')}`);
         }
     } catch { }
 
