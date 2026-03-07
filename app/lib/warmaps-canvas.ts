@@ -724,6 +724,17 @@ function initKeyboardShortcuts() {
                 e.preventDefault();
                 toggleShortcutHelp();
                 break;
+
+            case 'escape':
+                // Close help overlay
+                document.getElementById('wm-shortcut-help')?.remove();
+                helpVisible = false;
+                // Close country profile modal
+                document.getElementById('country-profile-modal')?.remove();
+                document.getElementById('country-profile-overlay')?.remove();
+                // Close widget context menu
+                document.querySelector('.wm-context-menu')?.remove();
+                break;
         }
     });
 
@@ -773,11 +784,14 @@ function initKeyboardShortcuts() {
                     <span>Reset pan + zoom to origin</span>
                     <kbd style="background: rgba(51,65,85,0.6); padding: 2px 8px; border-radius: 4px; text-align: center; color: #67e8f9; font-weight: 600;">?</kbd>
                     <span>Toggle this help</span>
+                    <kbd style="background: rgba(51,65,85,0.6); padding: 2px 8px; border-radius: 4px; text-align: center; color: #67e8f9; font-weight: 600;">Esc</kbd>
+                    <span>Close overlays / menus</span>
                 </div>
                 <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(100,116,139,0.2); font-size: 11px; color: #64748b;">
-                    Hold <kbd style="background: rgba(51,65,85,0.4); padding: 1px 4px; border-radius: 3px; color: #94a3b8;">Shift</kbd> while dragging → snap to grid  ·
+                    <kbd style="background: rgba(51,65,85,0.4); padding: 1px 4px; border-radius: 3px; color: #94a3b8;">Shift</kbd>+drag → snap to grid  ·
                     <kbd style="background: rgba(51,65,85,0.4); padding: 1px 4px; border-radius: 3px; color: #94a3b8;">Scroll</kbd> → zoom  ·
-                    <kbd style="background: rgba(51,65,85,0.4); padding: 1px 4px; border-radius: 3px; color: #94a3b8;">Drag</kbd> → pan
+                    <kbd style="background: rgba(51,65,85,0.4); padding: 1px 4px; border-radius: 3px; color: #94a3b8;">Drag</kbd> → pan  ·
+                    <kbd style="background: rgba(51,65,85,0.4); padding: 1px 4px; border-radius: 3px; color: #94a3b8;">Dbl-click</kbd> header → collapse
                 </div>
             </div>
         `;
