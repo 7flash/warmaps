@@ -99,7 +99,7 @@
 - [x] ~~**Container resize extraction**~~ — ✅ DONE. Extracted the 40-line resize logic from warmaps-canvas.ts into `container-resize.ts` for consistency with other extracted modules.
 - [x] ~~**E2E browser tests**~~ — ✅ DONE. Added Playwright tests for critical user flows, aligned with accurate WARMAPS canvas DOM locators.
 - [x] ~~**Performance monitoring**~~ — ✅ DONE. Added a `/api/metrics` endpoint exposing response times per route, active WebSocket connections, and Telegram feed health as Prometheus-compatible metrics.
-- [ ] **Melina compiled output** — Publish melina with `.d.ts` declarations so downstream consumers (gxai) don't get 45 node_modules type errors from raw `.ts` source.
+- [x] ~~**Melina compiled output**~~ — ✅ DONE. Published `melina@2.3.5` with `.d.ts` declarations so downstream consumers (gxai) don't get 45 node_modules type errors from raw `.ts` source.
 
 ## 🟢 Priority: Features
 - [ ] **Widget templates** — Let users save a container's config as a reusable template. Store in localStorage, show in the widget tray with a ⭐ badge.
