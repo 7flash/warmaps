@@ -13,7 +13,7 @@ import * as path from 'path'
 // Curated intelligence matrix for Middle East & global conflict OSINT
 export const OSINT_CHANNELS = [
     // ─ Official / Semi-Official State Agencies ─
-    { id: 'faraborsnews', title: 'Fars News Agency', category: 'state' },
+    { id: 'Farsna', title: 'Fars News Agency', category: 'state' },
     { id: 'TasnimNewsEN', title: 'Tasnim News (IRGC-linked)', category: 'state' },
     { id: 'IranIntlEn', title: 'Iran International', category: 'state' },
     { id: 'TehranTimes', title: 'Tehran Times', category: 'state' },
@@ -23,13 +23,12 @@ export const OSINT_CHANNELS = [
     // ─ Conflict Media & Aggregators ─
     { id: 'Middle_East_Spectator', title: 'Middle East Spectator', category: 'conflict' },
     { id: 'ClashReport', title: 'Clash Report', category: 'conflict' },
-    { id: 'aaborni', title: 'Iran Observer', category: 'conflict' },
-    { id: 'AbuAliExpressEng', title: 'Abu Ali Express', category: 'conflict' },
+    { id: 'abualiexpress', title: 'Abu Ali Express', category: 'conflict' },
     { id: 'CIG_telegram', title: 'Caliber Intelligence Group', category: 'conflict' },
     { id: 'IntelRepublic', title: 'Intelligence Republic', category: 'conflict' },
     { id: 'RedAlertsIsrael', title: 'Red Alert Israel', category: 'conflict' },
     { id: 'OSINTdefender', title: 'OSINT Defender', category: 'conflict' },
-    { id: 'Faborsetuks', title: 'Faytuks News', category: 'conflict' },
+    { id: 'SuriyakMap', title: 'Suriyak Map', category: 'conflict' },
     { id: 'TheWarZoneTWZ', title: 'The War Zone', category: 'conflict' },
 
     // ─ Hacktivist & Cyber Networks ─
@@ -37,13 +36,13 @@ export const OSINT_CHANNELS = [
     { id: 'hizbollahsyber', title: 'Hezbollah Cyber', category: 'cyber' },
 
     // ─ Geospatial Verification ─
-    { id: 'GeoConfirmed_channel', title: 'GeoConfirmed', category: 'geoVerify' },
+    { id: 'MiddleEastEYE', title: 'Middle East Eye', category: 'geoVerify' },
     { id: 'TheIntelLab', title: 'Intel Lab', category: 'geoVerify' },
 
     // ─ Ukraine Theater ─
-    { id: 'ryaborforce', title: 'Rybar', category: 'ukraine' },
-    { id: 'war_monitor_ua', title: 'War Monitor UA', category: 'ukraine' },
-    { id: 'Deep_statee', title: 'DeepState UA', category: 'ukraine' },
+    { id: 'rybar_in_english', title: 'Rybar (English)', category: 'ukraine' },
+    { id: 'MilitarylandNet', title: 'MilitaryLand.net', category: 'ukraine' },
+    { id: 'DeepStateUA', title: 'DeepState UA', category: 'ukraine' },
 ]
 
 // ── State ──
