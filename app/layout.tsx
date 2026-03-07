@@ -8,6 +8,7 @@ export default function RootLayout({ children }: { children: any }) {
                 <meta name="description" content="WARMAPS — Real-time global conflict monitoring. Live satellite fire data, OSINT intelligence, and 3D globe visualization. $WARMAPS on Solana." />
                 <meta name="theme-color" content="#050913" />
                 <link rel="manifest" href="/api/manifest.json" />
+                <link rel="icon" type="image/svg+xml" href={"data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#050913"/><text x="16" y="23" text-anchor="middle" font-size="20" fill="#22c55e">◆</text></svg>')} />
                 <meta name="apple-mobile-web-app-capable" content="yes" />
                 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
                 <meta property="og:title" content="WARMAPS — Global Conflict Monitor" />
