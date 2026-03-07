@@ -284,7 +284,7 @@ export async function disconnect() {
 // ── OSINT Channel Polling ──
 
 // Known conflict locations for automatic geolocation
-const KNOWN_LOCATIONS: Array<{ pattern: RegExp; lat: number; lon: number; name: string }> = [
+export const KNOWN_LOCATIONS: Array<{ pattern: RegExp; lat: number; lon: number; name: string }> = [
     // Iran — nuclear sites & military targets
     { pattern: /\bisfahan\b/i, lat: 32.65, lon: 51.68, name: 'Isfahan' },
     { pattern: /\btehran\b/i, lat: 35.69, lon: 51.39, name: 'Tehran' },
@@ -397,7 +397,7 @@ const KNOWN_LOCATIONS: Array<{ pattern: RegExp; lat: number; lon: number; name: 
     { pattern: /\bsouth china sea\b/i, lat: 14.50, lon: 114.00, name: 'South China Sea' },
 ]
 
-function extractLocation(text: string): TelegramAlert['location'] | undefined {
+export function extractLocation(text: string): TelegramAlert['location'] | undefined {
     for (const loc of KNOWN_LOCATIONS) {
         if (loc.pattern.test(text)) {
             return { lat: loc.lat, lon: loc.lon, name: loc.name }
@@ -406,7 +406,7 @@ function extractLocation(text: string): TelegramAlert['location'] | undefined {
     return undefined
 }
 
-function classifyThreat(text: string): TelegramAlert['threatLevel'] {
+export function classifyThreat(text: string): TelegramAlert['threatLevel'] {
     const lower = text.toLowerCase()
     if (/\b(explosion|missile\s+hit|strike\s+on|nuclear|wmd|chemical\s+attack|casualt|killed|dead|intercept(?:ed|ion)|ballistic|hypersonic|cruise\s+missile)/.test(lower))
         return 'critical'
@@ -418,7 +418,7 @@ function classifyThreat(text: string): TelegramAlert['threatLevel'] {
 }
 
 // Equipment type detection for military hardware mentions
-const EQUIPMENT_PATTERNS: Array<{ pattern: RegExp; type: string }> = [
+export const EQUIPMENT_PATTERNS: Array<{ pattern: RegExp; type: string }> = [
     // Missiles
     { pattern: /\b(S-?300|S-?400|S-?500|Patriot|THAAD|Iron\s*Dome|David'?s?\s*Sling)\b/i, type: 'air-defense' },
     { pattern: /\b(Iskander|Kalibr|Kinzhal|Shahed|Geran|Tomahawk|ATACMS|HIMARS|Storm\s*Shadow|SCALP|Tochka|Fateh|Emad|Khorramshahr|Sejjil)\b/i, type: 'missile' },
@@ -445,7 +445,7 @@ const EQUIPMENT_PATTERNS: Array<{ pattern: RegExp; type: string }> = [
     { pattern: /\b(Javelin|NLAW|Stinger|MANPAD|TOW|RPG-?\d|AT-?4|Carl\s*Gustaf|Kornet)\b/i, type: 'infantry-weapon' },
 ]
 
-function extractEquipment(text: string): string | undefined {
+export function extractEquipment(text: string): string | undefined {
     for (const eq of EQUIPMENT_PATTERNS) {
         if (eq.pattern.test(text)) return eq.type
     }
