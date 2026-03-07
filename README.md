@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://warmaps.live"><img src="https://img.shields.io/badge/live-warmaps.live-7c3aed?style=flat-square" alt="Live Demo"></a>
+  <a href="https://warmaps.xyz"><img src="https://img.shields.io/badge/live-warmaps.xyz-7c3aed?style=flat-square" alt="Live Demo"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/runtime-Bun-f472b6?style=flat-square" alt="Bun">
 </p>
@@ -155,7 +155,7 @@ git pull && bun install
 bun run server.ts  # Port 4444
 
 # Caddy config
-warmaps.live {
+warmaps.xyz {
     reverse_proxy localhost:4444
 }
 ```
