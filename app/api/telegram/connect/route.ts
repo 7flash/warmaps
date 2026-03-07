@@ -1,28 +1,48 @@
 // POST /api/telegram/connect
-// If body has `retry: true`, will attempt reconnect with retries using env config
+// Standard connect: body { appId, appHash, phone }
+// Retry reconnect: body { retry: true, retries?: 5, delay?: 15000 }
 import * as tg from '../../../../src/telegram';
+import * as fs from 'fs';
+import * as path from 'path';
+
+function getConfig() {
+    // Try env vars first
+    if (process.env.TG_APP_ID && process.env.TG_APP_HASH && process.env.TG_PHONE) {
+        return { appId: Number(process.env.TG_APP_ID), appHash: process.env.TG_APP_HASH, phone: process.env.TG_PHONE };
+    }
+    // Fallback: read .config.toml directly
+    const configPath = path.join(import.meta.dir, '../../../../.config.toml');
+    try {
+        const content = fs.readFileSync(configPath, 'utf-8');
+        const appIdMatch = content.match(/app_id\s*=\s*"?(\d+)"?/);
+        const apiHashMatch = content.match(/api_hash\s*=\s*"([^"]+)"/);
+        const phoneMatch = content.match(/phone_number\s*=\s*"([^"]+)"/);
+        if (appIdMatch && apiHashMatch && phoneMatch) {
+            return { appId: Number(appIdMatch[1]), appHash: apiHashMatch[1], phone: phoneMatch[1] };
+        }
+    } catch { }
+    return null;
+}
 
 export async function POST(req: Request) {
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({} as any));
 
-    // Reconnect mode: use env config + retry
+    // Retry reconnect mode
     if (body.retry) {
+        const config = getConfig();
+        if (!config) {
+            return Response.json({ error: 'No Telegram config found (env or .config.toml)' }, { status: 400 });
+        }
+
         const maxRetries = Number(body.retries) || 5;
         const delayMs = Number(body.delay) || 15_000;
-        const appId = Number(process.env.TG_APP_ID);
-        const appHash = process.env.TG_APP_HASH || '';
-        const phone = process.env.TG_PHONE || '';
-
-        if (!appId || !appHash || !phone) {
-            return Response.json({ error: 'No Telegram config in env' }, { status: 400 });
-        }
 
         await tg.disconnect();
         const results: string[] = [];
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             results.push(`Attempt ${attempt}/${maxRetries}...`);
-            const r = await tg.sendCode(appId, appHash, phone);
+            const r = await tg.sendCode(config.appId, config.appHash, config.phone);
 
             if (r.ok && r.restored) {
                 tg.startPolling();
