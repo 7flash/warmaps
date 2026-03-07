@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 /**
  * virtual-feed.tsx — Lightweight virtual scrolling for feed widgets.
  *

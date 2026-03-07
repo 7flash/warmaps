@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * warmaps-canvas.ts — GalaxyDraw adapter for WARMAPS
  *
@@ -39,7 +38,7 @@ export interface CanvasState {
 
 export function getCanvasState(): CanvasState {
     if (!_gd) return { zoom: 1, offsetX: 0, offsetY: 0 };
-    const s = _gd.state.getSnapshot();
+    const s = _gd.state.snapshot();
     return { zoom: s.zoom, offsetX: s.offsetX, offsetY: s.offsetY };
 }
 
@@ -125,7 +124,8 @@ function saveLayout() {
     const containers = document.querySelectorAll('.wm-container');
     const layouts: ContainerLayout[] = [];
 
-    containers.forEach((c: HTMLElement) => {
+    containers.forEach((el) => {
+        const c = el as HTMLElement;
         layouts.push({
             id: c.id,
             x: parseFloat(c.style.left) || 0,
@@ -139,7 +139,7 @@ function saveLayout() {
     localStorage.setItem(LAYOUT_KEY, JSON.stringify(layouts));
 
     // Also save canvas pan/zoom state
-    const s = _gd.state.getSnapshot();
+    const s = _gd.state.snapshot();
     localStorage.setItem(CANVAS_STATE_KEY, JSON.stringify({
         zoom: s.zoom, offsetX: s.offsetX, offsetY: s.offsetY
     }));
@@ -187,7 +187,8 @@ function initContainerCollapse() {
 // ─── Container resize ───────────────────────────────────
 
 function initContainerResize() {
-    document.querySelectorAll('.wm-container').forEach((c: HTMLElement) => {
+    document.querySelectorAll('.wm-container').forEach((el) => {
+        const c = el as HTMLElement;
         if (c.querySelector('.wm-resize-handle')) return; // Already has handle
 
         const handle = document.createElement('div');
@@ -239,7 +240,8 @@ function getContainerBounds(padding = 0): ContainerBounds | null {
     const containers = document.querySelectorAll('.wm-container');
     if (containers.length === 0) return null;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    containers.forEach((c: HTMLElement) => {
+    containers.forEach((el) => {
+        const c = el as HTMLElement;
         const x = parseFloat(c.style.left) || 0;
         const y = parseFloat(c.style.top) || 0;
         const w = c.offsetWidth || 300;
@@ -276,7 +278,9 @@ export function updateMinimap() {
 
     // Render dots
     let dots = '';
-    containers.forEach((c: HTMLElement) => {
+    const pad = 100;
+    containers.forEach((el) => {
+        const c = el as HTMLElement;
         const x = parseFloat(c.style.left) || 0;
         const y = parseFloat(c.style.top) || 0;
         const w = c.offsetWidth || 300;
@@ -639,7 +643,8 @@ export function initCanvas() {
     if (existingContent) {
         const gdCanvas = _gd.getCanvas();
         const containers = existingContent.querySelectorAll('.wm-container');
-        containers.forEach((c: HTMLElement) => {
+        containers.forEach((el) => {
+            const c = el as HTMLElement;
             gdCanvas.appendChild(c);
         });
         // Remove the old content div since GD has its own
@@ -667,7 +672,7 @@ export function initCanvas() {
         // Save canvas pan/zoom state (debounced)
         cancelAnimationFrame(saveRaf);
         saveRaf = requestAnimationFrame(() => {
-            const s = _gd!.state.getSnapshot();
+            const s = _gd!.state.snapshot();
             localStorage.setItem(CANVAS_STATE_KEY, JSON.stringify({
                 zoom: s.zoom, offsetX: s.offsetX, offsetY: s.offsetY
             }));
@@ -716,7 +721,7 @@ function initKeyboardShortcuts() {
             case 'r':
                 e.preventDefault();
                 if (_gd) {
-                    const s = _gd.state.getSnapshot();
+                    const s = _gd.state.snapshot();
                     _gd.state.set(1, s.offsetX, s.offsetY); // Reset zoom to 1:1
                 }
                 break;
@@ -823,7 +828,7 @@ function _registerPaletteActions() {
     registerCanvasActions({
         fitAll: () => fitAllContainers(),
         arrange: () => autoArrangeContainers(),
-        resetZoom: () => { if (_gd) { const s = _gd.state.getSnapshot(); _gd.state.set(1, s.offsetX, s.offsetY); } },
+        resetZoom: () => { if (_gd) { const s = _gd.state.snapshot(); _gd.state.set(1, s.offsetX, s.offsetY); } },
         resetAll: () => { if (_gd) _gd.state.set(1, 0, 0); },
     });
 }
