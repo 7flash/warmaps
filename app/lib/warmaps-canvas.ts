@@ -227,19 +227,17 @@ function initContainerResize() {
     });
 }
 
-// ─── Minimap ────────────────────────────────────────────
+// ─── Container bounds helper ────────────────────────────
 
-export function updateMinimap() {
-    if (!_gd) return;
-    const minimap = document.getElementById('wm-minimap');
-    const minimapDots = document.getElementById('wm-minimap-content');
-    const minimapVp = document.getElementById('wm-minimap-vp');
-    if (!minimap || !minimapDots || !minimapVp) return;
+interface ContainerBounds {
+    minX: number; minY: number;
+    maxX: number; maxY: number;
+    worldW: number; worldH: number;
+}
 
+function getContainerBounds(padding = 0): ContainerBounds | null {
     const containers = document.querySelectorAll('.wm-container');
-    if (containers.length === 0) return;
-
-    // Find bounds of all containers
+    if (containers.length === 0) return null;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     containers.forEach((c: HTMLElement) => {
         const x = parseFloat(c.style.left) || 0;
@@ -251,16 +249,30 @@ export function updateMinimap() {
         if (x + w > maxX) maxX = x + w;
         if (y + h > maxY) maxY = y + h;
     });
+    minX -= padding;
+    minY -= padding;
+    maxX += padding;
+    maxY += padding;
+    return { minX, minY, maxX, maxY, worldW: maxX - minX || 1, worldH: maxY - minY || 1 };
+}
 
-    const worldW = maxX - minX || 1;
-    const worldH = maxY - minY || 1;
-    const pad = 100;
-    const totalW = worldW + pad * 2;
-    const totalH = worldH + pad * 2;
+// ─── Minimap ────────────────────────────────────────────
 
+export function updateMinimap() {
+    if (!_gd) return;
+    const minimap = document.getElementById('wm-minimap');
+    const minimapDots = document.getElementById('wm-minimap-content');
+    const minimapVp = document.getElementById('wm-minimap-vp');
+    if (!minimap || !minimapDots || !minimapVp) return;
+
+    const bounds = getContainerBounds(100);
+    if (!bounds) return;
+    const { minX, minY, worldW, worldH } = bounds;
+
+    const containers = document.querySelectorAll('.wm-container');
     const mapW = minimap.clientWidth || 180;
     const mapH = minimap.clientHeight || 120;
-    const scale = Math.min(mapW / totalW, mapH / totalH);
+    const scale = Math.min(mapW / worldW, mapH / worldH);
 
     // Render dots
     let dots = '';
@@ -269,8 +281,8 @@ export function updateMinimap() {
         const y = parseFloat(c.style.top) || 0;
         const w = c.offsetWidth || 300;
         const h = c.offsetHeight || 200;
-        const mx = ((x - minX + pad) * scale);
-        const my = ((y - minY + pad) * scale);
+        const mx = ((x - minX) * scale);
+        const my = ((y - minY) * scale);
         const mw = Math.max(3, w * scale);
         const mh = Math.max(3, h * scale);
         const color = c.classList.contains('collapsed') ? '#666' : '#7c3aed';
@@ -298,27 +310,9 @@ export function initMinimapClick() {
 
     minimap.addEventListener('mousedown', (e) => {
         e.preventDefault();
-        const containers = document.querySelectorAll('.wm-container');
-        if (containers.length === 0) return;
-
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        containers.forEach((c) => {
-            const el = c as HTMLElement;
-            const x = parseFloat(el.style.left) || 0;
-            const y = parseFloat(el.style.top) || 0;
-            const w = el.offsetWidth || 380;
-            const h = el.offsetHeight || 300;
-            minX = Math.min(minX, x);
-            minY = Math.min(minY, y);
-            maxX = Math.max(maxX, x + w);
-            maxY = Math.max(maxY, y + h);
-        });
-
-        const pad = 200;
-        minX -= pad; minY -= pad;
-        maxX += pad; maxY += pad;
-        const worldW = maxX - minX;
-        const worldH = maxY - minY;
+        const bounds = getContainerBounds(200);
+        if (!bounds) return;
+        const { minX, minY, worldW, worldH } = bounds;
 
         const mmRect = minimap.getBoundingClientRect();
         const scale = Math.min(mmRect.width / worldW, mmRect.height / worldH);
@@ -341,23 +335,9 @@ export function initMinimapClick() {
 
 export function fitAllContainers() {
     if (!_gd) return;
-    const containers = document.querySelectorAll('.wm-container');
-    if (containers.length === 0) return;
-
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    containers.forEach((c: HTMLElement) => {
-        const x = parseFloat(c.style.left) || 0;
-        const y = parseFloat(c.style.top) || 0;
-        const w = c.offsetWidth || 300;
-        const h = c.offsetHeight || 200;
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x + w > maxX) maxX = x + w;
-        if (y + h > maxY) maxY = y + h;
-    });
-
-    const worldW = maxX - minX;
-    const worldH = maxY - minY;
+    const bounds = getContainerBounds();
+    if (!bounds) return;
+    const { minX, minY, worldW, worldH } = bounds;
     const viewport = _gd.getViewport();
     const vpW = viewport.clientWidth || window.innerWidth;
     const vpH = viewport.clientHeight || window.innerHeight;
