@@ -175,8 +175,12 @@ export async function sendCode(
                     saveSession(state.client.session.save() as any, phone)
                     return { ok: true, restored: true }
                 }
-            } catch {
-                try { fs.unlinkSync(getSessionPath(phone)) } catch { }
+            } catch (restoreErr: any) {
+                // AUTH_KEY_DUPLICATED is transient — don't delete session, it will work on retry
+                const msg = restoreErr?.message || restoreErr?.errorMessage || ''
+                if (!msg.includes('AUTH_KEY')) {
+                    try { fs.unlinkSync(getSessionPath(phone)) } catch { }
+                }
             }
         }
 
@@ -568,14 +572,29 @@ export async function autoConnect() {
         return
     }
 
-    console.log('[telegram] Attempting auto-reconnect...')
-    const result = await sendCode(Number(appId), appHash, phone)
-    if (result.ok && result.restored) {
-        startPolling()
-        startHeartbeat()
-        console.log(`[telegram] ✅ Auto-connected as @${state.me?.username || phone}`)
-    } else {
-        console.log('[telegram] Auto-connect failed — session expired, need manual auth')
+    const MAX_RETRIES = 3
+    const RETRY_DELAY = 10_000 // 10s between retries
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        console.log(`[telegram] Auto-connect attempt ${attempt}/${MAX_RETRIES}...`)
+        const result = await sendCode(Number(appId), appHash, phone)
+        if (result.ok && result.restored) {
+            startPolling()
+            startHeartbeat()
+            console.log(`[telegram] ✅ Auto-connected as @${state.me?.username || phone}`)
+            return
+        }
+
+        // AUTH_KEY_DUPLICATED: previous process session hasn't fully released yet
+        const isRetryable = result.error?.includes('AUTH_KEY_DUPLICATED') || result.error?.includes('AUTH_KEY')
+        if (isRetryable && attempt < MAX_RETRIES) {
+            console.log(`[telegram] Session conflict — retrying in ${RETRY_DELAY / 1000}s...`)
+            await new Promise(r => setTimeout(r, RETRY_DELAY))
+            continue
+        }
+
+        console.log(`[telegram] Auto-connect failed: ${result.error || 'session expired, need manual auth'}`)
+        return
     }
 }
 
