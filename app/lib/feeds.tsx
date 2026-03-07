@@ -8,8 +8,15 @@ import { formatTime, formatVolume, getCategoryIcon, proxyImg, decodeEntities } f
 import { updatePerfDisplay } from './perf';
 import { openArticleModal } from './modals';
 import { openMarketModal } from './betting';
+import { createVirtualFeed, type VirtualFeedInstance } from './virtual-feed';
+
+// Track active virtual feed instances to destroy on re-render
+const _vfInstances = new WeakMap<HTMLElement, VirtualFeedInstance<any>>();
 
 // ─── News Feed ──────────────────────────────────────────────
+
+const VIRTUAL_THRESHOLD = 20; // Use virtual scroll when items exceed this
+const NEWS_ITEM_HEIGHT = 96;  // px per news card (image + title + meta)
 
 export function renderNewsFeed() {
     const containers = Array.from(document.querySelectorAll('.wm-container[data-widget-type="news"]'));
@@ -61,14 +68,16 @@ export function renderNewsFeed() {
             }
 
             return passFilter && passSource && passSearch;
-        }).slice(0, 40);
+        }).slice(0, 200); // Safe to allow up to 200 — virtual scroll handles perf
 
         if (filtered.length === 0 && newsItems.length === 0) {
+            _destroyVf(body);
             render(<div className="loading-state"><span className="spinner"></span><span>Establishing secure feed...</span></div>, body);
             return;
         }
 
         if (filtered.length === 0) {
+            _destroyVf(body);
             render(
                 <>{newsItems.slice(0, 15).map((item: any) =>
                     <div className="pulse-card">
@@ -81,7 +90,8 @@ export function renderNewsFeed() {
             return;
         }
 
-        const cards = filtered.map((ev: any, idx: number) => {
+        // Render item factory for virtual feed
+        const makeCard = (ev: any, idx: number): HTMLElement => {
             const lat = ev.lat;
             const lon = ev.lon || ev.lng;
             const source = ev.source || ev.domain || '';
@@ -99,17 +109,45 @@ export function renderNewsFeed() {
                         <div className="pulse-card__meta">{source} · {time}</div>
                     </div>
                 </div>
-            );
-        });
+            ) as unknown as HTMLElement;
+        };
 
-        const listContainer = document.createElement('div');
-        listContainer.className = 'pulse-list';
-        listContainer.style.padding = '10px';
-        render(<>{cards}</>, listContainer);
-
-        body.innerHTML = '';
-        body.appendChild(listContainer);
+        // Use virtual scroll for large feeds, direct render for small
+        if (filtered.length >= VIRTUAL_THRESHOLD) {
+            const existing = _vfInstances.get(body);
+            if (existing) {
+                // Update items in-place without recreating the scroll container
+                existing.update(filtered);
+            } else {
+                const vf = createVirtualFeed({
+                    container: body,
+                    items: filtered,
+                    itemHeight: NEWS_ITEM_HEIGHT,
+                    overscan: 5,
+                    renderItem: makeCard,
+                });
+                _vfInstances.set(body, vf);
+            }
+        } else {
+            _destroyVf(body);
+            const cards = filtered.map(makeCard);
+            const listContainer = document.createElement('div');
+            listContainer.className = 'pulse-list';
+            listContainer.style.padding = '10px';
+            render(<>{cards}</>, listContainer);
+            body.innerHTML = '';
+            body.appendChild(listContainer);
+        }
     });
+}
+
+/** Destroy any existing virtual feed on a container */
+function _destroyVf(body: HTMLElement) {
+    const existing = _vfInstances.get(body);
+    if (existing) {
+        existing.destroy();
+        _vfInstances.delete(body);
+    }
 }
 
 export function applyFeedFilter(filter: string) {
@@ -231,6 +269,8 @@ export function renderMarketCards(markets: any[]) {
 
 // ─── Telegram Feed ──────────────────────────────────────────
 
+const TG_ITEM_HEIGHT = 72; // px per telegram message
+
 export function renderTelegramFeed(alerts: any[]) {
     const containers = document.querySelectorAll('.wm-container[data-widget-type="telegram"]');
     if (containers.length === 0) return;
@@ -243,35 +283,55 @@ export function renderTelegramFeed(alerts: any[]) {
         const filtered = alerts.filter((alert: any) => {
             if (cfgChannels === 'all') return true;
             return alert.category === cfgChannels;
-        }).slice(0, 20);
+        }).slice(0, 100); // Safe with virtual scroll
 
         if (filtered.length === 0) {
+            _destroyVf(body);
             render(<div className="loading-state"><span>No messages in this category</span></div>, body);
             return;
         }
 
-        render(
-            <>{filtered.map((alert: any) => {
-                const tgUrl = `https://t.me/${alert.channel}`;
-                const time = formatTime(new Date(alert.date * 1000).toISOString());
-                const loc = alert.location ? `📍 ${alert.location.name}` : '';
-                return (
-                    <div id={alert.id || `tg-${alert.date}`} className="feed-item feed-item--telegram" style={{ cursor: 'pointer' }}>
-                        <div className="feed-item-source telegram">
-                            <span onClick={() => window.open(tgUrl, '_blank')}>📡 {alert.channelTitle}</span>
-                            <button className="wm-link-handle wm-c-link-handle" style={{ float: 'right' }} title="Drag to link">🔗</button>
-                        </div>
-                        <div className="feed-item-title" onClick={() => window.open(tgUrl, '_blank')}>{alert.text.slice(0, 200)}</div>
-                        <div className="feed-item-meta">
-                            <span className="feed-item-time">{time}</span>
-                            {loc && <span>{loc}</span>}
-                            {alert.threatLevel && alert.threatLevel !== 'low' && <span className={`tg-threat tg-threat--${alert.threatLevel}`}>{alert.threatLevel.toUpperCase()}</span>}
-                        </div>
+        const makeItem = (alert: any, _idx: number): HTMLElement => {
+            const tgUrl = `https://t.me/${alert.channel}`;
+            const time = formatTime(new Date(alert.date * 1000).toISOString());
+            const loc = alert.location ? `📍 ${alert.location.name}` : '';
+            return (
+                <div id={alert.id || `tg-${alert.date}`} className="feed-item feed-item--telegram" style={{ cursor: 'pointer' }}>
+                    <div className="feed-item-source telegram">
+                        <span onClick={() => window.open(tgUrl, '_blank')}>📡 {alert.channelTitle}</span>
+                        <button className="wm-link-handle wm-c-link-handle" style={{ float: 'right' }} title="Drag to link">🔗</button>
                     </div>
-                );
-            })}</>,
-            body
-        );
+                    <div className="feed-item-title" onClick={() => window.open(tgUrl, '_blank')}>{alert.text.slice(0, 200)}</div>
+                    <div className="feed-item-meta">
+                        <span className="feed-item-time">{time}</span>
+                        {loc && <span>{loc}</span>}
+                        {alert.threatLevel && alert.threatLevel !== 'low' && <span className={`tg-threat tg-threat--${alert.threatLevel}`}>{alert.threatLevel.toUpperCase()}</span>}
+                    </div>
+                </div>
+            ) as unknown as HTMLElement;
+        };
+
+        if (filtered.length >= VIRTUAL_THRESHOLD) {
+            const existing = _vfInstances.get(body);
+            if (existing) {
+                existing.update(filtered);
+            } else {
+                const vf = createVirtualFeed({
+                    container: body,
+                    items: filtered,
+                    itemHeight: TG_ITEM_HEIGHT,
+                    overscan: 5,
+                    renderItem: makeItem,
+                });
+                _vfInstances.set(body, vf);
+            }
+        } else {
+            _destroyVf(body);
+            render(
+                <>{filtered.map(makeItem)}</>,
+                body
+            );
+        }
     });
 }
 
