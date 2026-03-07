@@ -5,6 +5,12 @@
 import { render } from 'melina/client';
 import { map, gdeltEvents, IMAGE_MARKERS, telegramAlerts } from './state';
 
+function isValidCoord(lat: number, lon: number): boolean {
+    return typeof lat === 'number' && typeof lon === 'number' &&
+        !isNaN(lat) && !isNaN(lon) &&
+        lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+}
+
 let spotlightActive = true;
 let spotlightPaused = false;
 let spotlightVisited = new Set<string>();
@@ -68,6 +74,7 @@ function cycleSpotlight() {
     // Telegram alerts with locations + critical/high threat get priority
     const tgCandidates = telegramAlerts.filter((a: any) => {
         if (!a.location?.lat || !a.location?.lon) return false;
+        if (!isValidCoord(a.location.lat, a.location.lon)) return false;
         const eid = `tg-${a.id}`;
         return !spotlightVisited.has(eid);
     }).sort((a: any, b: any) => {
@@ -80,6 +87,7 @@ function cycleSpotlight() {
         if (!ev.imageUrl || !ev.lat) return false;
         const lon = ev.lon || ev.lng;
         if (!lon) return false;
+        if (!isValidCoord(ev.lat, lon)) return false;
         const eid = ev.id || ev.url || `${ev.lat}-${lon}`;
         return !spotlightVisited.has(eid);
     });
@@ -166,6 +174,7 @@ export function spawnRadarPings(events: any[], color = '') {
         const lat = evt.lat || evt.latitude;
         const lng = evt.lng || evt.longitude || evt.lon;
         if (!lat || !lng) continue;
+        if (!isValidCoord(lat, lng)) continue;
 
         try {
             const point = map.project([lng, lat]);

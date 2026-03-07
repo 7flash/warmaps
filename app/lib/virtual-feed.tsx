@@ -84,6 +84,8 @@ export function createVirtualFeed<T>(opts: VirtualFeedOptions<T>): VirtualFeedIn
     // ── Render logic ───────────────────────────────────────
     function renderSlice() {
         if (destroyed) return;
+        // Guard: container may be detached from DOM (widget removed while rAF pending)
+        if (!container.parentNode) return;
 
         const totalHeight = items.length * itemHeight;
         wrapper.style.height = totalHeight + 'px';
@@ -107,7 +109,10 @@ export function createVirtualFeed<T>(opts: VirtualFeedOptions<T>): VirtualFeedIn
         // Render only visible items
         viewport.innerHTML = '';
         for (let i = startIdx; i < endIdx; i++) {
-            const el = renderItem(items[i], i);
+            const item = items[i];
+            if (!item) continue;
+            const el = renderItem(item, i);
+            if (!el) continue;
             el.style.height = itemHeight + 'px';
             el.style.boxSizing = 'border-box';
             viewport.appendChild(el);
@@ -145,7 +150,7 @@ export function createVirtualFeed<T>(opts: VirtualFeedOptions<T>): VirtualFeedIn
             destroyed = true;
             container.removeEventListener('scroll', onScroll);
             if (rafId) cancelAnimationFrame(rafId);
-            container.innerHTML = '';
+            if (container.parentNode) container.innerHTML = '';
         },
     };
 }

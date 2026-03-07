@@ -98,6 +98,8 @@ export function renderNewsFeed() {
         }
 
         // Render item factory for virtual feed
+        // JSX creates VNodes (due to tsconfig jsxImportSource), so we must
+        // materialize them into real DOM via render() for the virtual scroller.
         const makeCard = (ev: any, idx: number): HTMLElement => {
             const lat = ev.lat;
             const lon = ev.lon || ev.lng;
@@ -105,8 +107,13 @@ export function renderNewsFeed() {
             const time = ev.date ? formatTime(ev.date) : '';
             const title = (ev.title || '').slice(0, 80);
             const imgUrl = proxyImg(ev.imageUrl);
-            return (
-                <div id={`gdelt-${ev.url ? ev.url.replace(/[^a-zA-Z0-9]/g, '') : idx}`} className="pulse-card" data-tone={String(ev.tone || 0)} data-themes={(ev.themes || []).join(',').toLowerCase()} data-date={ev.date || ''}>
+            const wrapper = document.createElement('div');
+            wrapper.className = 'pulse-card';
+            wrapper.dataset.tone = String(ev.tone || 0);
+            wrapper.dataset.themes = (ev.themes || []).join(',').toLowerCase();
+            wrapper.dataset.date = ev.date || '';
+            render(
+                <>
                     <img className="pulse-card__img" onClick={() => { flyToEv(lat, lon); openArticleModal(ev); }} src={imgUrl} onError={(e: any) => e.currentTarget.style.display = 'none'} alt="" loading="lazy" />
                     <div className="pulse-card__body">
                         <div className="pulse-card__title">
@@ -115,8 +122,10 @@ export function renderNewsFeed() {
                         </div>
                         <div className="pulse-card__meta">{source} · {time}</div>
                     </div>
-                </div>
-            ) as unknown as HTMLElement;
+                </>,
+                wrapper
+            );
+            return wrapper;
         };
 
         // Use virtual scroll for large feeds, direct render for small
@@ -334,8 +343,11 @@ export function renderTelegramFeed(alerts: any[]) {
             const tgUrl = `https://t.me/${alert.channel}`;
             const time = formatTime(new Date(alert.date * 1000).toISOString());
             const loc = alert.location ? `📍 ${alert.location.name}` : '';
-            return (
-                <div id={alert.id || `tg-${alert.date}`} className="feed-item feed-item--telegram" style={{ cursor: 'pointer' }}>
+            const wrapper = document.createElement('div');
+            wrapper.className = 'feed-item feed-item--telegram';
+            wrapper.style.cursor = 'pointer';
+            render(
+                <>
                     <div className="feed-item-source telegram">
                         <span onClick={() => window.open(tgUrl, '_blank')}>📡 {alert.channelTitle}</span>
                         <button className="wm-link-handle wm-c-link-handle" style={{ float: 'right' }} title="Drag to link">🔗</button>
@@ -347,8 +359,10 @@ export function renderTelegramFeed(alerts: any[]) {
                         {alert.threatLevel && alert.threatLevel !== 'low' && <span className={`tg-threat tg-threat--${alert.threatLevel}`}>{alert.threatLevel.toUpperCase()}</span>}
                         {alert.equipmentType && <span className="tg-equipment">{getEquipmentIcon(alert.equipmentType)} {alert.equipmentType}</span>}
                     </div>
-                </div>
-            ) as unknown as HTMLElement;
+                </>,
+                wrapper
+            );
+            return wrapper;
         };
 
         if (filtered.length >= VIRTUAL_THRESHOLD) {
