@@ -91,6 +91,21 @@
 - [x] ~~**Command palette expansion**~~ — ✅ DONE. Expanded from 10 to 19 conflict zones: added World Overview, Myanmar, Ethiopia, Sahel, Libya, DR Congo, South China Sea, Somalia, Afghanistan. Added 🔧 Utilities category with Clear Session Cache.
 - [x] ~~**Cross-repo type health**~~ — ✅ DONE. Achieved zero TypeScript errors across all 7 repos (543 total errors fixed): starwar, galaxy-canvas, bgr, melina.js, ments-utils, jsx-ai, geeksy-pumpfun-plugin.
 
+## 🔴 Priority: Fix
+- [ ] **DNS warmaps.org** — A record still points to Squarespace. Needs registrar login to set A → `202.155.132.139`.
+- [ ] **Telegram auto-reconnect on deploy** — After a server restart, Telegram session sometimes hangs. Add health check + auto-reconnect in `src/telegram.ts`.
+
+## 🟡 Priority: Improve
+- [ ] **Container resize extraction** — Extract the 40-line resize logic from warmaps-canvas.ts into `container-resize.ts` for consistency with other extracted modules.
+- [ ] **E2E browser tests** — Add Playwright tests for critical user flows: boot sequence, drag container, add widget from tray, command palette (Ctrl+K).
+- [ ] **Performance monitoring** — Add a `/api/metrics` endpoint exposing response times per route, active WebSocket connections, and Telegram feed health as Prometheus-compatible metrics.
+- [ ] **Melina compiled output** — Publish melina with `.d.ts` declarations so downstream consumers (gxai) don't get 45 node_modules type errors from raw `.ts` source.
+
+## 🟢 Priority: Features
+- [ ] **Widget templates** — Let users save a container's config as a reusable template. Store in localStorage, show in the widget tray with a ⭐ badge.
+- [ ] **Multi-user cursor colors** — When collaborative dashboarding is active, assign each peer a unique color from a curated palette instead of random.
+- [ ] **Data export** — Add a 📥 button to data widgets that exports the current feed content as CSV/JSON.
+
 ## 📝 Architecture Notes
 - **Production**: `root@202.155.132.139:/opt/starwar/`
 - **Deploy**: `git push && ssh pull + restart bun server`
