@@ -64,14 +64,25 @@
 - [x] ~~**Widget Drag & Drop from Tray**~~ — ✅ DONE. Widgets can now be dragged from the bottom tray and dropped at any position on the canvas. Screen-to-canvas coordinate conversion for accurate placement.
 - [x] ~~**Widget Right-Click Context Menu**~~ — ✅ DONE. Right-click on any widget shows glassmorphism popup: Configure, Duplicate, Detach to Window, Remove. Menu auto-repositions to stay in viewport.
 
+## 🟢 Priority: Intelligence Pipeline (March 2026)
+- [x] ~~**Telegram channel health check**~~ — ✅ DONE. Audited all 22 OSINT channels, updated 8 stale usernames, removed 3 dead channels, added verified alternatives.
+- [x] ~~**Geolocation database expansion**~~ — ✅ DONE. Expanded KNOWN_LOCATIONS from 28 → 95 across 10 theaters: Iran (14), Israel/Palestine (16), Lebanon (7), Syria (8), Iraq (6), Ukraine (17), Russia (5), Yemen/Red Sea (7), Sudan (3), Libya (2), East Asia (4).
+- [x] ~~**Equipment type detection**~~ — ✅ DONE. New `extractEquipment()` function identifies military hardware in OSINT alerts: air-defense, missile, drone, aircraft, helicopter, naval, armor, artillery, infantry-weapon. 8 regex pattern groups covering 80+ weapon systems.
+- [x] ~~**Enhanced threat classification**~~ — ✅ DONE. Improved `classifyThreat()` with contextual regex (e.g. "missile hit" not just "missile", "drone strike" not just "drone"). Reduced false positives on medium-level alerts.
+- [x] ~~**Telegram alerts on map**~~ — ✅ DONE. Full pipeline: channel → extractLocation() → GeoJSON features → MapLibre markers. Color-coded by threat level (red=critical, amber=high, cyan=default). Hover popup shows channel, equipment badge, and alert text. Previously alerts with locations were extracted but never rendered.
+- [x] ~~**Equipment badges in feed**~~ — ✅ DONE. Telegram feed items now show styled equipment type badges (🚀 MISSILE, 🛡️ AIR-DEFENSE, 🤖 DRONE, etc.) alongside threat level badges.
+- [x] ~~**Telegram auto-reconnect**~~ — ✅ DONE. Server auto-restores Telegram session on boot via `TG_APP_ID`, `TG_APP_HASH`, `TG_PHONE` env vars. Session file on production.
+- [x] ~~**galaxydraw npm migration**~~ — ✅ DONE. Published `galaxydraw@0.1.0` to npm (31KB, zero deps). Switched starwar dependency from fragile `file:` path to npm package.
+
 ## 📝 Architecture Notes
 - **Production**: `root@202.155.132.139:/opt/starwar/`
 - **Deploy**: `git push && ssh pull + restart bun server`
 - **HTTPS**: Caddy reverse proxy on port 443 → localhost:4444
-- **Map**: MapLibre GL with GeoJSON sources (fires, flights, events, assets, acled, webcams, seismic, crypto)
-- **Canvas engine**: `app/lib/warmaps-canvas.ts` — GalaxyDraw adapter (pan/zoom/drag/resize/minimap/persistence/touch). Replaced legacy `canvas.ts` (760 lines → 400 lines). Engine from `galaxydraw` file: dependency (sibling galaxy-canvas repo).
+- **Map**: MapLibre GL with GeoJSON sources (fires, flights, events, assets, acled, webcams, seismic, crypto, telegram)
+- **Canvas engine**: `app/lib/warmaps-canvas.ts` — GalaxyDraw adapter (pan/zoom/drag/resize/minimap/persistence/touch). Engine from `galaxydraw` npm package.
+- **Telegram OSINT**: `src/telegram.ts` — 22 channels, 95 location patterns, 8 equipment categories, auto-reconnect. Alerts stored in `state.telegramAlerts`, plotted on map via `_updateMapSourcesNow()`.
 - **Widget system**: `app/lib/widgets.ts` — 13 widget types, instance management, share link encoding
-- **Client**: `app/page.client.tsx` → thin orchestrator importing 16 modules from `app/lib/` (state, utils, perf, map, data, feeds, markers, tokens, modals, panels, tv, chat, ai, betting, spotlight, canvas, widgets)
+- **Client**: `app/page.client.tsx` → thin orchestrator importing 16 modules from `app/lib/`
 - **API routes**: `/api/gdelt`, `/api/acled`, `/api/fires`, `/api/flights`, `/api/telegram/*`, `/api/mm`, `/api/bet`, `/api/image-proxy`
 - **AI Chat**: Gemini streaming via `/api/ai`
 - **Betting**: Native SOL wagers via Phantom wallet
