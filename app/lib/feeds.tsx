@@ -3,7 +3,7 @@
  */
 
 import { render } from 'melina/client';
-import { map, newsItems, gdeltEvents, firePoints, marketData, threatAlerts, webcamData, flightData, seismicData, getFreshnessLabel, isWithinTimeline, timelineHours } from './state';
+import { map, newsItems, gdeltEvents, firePoints, marketData, threatAlerts, webcamData, flightData, seismicData, telegramAlerts, getFreshnessLabel, isWithinTimeline, timelineHours } from './state';
 import { formatTime, formatVolume, getCategoryIcon, proxyImg, decodeEntities } from './utils';
 import { updatePerfDisplay } from './perf';
 import { openArticleModal } from './modals';
@@ -526,6 +526,10 @@ export function updateTicker() {
     const el = document.getElementById('ticker-content');
     if (!el) return;
     const headlines = [
+        ...telegramAlerts.filter((a: any) => a.threatLevel === 'critical' || a.threatLevel === 'high').slice(0, 4).map((a: any) => {
+            const equip = a.equipmentType ? ` [${a.equipmentType.toUpperCase()}]` : '';
+            return `[OSINT] ${a.channelTitle}: ${a.text.slice(0, 80)}${equip}`;
+        }),
         ...threatAlerts.filter((a: any) => a.level === 'critical' || a.level === 'high').slice(0, 3).map((a: any) => `[THREAT RADAR] ${a.title}`),
         ...newsItems.slice(0, 6).map(n => `[${(n.source || 'NEWS').toUpperCase()}] ${n.title}`),
         ...marketData.filter((m: any) => m.probability >= 60).slice(0, 3).map((m: any) => `[MARKET] ${m.title} — ${m.probability}%`),
@@ -550,9 +554,13 @@ export function updateStats() {
     if (flightEl) flightEl.textContent = String(flightData.length);
     if (webcamEl) webcamEl.textContent = String(webcamData.length);
 
+    // Telegram OSINT count
+    const tgEl = document.getElementById('telegram-count');
+    if (tgEl) tgEl.textContent = String(telegramAlerts.length);
+
     const freshnessEl = document.getElementById('data-freshness');
     if (freshnessEl) {
-        const sources = ['gdelt', 'fires', 'flights', 'news'];
+        const sources = ['gdelt', 'fires', 'flights', 'news', 'telegram'];
         render(
             <>{sources.map((s, i) => {
                 const label = getFreshnessLabel(s);
