@@ -277,124 +277,23 @@ function snapToGuides(dragged: HTMLElement, x: number, y: number): { x: number; 
     return _snapToGuides(_gd?.getCanvas() ?? null, dragged, x, y);
 }
 
-// ─── Container drag (header-based) ──────────────────────
-// GalaxyDraw engine handles .gd-card drag, but WARMAPS containers are
-// pre-rendered DOM elements (.wm-container). We handle their drag manually.
+// ─── Container drag (delegated to container-drag.ts) ────
 
-let _topZIndex = 10;
+import {
+    initContainerDrag as _initContainerDrag,
+    bringToFront,
+} from './container-drag';
 
 function initContainerDrag() {
     if (!_gd) return;
-    const viewport = _gd.getViewport();
-
-    let draggingContainer: HTMLElement | null = null;
-    let containerDragOffsetX = 0;
-    let containerDragOffsetY = 0;
-
-    // ── Mouse drag ──
-    viewport.addEventListener('mousedown', (e) => {
-        const target = e.target as HTMLElement;
-        const dragHandle = target.closest('.wm-container-header');
-        if (!dragHandle || e.button !== 0) return;
-
-        const container = dragHandle.closest('.wm-container') as HTMLElement;
-        if (!container) return;
-
-        // Bring to front
-        _topZIndex++;
-        container.style.zIndex = String(_topZIndex);
-
-        draggingContainer = container;
-        const state = getCanvasState();
-        const rect = viewport.getBoundingClientRect();
-        const cx = parseFloat(container.style.left) || 0;
-        const cy = parseFloat(container.style.top) || 0;
-        containerDragOffsetX = (e.clientX - rect.left - state.offsetX) / state.zoom - cx;
-        containerDragOffsetY = (e.clientY - rect.top - state.offsetY) / state.zoom - cy;
-        container.classList.add('dragging');
-        e.preventDefault();
-        e.stopPropagation(); // Prevent GalaxyDraw from starting a pan
-    });
-
-    window.addEventListener('mousemove', (e) => {
-        if (!draggingContainer) return;
-        const state = getCanvasState();
-        const rect = viewport.getBoundingClientRect();
-        let newX = (e.clientX - rect.left - state.offsetX) / state.zoom - containerDragOffsetX;
-        let newY = (e.clientY - rect.top - state.offsetY) / state.zoom - containerDragOffsetY;
-
-        // Snap to grid when Shift held, otherwise snap to guides
-        if (e.shiftKey) {
-            newX = Math.round(newX / GRID_SIZE) * GRID_SIZE;
-            newY = Math.round(newY / GRID_SIZE) * GRID_SIZE;
-            viewport.classList.add('snap-grid');
-            clearSnapGuides();
-        } else {
-            viewport.classList.remove('snap-grid');
-            const snapped = snapToGuides(draggingContainer, newX, newY);
-            newX = snapped.x;
-            newY = snapped.y;
-        }
-
-        draggingContainer.style.left = `${newX}px`;
-        draggingContainer.style.top = `${newY}px`;
-        updateMinimap();
-    });
-
-    window.addEventListener('mouseup', () => {
-        if (!draggingContainer) return;
-        draggingContainer.classList.remove('dragging');
-        viewport.classList.remove('snap-grid');
-        clearSnapGuides();
-        saveLayout();
-        draggingContainer = null;
-    });
-
-    // ── Touch drag ──
-    let touchContainer: HTMLElement | null = null;
-    let touchOffX = 0, touchOffY = 0;
-
-    viewport.addEventListener('touchstart', (e) => {
-        if (e.touches.length !== 1) return;
-        const touch = e.touches[0];
-        const target = touch.target as HTMLElement;
-        const header = target.closest('.wm-container-header');
-        if (!header) return;
-
-        const container = header.closest('.wm-container') as HTMLElement;
-        if (!container) return;
-
-        _topZIndex++;
-        container.style.zIndex = String(_topZIndex);
-        touchContainer = container;
-
-        const state = getCanvasState();
-        const rect = viewport.getBoundingClientRect();
-        const cx = parseFloat(container.style.left) || 0;
-        const cy = parseFloat(container.style.top) || 0;
-        touchOffX = (touch.clientX - rect.left - state.offsetX) / state.zoom - cx;
-        touchOffY = (touch.clientY - rect.top - state.offsetY) / state.zoom - cy;
-        e.preventDefault();
-    }, { passive: false });
-
-    viewport.addEventListener('touchmove', (e) => {
-        if (!touchContainer || e.touches.length !== 1) return;
-        const touch = e.touches[0];
-        const state = getCanvasState();
-        const rect = viewport.getBoundingClientRect();
-        const worldX = (touch.clientX - rect.left - state.offsetX) / state.zoom;
-        const worldY = (touch.clientY - rect.top - state.offsetY) / state.zoom;
-        touchContainer.style.left = `${worldX - touchOffX}px`;
-        touchContainer.style.top = `${worldY - touchOffY}px`;
-        updateMinimap();
-        e.preventDefault();
-    }, { passive: false });
-
-    viewport.addEventListener('touchend', () => {
-        if (touchContainer) {
-            saveLayout();
-            touchContainer = null;
-        }
+    _initContainerDrag({
+        getState: () => getCanvasState(),
+        getViewport: () => _gd!.getViewport(),
+        snapToGuides,
+        clearSnapGuides,
+        updateMinimap,
+        saveLayout,
+        gridSize: GRID_SIZE,
     });
 }
 
@@ -500,12 +399,9 @@ function _registerPaletteActions() {
 // Register palette actions after canvas is ready
 _registerPaletteActions();
 
-// ─── Bring to front ─────────────────────────────────────
-
-export function bringToFront(container: HTMLElement) {
-    if (!_gd) return;
-    _gd.cards.bringToFront(container);
-}
+// ─── Bring to front (re-exported from container-drag.ts) ──
+// bringToFront is already imported above — re-export it
+export { bringToFront };
 
 // ─── Update transform (compatibility shim) ──────────────
 
