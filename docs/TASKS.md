@@ -87,6 +87,9 @@
 - [x] ~~**SVG favicon**~~ — ✅ DONE. Inline SVG green ◆ diamond on dark background. Zero external files. Matches WARMAPS branding.
 - [x] ~~**Command palette extraction**~~ — ✅ DONE. Extracted `command-palette.ts` (131 lines) from `warmaps-canvas.ts` (966→718 lines). Dependency injection via `registerCanvasActions()`. Clean module boundary.
 - [x] ~~**TypeScript zero errors**~~ — ✅ DONE. Fixed 18 errors across 4 packages: measure-fn@3.10.0, melina@2.3.2, jsx-ai@0.1.1, sqlite-zod-orm@3.26.1. All published to npm. `npx tsc --noEmit` = clean.
+- [x] ~~**Global error boundary**~~ — ✅ DONE. `window.error` + `unhandledrejection` listeners show a styled crash overlay (bottom-right toast) with error message, Reload and Dismiss buttons. Prevents blank white screen on uncaught exceptions.
+- [x] ~~**Command palette expansion**~~ — ✅ DONE. Expanded from 10 to 19 conflict zones: added World Overview, Myanmar, Ethiopia, Sahel, Libya, DR Congo, South China Sea, Somalia, Afghanistan. Added 🔧 Utilities category with Clear Session Cache.
+- [x] ~~**Cross-repo type health**~~ — ✅ DONE. Achieved zero TypeScript errors across all 7 repos (543 total errors fixed): starwar, galaxy-canvas, bgr, melina.js, ments-utils, jsx-ai, geeksy-pumpfun-plugin.
 
 ## 📝 Architecture Notes
 - **Production**: `root@202.155.132.139:/opt/starwar/`
@@ -95,7 +98,7 @@
 - **TypeScript**: Zero errors (`npx tsc --noEmit` = clean)
 - **Map**: MapLibre GL with GeoJSON sources (fires, flights, events, assets, acled, webcams, seismic, crypto, telegram)
 - **Canvas engine**: `app/lib/warmaps-canvas.ts` (718 lines) — GalaxyDraw adapter. Engine from `galaxydraw` npm package.
-- **Command palette**: `app/lib/command-palette.ts` (131 lines) — Ctrl+K launcher with fly-to locations + canvas commands.
+- **Command palette**: `app/lib/command-palette.ts` (~165 lines) — Ctrl+K launcher with 19 conflict zones, canvas commands, utilities.
 - **Telegram OSINT**: `src/telegram.ts` — 22 channels, 95 location patterns, 8 equipment categories, auto-reconnect.
 - **Widget system**: `app/lib/widgets.ts` — 13 widget types, instance management, share link encoding
 - **Client**: `app/page.client.tsx` → thin orchestrator importing 17 modules from `app/lib/`
