@@ -3,7 +3,7 @@
 ## 🔴 Priority: Fix
 - [x] ~~**Canvas event passthrough broken**~~ — ✅ DONE. Map zoom triggered canvas zoom, feed scroll didn't work. Root cause: GalaxyDraw engine's `consumesWheel`/`consumesMouse` only looked for `.gd-card` elements, but WARMAPS containers are `.wm-container`. Fix: (1) engine now also checks `[data-card-type]` attribute, (2) warmaps-canvas.ts stamps `data-card-type` on containers. Published `galaxydraw@0.2.0` and deployed.
 - [x] ~~**SEO references wrong domain**~~ — ✅ DONE. All OG/Twitter/canonical/sitemap/robots.txt references changed from `warmaps.live` → `warmaps.xyz`.
-- [ ] **Telegram AUTH_KEY_DUPLICATED** — After restart, Telegram connection shows `406: AUTH_KEY_DUPLICATED`. May need session file reset or wait for previous session to expire.
+- [ ] **Telegram AUTH_KEY_DUPLICATED** — Retry logic deployed (3 retries × 10s delay in server.ts). Session file deleted but Telegram API still rate-limiting new auth keys from same app_id. Server runs without Telegram. Need to wait longer or use Telegram's `terminateAllSessions` API, then restart once cleanly.
 
 ## 🟡 Priority: Improve
 - [ ] **Consolidate domain choice** — Decide on one canonical domain (`warmaps.org` vs `warmaps.live`). Configure the other as a 301 redirect in Caddy. Update all code references.
