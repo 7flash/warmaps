@@ -46,7 +46,8 @@ function getCommands(): PaletteCommand[] {
         { id: 'reset-zoom', label: 'Reset Zoom to 1:1', category: '⬛ Canvas', action: () => _actions?.resetZoom() },
         { id: 'reset-all', label: 'Reset Pan + Zoom', category: '⬛ Canvas', action: () => _actions?.resetAll() },
 
-        // Locations
+        // Navigate — Active Conflicts
+        { id: 'go-world', label: 'World Overview', category: '📍 Navigate', action: () => flyToLocation(20, 30, 2) },
         { id: 'go-ukraine', label: 'Fly to Ukraine', category: '📍 Navigate', action: () => flyToLocation(49.0, 32.0, 6) },
         { id: 'go-israel', label: 'Fly to Israel / Gaza', category: '📍 Navigate', action: () => flyToLocation(31.5, 34.8, 8) },
         { id: 'go-iran', label: 'Fly to Iran', category: '📍 Navigate', action: () => flyToLocation(32.4, 53.7, 6) },
@@ -57,6 +58,17 @@ function getCommands(): PaletteCommand[] {
         { id: 'go-taiwan', label: 'Fly to Taiwan Strait', category: '📍 Navigate', action: () => flyToLocation(24.0, 120.0, 7) },
         { id: 'go-korea', label: 'Fly to Korean Peninsula', category: '📍 Navigate', action: () => flyToLocation(38.0, 127.0, 7) },
         { id: 'go-india', label: 'Fly to India-Pakistan', category: '📍 Navigate', action: () => flyToLocation(33.0, 74.0, 6) },
+        { id: 'go-myanmar', label: 'Fly to Myanmar', category: '📍 Navigate', action: () => flyToLocation(19.8, 96.2, 6) },
+        { id: 'go-ethiopia', label: 'Fly to Ethiopia / Horn of Africa', category: '📍 Navigate', action: () => flyToLocation(9.0, 40.0, 6) },
+        { id: 'go-sahel', label: 'Fly to Sahel Region', category: '📍 Navigate', action: () => flyToLocation(14.0, 2.0, 5) },
+        { id: 'go-libya', label: 'Fly to Libya', category: '📍 Navigate', action: () => flyToLocation(27.0, 17.0, 6) },
+        { id: 'go-drc', label: 'Fly to DR Congo', category: '📍 Navigate', action: () => flyToLocation(-1.5, 29.0, 7) },
+        { id: 'go-scs', label: 'Fly to South China Sea', category: '📍 Navigate', action: () => flyToLocation(12.0, 114.0, 5) },
+        { id: 'go-somalia', label: 'Fly to Somalia', category: '📍 Navigate', action: () => flyToLocation(5.0, 46.0, 6) },
+        { id: 'go-afg', label: 'Fly to Afghanistan', category: '📍 Navigate', action: () => flyToLocation(34.0, 66.0, 6) },
+
+        // Utilities
+        { id: 'clear-cache', label: 'Clear Session Cache', category: '🔧 Utilities', action: () => { sessionStorage.clear(); location.reload(); } },
 
         // Help
         { id: 'help', label: 'Keyboard Shortcuts (?)', category: '❓ Help', action: () => { } },
