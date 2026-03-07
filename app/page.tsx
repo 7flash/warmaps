@@ -148,13 +148,13 @@ export default function Page() {
                         <button class="tray-scroll-arrow tray-scroll-right" data-target=".widget-tray-grid" aria-label="Scroll right">›</button>
                     </div>
                 </div>
-            </div >
+            </div>
 
             {/* Legacy elements kept for module compatibility */}
-            < div id="map-overlay" class="map-overlay" style="display:none" >
+            <div id="map-overlay" class="map-overlay" style="display:none">
                 <div id="data-freshness" class="data-freshness"></div>
                 <div id="perf-hud" class="perf-hud"></div>
-            </div >
+            </div>
             <div id="threat-banner" class="threat-banner" style="display:none">
                 <div class="threat-banner-icon">🚨</div>
                 <div class="threat-banner-content" id="threat-banner-content"></div>
