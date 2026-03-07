@@ -97,9 +97,10 @@
 - **HTTPS**: Caddy reverse proxy on port 443 → localhost:4444
 - **TypeScript**: Zero errors (`npx tsc --noEmit` = clean)
 - **Map**: MapLibre GL with GeoJSON sources (fires, flights, events, assets, acled, webcams, seismic, crypto, telegram)
-- **Canvas engine**: `app/lib/warmaps-canvas.ts` (621 lines) — GalaxyDraw adapter. Engine from `galaxydraw` npm package.
+- **Canvas engine**: `app/lib/warmaps-canvas.ts` (548 lines) — GalaxyDraw adapter. Engine from `galaxydraw` npm package.
+- **Keyboard shortcuts**: `app/lib/keyboard-shortcuts.ts` (~136 lines) — Extracted with dependency injection.
+- **Snap guidelines**: `app/lib/snap-guidelines.ts` (~120 lines) — SVG alignment guides for container dragging.
 - **Command palette**: `app/lib/command-palette.ts` (~165 lines) — Ctrl+K launcher with 19 conflict zones, canvas commands, utilities.
-- **Keyboard shortcuts**: `app/lib/keyboard-shortcuts.ts` (~136 lines) — F/A/R/0/?/Esc shortcuts, help overlay, dependency-injected actions.
 - **Telegram OSINT**: `src/telegram.ts` — 22 channels, 95 location patterns, 8 equipment categories, auto-reconnect.
 - **Widget system**: `app/lib/widgets.ts` — 13 widget types, instance management, share link encoding
 - **Client**: `app/page.client.tsx` → thin orchestrator importing 17 modules from `app/lib/`
