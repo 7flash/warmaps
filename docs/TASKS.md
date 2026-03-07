@@ -103,8 +103,8 @@
 
 ## 🟢 Priority: Features
 - [x] ~~**Widget templates**~~ — ✅ DONE. Let users save a container's config as a reusable template via the '⭐ Save Template' gear button. Stores config payload in localStorage `warmaps:templates`. Renders dynamically within the '⭐ Saved' and 'All' views in the widget tray catalog with a custom ⭐ badge filter.
-- [ ] **Multi-user cursor colors** — When collaborative dashboarding is active, assign each peer a unique color from a curated palette instead of random.
-- [ ] **Data export** — Add a 📥 button to data widgets that exports the current feed content as CSV/JSON.
+- [x] ~~**Multi-user cursor colors**~~ — ✅ DONE. When collaborative dashboarding is active, peers are assigned a unique color from the static curated `SYNC_COLORS` palette in `server.ts` rather than random generation.
+- [x] ~~**Data export**~~ — ✅ DONE. Added a 📥 export button in the `.wm-c-actions` container header bar. Downloads a JSON file injected with the resolved state array (gdeltEvents, firePoints, marketData, flightData, telegramAlerts, etc.) directly mapped by its `widgetType`.
 
 ## 📝 Architecture Notes
 - **Production**: `root@202.155.132.139:/opt/starwar/`

@@ -173,6 +173,38 @@ export function reRenderWidget(typeId: string) {
 
 export function renderGdeltFeed() { renderNewsFeed(); }
 
+export function exportWidgetData(typeId: string) {
+    let dataResolver: any = null;
+    let filename = `export-${typeId}-${Date.now()}.json`;
+
+    switch (typeId) {
+        case 'news': dataResolver = gdeltEvents; break;
+        case 'fires': dataResolver = firePoints; break;
+        case 'seismic': dataResolver = seismicData?.features || []; break;
+        case 'markets': dataResolver = marketData; break;
+        case 'telegram': dataResolver = telegramAlerts; break;
+        case 'intel': dataResolver = threatAlerts; break;
+        case 'flights': dataResolver = flightData; break;
+        default: break;
+    }
+
+    if (!dataResolver || (Array.isArray(dataResolver) && dataResolver.length === 0)) {
+        alert('No widget data available to export.');
+        return;
+    }
+
+    const dataStr = JSON.stringify(dataResolver, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 // ─── Fires Feed ─────────────────────────────────────────────
 
 export function renderFiresFeed() {

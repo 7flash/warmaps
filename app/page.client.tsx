@@ -593,6 +593,7 @@ function addWidgetToCanvas(typeId: string, dropX?: number, dropY?: number, tplCo
             <span class="wm-c-title">${titleStr}</span>
             <div class="wm-c-actions">
                 <button class="wm-c-link-handle wm-link-handle" title="Drag to link">🔗</button>
+                <button class="wm-c-export" title="Export widget data to JSON">📥</button>
                 <button class="wm-c-detach" title="Detach to new window">⎘</button>
                 <button class="wm-c-remove" title="Remove widget">×</button>
             </div>
@@ -604,6 +605,12 @@ function addWidgetToCanvas(typeId: string, dropX?: number, dropY?: number, tplCo
             </div>
         </div>
     `;
+
+    // Export data handler
+    container.querySelector('.wm-c-export')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        import('./lib/feeds').then(({ exportWidgetData }) => exportWidgetData(rendererType));
+    });
 
     // Remove button handler
     container.querySelector('.wm-c-remove')?.addEventListener('click', (e) => {
