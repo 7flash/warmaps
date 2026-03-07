@@ -285,7 +285,7 @@ export async function disconnect() {
 
 // Known conflict locations for automatic geolocation
 const KNOWN_LOCATIONS: Array<{ pattern: RegExp; lat: number; lon: number; name: string }> = [
-    // Iran
+    // Iran — nuclear sites & military targets
     { pattern: /\bisfahan\b/i, lat: 32.65, lon: 51.68, name: 'Isfahan' },
     { pattern: /\btehran\b/i, lat: 35.69, lon: 51.39, name: 'Tehran' },
     { pattern: /\bnatanz\b/i, lat: 33.51, lon: 51.73, name: 'Natanz' },
@@ -295,6 +295,12 @@ const KNOWN_LOCATIONS: Array<{ pattern: RegExp; lat: number; lon: number; name: 
     { pattern: /\bshiraz\b/i, lat: 29.59, lon: 52.58, name: 'Shiraz' },
     { pattern: /\bbandar abbas\b/i, lat: 27.19, lon: 56.28, name: 'Bandar Abbas' },
     { pattern: /\bhormuz\b/i, lat: 27.06, lon: 56.46, name: 'Strait of Hormuz' },
+    { pattern: /\bmashhad\b/i, lat: 36.30, lon: 59.60, name: 'Mashhad' },
+    { pattern: /\bparchin\b/i, lat: 35.52, lon: 51.77, name: 'Parchin' },
+    { pattern: /\barak\b/i, lat: 34.09, lon: 49.69, name: 'Arak' },
+    { pattern: /\bkharg\b/i, lat: 29.23, lon: 50.32, name: 'Kharg Island' },
+    { pattern: /\bchabahar\b/i, lat: 25.30, lon: 60.64, name: 'Chabahar' },
+
     // Israel / Palestine
     { pattern: /\btel aviv\b/i, lat: 32.08, lon: 34.78, name: 'Tel Aviv' },
     { pattern: /\bjerusalem\b/i, lat: 31.77, lon: 35.23, name: 'Jerusalem' },
@@ -302,16 +308,45 @@ const KNOWN_LOCATIONS: Array<{ pattern: RegExp; lat: number; lon: number; name: 
     { pattern: /\bdimona\b/i, lat: 31.07, lon: 35.03, name: 'Dimona' },
     { pattern: /\bhaifa\b/i, lat: 32.79, lon: 34.99, name: 'Haifa' },
     { pattern: /\bnegev\b/i, lat: 30.85, lon: 34.78, name: 'Negev' },
+    { pattern: /\brafah\b/i, lat: 31.30, lon: 34.25, name: 'Rafah' },
+    { pattern: /\bkhan younis\b/i, lat: 31.35, lon: 34.30, name: 'Khan Younis' },
+    { pattern: /\bnablus\b/i, lat: 32.22, lon: 35.26, name: 'Nablus' },
+    { pattern: /\bhebron\b/i, lat: 31.53, lon: 35.10, name: 'Hebron' },
+    { pattern: /\bjenin\b/i, lat: 32.46, lon: 35.30, name: 'Jenin' },
+    { pattern: /\bramallah\b/i, lat: 31.90, lon: 35.20, name: 'Ramallah' },
+    { pattern: /\bbeersheba\b/i, lat: 31.25, lon: 34.79, name: 'Beersheba' },
+    { pattern: /\bashkelon\b/i, lat: 31.67, lon: 34.57, name: 'Ashkelon' },
+    { pattern: /\bashdod\b/i, lat: 31.80, lon: 34.65, name: 'Ashdod' },
+    { pattern: /\bgolan\b/i, lat: 33.00, lon: 35.80, name: 'Golan Heights' },
+
     // Lebanon
     { pattern: /\bbeirut\b/i, lat: 33.89, lon: 35.50, name: 'Beirut' },
     { pattern: /\bdahiyeh\b/i, lat: 33.84, lon: 35.51, name: 'Dahiyeh' },
+    { pattern: /\btyre\b/i, lat: 33.27, lon: 35.20, name: 'Tyre' },
+    { pattern: /\bsidon\b/i, lat: 33.56, lon: 35.37, name: 'Sidon' },
+    { pattern: /\bbaalbek\b/i, lat: 34.01, lon: 36.21, name: 'Baalbek' },
+    { pattern: /\bnabatieh\b/i, lat: 33.38, lon: 35.48, name: 'Nabatieh' },
+    { pattern: /\blitani\b/i, lat: 33.35, lon: 35.30, name: 'Litani River' },
+
     // Syria
     { pattern: /\bdamascus\b/i, lat: 33.51, lon: 36.29, name: 'Damascus' },
     { pattern: /\baleppo\b/i, lat: 36.20, lon: 37.15, name: 'Aleppo' },
+    { pattern: /\bidlib\b/i, lat: 35.93, lon: 36.63, name: 'Idlib' },
+    { pattern: /\bhoms\b/i, lat: 34.73, lon: 36.72, name: 'Homs' },
+    { pattern: /\bdeir ez.?zor\b/i, lat: 35.33, lon: 40.14, name: 'Deir ez-Zor' },
+    { pattern: /\braqqa\b/i, lat: 35.95, lon: 39.01, name: 'Raqqa' },
+    { pattern: /\blatakia\b/i, lat: 35.52, lon: 35.79, name: 'Latakia' },
+    { pattern: /\btartus\b/i, lat: 34.89, lon: 35.89, name: 'Tartus' },
+
     // Iraq
     { pattern: /\bbaghdad\b/i, lat: 33.31, lon: 44.37, name: 'Baghdad' },
     { pattern: /\berbil\b/i, lat: 36.19, lon: 44.01, name: 'Erbil' },
-    // Ukraine
+    { pattern: /\bmosul\b/i, lat: 36.34, lon: 43.12, name: 'Mosul' },
+    { pattern: /\bbasra\b/i, lat: 30.51, lon: 47.81, name: 'Basra' },
+    { pattern: /\bkirkuk\b/i, lat: 35.47, lon: 44.39, name: 'Kirkuk' },
+    { pattern: /\btikrit\b/i, lat: 34.61, lon: 43.68, name: 'Tikrit' },
+
+    // Ukraine — expanded frontlines
     { pattern: /\bkyiv\b/i, lat: 50.45, lon: 30.52, name: 'Kyiv' },
     { pattern: /\bkharkiv\b/i, lat: 49.99, lon: 36.23, name: 'Kharkiv' },
     { pattern: /\bodessa\b/i, lat: 46.48, lon: 30.73, name: 'Odessa' },
@@ -320,10 +355,46 @@ const KNOWN_LOCATIONS: Array<{ pattern: RegExp; lat: number; lon: number; name: 
     { pattern: /\bzaporizhzhia\b/i, lat: 47.84, lon: 35.14, name: 'Zaporizhzhia' },
     { pattern: /\bcrimea\b/i, lat: 44.95, lon: 34.10, name: 'Crimea' },
     { pattern: /\bdonetsk\b/i, lat: 48.00, lon: 37.80, name: 'Donetsk' },
-    // Yemen / Horn of Africa
+    { pattern: /\bluhansk\b/i, lat: 48.57, lon: 39.31, name: 'Luhansk' },
+    { pattern: /\bkherson\b/i, lat: 46.64, lon: 32.62, name: 'Kherson' },
+    { pattern: /\bmykolaiv\b/i, lat: 46.97, lon: 32.00, name: 'Mykolaiv' },
+    { pattern: /\bbakhmut\b/i, lat: 48.59, lon: 38.00, name: 'Bakhmut' },
+    { pattern: /\bavdiivka\b/i, lat: 48.14, lon: 37.75, name: 'Avdiivka' },
+    { pattern: /\bsevastopol\b/i, lat: 44.62, lon: 33.53, name: 'Sevastopol' },
+    { pattern: /\bmelitopol\b/i, lat: 46.84, lon: 35.37, name: 'Melitopol' },
+    { pattern: /\blviv\b/i, lat: 49.84, lon: 24.03, name: 'Lviv' },
+    { pattern: /\bsumy\b/i, lat: 50.91, lon: 34.80, name: 'Sumy' },
+
+    // Russia — military targets mentioned in OSINT
+    { pattern: /\bmoscow\b/i, lat: 55.76, lon: 37.62, name: 'Moscow' },
+    { pattern: /\brostov\b/i, lat: 47.24, lon: 39.71, name: 'Rostov-on-Don' },
+    { pattern: /\bbelgorod\b/i, lat: 50.60, lon: 36.59, name: 'Belgorod' },
+    { pattern: /\bkursk\b/i, lat: 51.73, lon: 36.19, name: 'Kursk' },
+    { pattern: /\bnovorossiysk\b/i, lat: 44.72, lon: 37.77, name: 'Novorossiysk' },
+
+    // Yemen / Horn of Africa / Red Sea
     { pattern: /\bsanaa\b/i, lat: 15.37, lon: 44.19, name: "Sana'a" },
     { pattern: /\bhodeida\b/i, lat: 14.80, lon: 42.95, name: 'Hodeidah' },
     { pattern: /\baden\b/i, lat: 12.79, lon: 45.02, name: 'Aden' },
+    { pattern: /\bmarib\b/i, lat: 15.46, lon: 45.32, name: 'Marib' },
+    { pattern: /\bbab.?el.?mandeb\b/i, lat: 12.58, lon: 43.33, name: 'Bab el-Mandeb' },
+    { pattern: /\bred sea\b/i, lat: 20.00, lon: 38.00, name: 'Red Sea' },
+    { pattern: /\bdjibouti\b/i, lat: 11.59, lon: 43.15, name: 'Djibouti' },
+
+    // Sudan
+    { pattern: /\bkhartoum\b/i, lat: 15.60, lon: 32.53, name: 'Khartoum' },
+    { pattern: /\bport sudan\b/i, lat: 19.62, lon: 37.22, name: 'Port Sudan' },
+    { pattern: /\bdarfur\b/i, lat: 13.50, lon: 25.00, name: 'Darfur' },
+
+    // Libya
+    { pattern: /\btripoli\b/i, lat: 32.90, lon: 13.18, name: 'Tripoli' },
+    { pattern: /\bbenghazi\b/i, lat: 32.12, lon: 20.09, name: 'Benghazi' },
+
+    // East Asia — Taiwan Strait & Korean Peninsula
+    { pattern: /\btaiwan strait\b/i, lat: 24.50, lon: 119.50, name: 'Taiwan Strait' },
+    { pattern: /\btaipei\b/i, lat: 25.03, lon: 121.57, name: 'Taipei' },
+    { pattern: /\bpyongyang\b/i, lat: 39.02, lon: 125.75, name: 'Pyongyang' },
+    { pattern: /\bsouth china sea\b/i, lat: 14.50, lon: 114.00, name: 'South China Sea' },
 ]
 
 function extractLocation(text: string): TelegramAlert['location'] | undefined {
