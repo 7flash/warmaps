@@ -73,6 +73,12 @@
 - [x] ~~**Equipment badges in feed**~~ — ✅ DONE. Telegram feed items now show styled equipment type badges (🚀 MISSILE, 🛡️ AIR-DEFENSE, 🤖 DRONE, etc.) alongside threat level badges.
 - [x] ~~**Telegram auto-reconnect**~~ — ✅ DONE. Server auto-restores Telegram session on boot via `TG_APP_ID`, `TG_APP_HASH`, `TG_PHONE` env vars. Session file on production.
 - [x] ~~**galaxydraw npm migration**~~ — ✅ DONE. Published `galaxydraw@0.1.0` to npm (31KB, zero deps). Switched starwar dependency from fragile `file:` path to npm package.
+- [x] ~~**AI analyst Telegram context**~~ — ✅ DONE. `gatherLiveContext()` in `ai.tsx` now feeds latest 15 Telegram alerts (with locations, equipment, threat levels) to the Gemini AI. Updated system prompt to reference Telegram OSINT, equipment identification, and 22 monitored channels.
+- [x] ~~**Keyboard shortcuts**~~ — ✅ DONE. `F`=fit, `A`=arrange, `R`=reset zoom, `0`=origin, `?`=help overlay, `Esc`=close all. Glassmorphism help panel. Disabled when typing in inputs.
+- [x] ~~**Command palette (Ctrl+K)**~~ — ✅ DONE. VS Code-style command palette with fuzzy search. 15 commands: 4 canvas controls + 10 conflict zone fly-to locations + help. Arrow/Enter navigation. Auto-focus search input.
+- [x] ~~**Spotlight auto-camera OSINT**~~ — ✅ DONE. `cycleSpotlight()` now interleaves Telegram OSINT alerts with GDELT events. Critical/high threats prioritized (60% camera time). Equipment type shown in data flash. Threat-colored emoji prefix.
+- [x] ~~**Breaking news ticker OSINT**~~ — ✅ DONE. Telegram critical/high alerts appear first in ticker as `[OSINT] channel: text [EQUIPMENT]`. Stats bar shows `telegram-count`. Freshness indicator includes telegram source.
+- [x] ~~**.gitignore security fix**~~ — ✅ DONE. Removed dangerous blanket ignores (`docs/`, `*.txt`). Recovered 8 hidden ADR docs. Fixed `_.log` → `*.log`. Added explicit secret patterns.
 
 ## 📝 Architecture Notes
 - **Production**: `root@202.155.132.139:/opt/starwar/`
