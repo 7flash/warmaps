@@ -50,10 +50,10 @@
 
 ## 🟡 Priority: Improve
 - [x] ~~**Intel panel categorization**~~ — ✅ DONE. Refactored intel panel from flat mixed list into 4 collapsible sections: 🚨 Threats (critical/high alerts), 📊 Predictions (market cards), 🌍 Seismic (earthquakes), 🔥 Hotspots (fires). Each section has icon + title + count badge + chevron. Color-coded accent borders (red/cyan/amber/orange). Collapse state tracked per container.
-- [ ] **Widget tray scroll arrows** — Category row and widget cards need left/right scroll indicators when content overflows the viewport.
-- [ ] **Map layer toggle persistence** — Currently map layer toggles (fires, flights, etc.) reset on page load. Persist to localStorage.
-- [ ] **Widget snap guidelines** — Show blue alignment guides when dragging containers near other container edges.
-- [ ] **Performance: virtualize long feeds** — News feed and telegram widgets render all items. Add virtual scrolling for feeds with 100+ items.
+- [x] ~~**Widget tray scroll arrows**~~ — ✅ DONE. Added ‹/› arrow buttons to both category row and widget grid. Auto-show/hide based on overflow detection (scroll + resize events). Smooth 200px scroll per click. Frosted glass styling.
+- [x] ~~**Map layer toggle persistence**~~ — ✅ DONE. Layer filter checkboxes save checked state to `warmaps:layers:{filterId}` in localStorage. Restored on page load with 2s delayed map layer apply.
+- [x] ~~**Widget snap guidelines**~~ — ✅ DONE. Blue dashed SVG alignment guides appear when dragging a container within 8px of another container's edge (left/right/top/bottom/center). Snaps to aligned position, multiple simultaneous guides. Disabled during Shift+grid snap mode.
+- [x] ~~**Performance: virtualize long feeds**~~ — ✅ DONE. Created `createVirtualFeed()` utility (`app/lib/virtual-feed.tsx`). Fixed-height items, scroll+rAF, sentinel spacers. News feed capacity 40→200, telegram 20→100. Only ~15 DOM nodes rendered at a time. Auto-engages at 20+ items; below that uses direct render. WeakMap-tracked instances for leak-free cleanup.
 
 ## 🔴 Priority: Modular Widgets Pipeline
 - [x] ~~**Game-engine style widget folder**~~ — ✅ DONE. At the bottom of the screen, instead of a news feed, implement a "folder" or "tray" of boilerplate widgets that can be dragged and dropped onto the canvas.
