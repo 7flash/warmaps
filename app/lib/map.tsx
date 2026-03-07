@@ -6,7 +6,7 @@
 
 import maplibregl from 'maplibre-gl';
 import { map, setMap } from './state';
-import { proxyImg } from './utils';
+import { proxyImg, haversine } from './utils';
 import { initPanelToggles, initWallet } from './panels';
 import { initAIChat } from './ai';
 import { updateMapSources } from './data';
@@ -683,12 +683,3 @@ function showCountryProfile(country: typeof COUNTRY_FLAGS[0], mapRef: any) {
     });
 }
 
-function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) ** 2 +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
