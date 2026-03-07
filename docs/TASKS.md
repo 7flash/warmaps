@@ -96,8 +96,9 @@
 - **Deploy**: `git push && ssh pull + restart bun server`
 - **HTTPS**: Caddy reverse proxy on port 443 → localhost:4444
 - **TypeScript**: Zero errors (`npx tsc --noEmit` = clean)
+- **Tests**: 59 passing (db integration + canvas modules + API endpoints). CI via GitHub Actions.
 - **Map**: MapLibre GL with GeoJSON sources (fires, flights, events, assets, acled, webcams, seismic, crypto, telegram)
-- **Canvas engine**: `app/lib/warmaps-canvas.ts` (341 lines) — GalaxyDraw adapter + thin orchestrator.
+- **Canvas engine**: `app/lib/warmaps-canvas.ts` (328 lines) — GalaxyDraw adapter + thin orchestrator.
 - **Container drag**: `app/lib/container-drag.ts` (~145 lines) — Mouse + touch drag with DragContext interface.
 - **Canvas layout**: `app/lib/canvas-layout.ts` (~180 lines) — Minimap, fit-all, auto-arrange, bounds helpers.
 - **Keyboard shortcuts**: `app/lib/keyboard-shortcuts.ts` (~136 lines) — Extracted with dependency injection.
