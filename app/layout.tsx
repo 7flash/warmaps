@@ -7,6 +7,9 @@ export default function RootLayout({ children }: { children: any }) {
                 <title>WARMAPS — Global Conflict Monitor</title>
                 <meta name="description" content="WARMAPS — Real-time global conflict monitoring. Live satellite fire data, OSINT intelligence, and 3D globe visualization. $WARMAPS on Solana." />
                 <meta name="theme-color" content="#050913" />
+                <link rel="manifest" href="/api/manifest.json" />
+                <meta name="apple-mobile-web-app-capable" content="yes" />
+                <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
                 <meta property="og:title" content="WARMAPS — Global Conflict Monitor" />
                 <meta property="og:description" content="Real-time OSINT intelligence dashboard with 3D globe, satellite fire tracking, and live news feeds." />
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
