@@ -48,3 +48,9 @@ test*.txt
 test.html
 buntest.ts
 tree_test*.ts
+out.html
+results*.json
+
+# Playwright
+playwright-report/
+test-results/
