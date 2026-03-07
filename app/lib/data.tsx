@@ -26,6 +26,13 @@ import { updateTokenMapSource, renderTokensFeed } from './tokens';
 import { cachedFetch } from './cache';
 import { spawnRadarPings, showDataFlash } from './spotlight';
 
+/** Validate that coordinates are within MapLibre's accepted range */
+function isValidCoord(lat: number, lon: number): boolean {
+    return typeof lat === 'number' && typeof lon === 'number' &&
+        !isNaN(lat) && !isNaN(lon) &&
+        lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+}
+
 // ─── WebWorker Data Layer ───────────────────────────────────
 
 const workerCode = `
@@ -35,7 +42,9 @@ self.onmessage = function(e) {
         try {
             const data = JSON.parse(payload);
             const flights = data.flights || [];
-            const features = flights.map(f => ({
+            const features = flights
+                .filter(f => typeof f.lat === 'number' && typeof f.lon === 'number' && !isNaN(f.lat) && !isNaN(f.lon) && f.lat >= -90 && f.lat <= 90 && f.lon >= -180 && f.lon <= 180)
+                .map(f => ({
                 type: 'Feature',
                 geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
                 properties: {
@@ -55,7 +64,9 @@ self.onmessage = function(e) {
         try {
             const data = JSON.parse(payload);
             const fires = data.fires || [];
-            const features = fires.map(f => ({
+            const features = fires
+                .filter(f => typeof f.lat === 'number' && typeof f.lon === 'number' && !isNaN(f.lat) && !isNaN(f.lon) && f.lat >= -90 && f.lat <= 90 && f.lon >= -180 && f.lon <= 180)
+                .map(f => ({
                 type: 'Feature',
                 geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
                 properties: { brightness: f.brightness, confidence: f.confidence }
@@ -170,18 +181,20 @@ export async function fetchSeismic() {
         if (data.events) {
             const geo = {
                 type: 'FeatureCollection',
-                features: data.events.map((e: any) => ({
-                    type: 'Feature',
-                    geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
-                    properties: {
-                        type: 'seismic',
-                        id: e.id,
-                        title: e.title,
-                        mag: e.mag,
-                        depth: e.depth,
-                        is_kinetic: e.is_kinetic
-                    }
-                }))
+                features: data.events
+                    .filter((e: any) => isValidCoord(e.lat, e.lon))
+                    .map((e: any) => ({
+                        type: 'Feature',
+                        geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
+                        properties: {
+                            type: 'seismic',
+                            id: e.id,
+                            title: e.title,
+                            mag: e.mag,
+                            depth: e.depth,
+                            is_kinetic: e.is_kinetic
+                        }
+                    }))
             };
             setSeismicData(geo);
             const aSrc = map?.getSource('seismic');
@@ -399,19 +412,21 @@ export async function fetchWebcams() {
 
         const webcamGeoJSON = {
             type: 'FeatureCollection',
-            features: webcamData.map((cam: any) => ({
-                type: 'Feature',
-                geometry: { type: 'Point', coordinates: [cam.lon, cam.lat] },
-                properties: {
-                    type: 'webcam',
-                    id: cam.id,
-                    title: `📷 ${cam.title}`,
-                    city: cam.city,
-                    country: cam.country,
-                    playerUrl: cam.playerUrl,
-                    status: cam.status,
-                }
-            }))
+            features: webcamData
+                .filter((cam: any) => isValidCoord(cam.lat, cam.lon))
+                .map((cam: any) => ({
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: [cam.lon, cam.lat] },
+                    properties: {
+                        type: 'webcam',
+                        id: cam.id,
+                        title: `📷 ${cam.title}`,
+                        city: cam.city,
+                        country: cam.country,
+                        playerUrl: cam.playerUrl,
+                        status: cam.status,
+                    }
+                }))
         };
 
         const src = map?.getSource('webcams');
@@ -475,7 +490,7 @@ function _updateMapSourcesNow() {
     // Queue new image events
     if (FF.imageMarkers) queueNewEvents(gdeltEvents);
 
-    gdeltEvents.filter(e => e.lat && e.lon).forEach(e => {
+    gdeltEvents.filter(e => e.lat && e.lon && isValidCoord(e.lat, e.lon)).forEach(e => {
         const eid = e.id || e.url || `${e.lat}-${e.lon}`;
         if (!eventArrivalTime.has(eid)) {
             eventArrivalTime.set(eid, now);
@@ -499,7 +514,7 @@ function _updateMapSourcesNow() {
     });
 
     if (FF.markets) {
-        marketData.filter((m: any) => m.lat && m.lon).forEach((m: any) => {
+        marketData.filter((m: any) => m.lat && m.lon && isValidCoord(m.lat, m.lon)).forEach((m: any) => {
             features.push({
                 type: 'Feature',
                 geometry: { type: 'Point', coordinates: [m.lon, m.lat] },
@@ -510,7 +525,7 @@ function _updateMapSourcesNow() {
 
     // Telegram OSINT alerts with extracted locations
     if (FF.telegram) {
-        telegramAlerts.filter((a: any) => a.location?.lat && a.location?.lon).forEach((a: any) => {
+        telegramAlerts.filter((a: any) => a.location?.lat && a.location?.lon && isValidCoord(a.location.lat, a.location.lon)).forEach((a: any) => {
             const tType = a.threatLevel === 'critical' ? 'telegram-critical' :
                 a.threatLevel === 'high' ? 'telegram-high' : 'telegram';
             features.push({
