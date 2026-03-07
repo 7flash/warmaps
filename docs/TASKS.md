@@ -97,7 +97,9 @@
 - **HTTPS**: Caddy reverse proxy on port 443 → localhost:4444
 - **TypeScript**: Zero errors (`npx tsc --noEmit` = clean)
 - **Map**: MapLibre GL with GeoJSON sources (fires, flights, events, assets, acled, webcams, seismic, crypto, telegram)
-- **Canvas engine**: `app/lib/warmaps-canvas.ts` (548 lines) — GalaxyDraw adapter. Engine from `galaxydraw` npm package.
+- **Canvas engine**: `app/lib/warmaps-canvas.ts` (341 lines) — GalaxyDraw adapter + thin orchestrator.
+- **Container drag**: `app/lib/container-drag.ts` (~145 lines) — Mouse + touch drag with DragContext interface.
+- **Canvas layout**: `app/lib/canvas-layout.ts` (~180 lines) — Minimap, fit-all, auto-arrange, bounds helpers.
 - **Keyboard shortcuts**: `app/lib/keyboard-shortcuts.ts` (~136 lines) — Extracted with dependency injection.
 - **Snap guidelines**: `app/lib/snap-guidelines.ts` (~120 lines) — SVG alignment guides for container dragging.
 - **Command palette**: `app/lib/command-palette.ts` (~165 lines) — Ctrl+K launcher with 19 conflict zones, canvas commands, utilities.
