@@ -100,6 +100,10 @@
 - [x] ~~**E2E browser tests**~~ — ✅ DONE. Added Playwright tests for critical user flows, aligned with accurate WARMAPS canvas DOM locators.
 - [x] ~~**Performance monitoring**~~ — ✅ DONE. Added a `/api/metrics` endpoint exposing response times per route, active WebSocket connections, and Telegram feed health as Prometheus-compatible metrics.
 - [x] ~~**Melina compiled output**~~ — ✅ DONE. Published `melina@2.3.5` with `.d.ts` declarations so downstream consumers (gxai) don't get 45 node_modules type errors from raw `.ts` source.
+- [x] ~~**Global Search Hotkey**~~ — ✅ DONE. Added `/` as an alternative hotkey for the Command Palette (like GitHub). Updated `keyboard-shortcuts.ts` and the help overlay to reflect this new hotkey.
+- [x] ~~**Debounce Canvas State Save**~~ — ✅ Already handled. Canvas state save uses `cancelAnimationFrame`/`requestAnimationFrame` debounce in the `subscribe` callback. `saveLayout()` only fires on drag-end, resize-end, collapse, and auto-arrange — not per-frame.
+- [x] ~~**Widget Config UI Polish**~~ — ✅ DONE. Unified all container header action buttons (.wm-c-actions) with glassmorphism hover effects: green (gear), red (remove), cyan (detach), amber (export), purple (link). backdrop-filter blur(12px), inset glow box-shadows, scale bounce on active.
+- [ ] **Invalid LngLat runtime error** — "Uncaught Error: Invalid LngLat latitude value: must be between -90 and 90" on page load. Likely a data point with bad coordinates being fed to MapLibre.
 
 ## 🟢 Priority: Features
 - [x] ~~**Widget templates**~~ — ✅ DONE. Let users save a container's config as a reusable template via the '⭐ Save Template' gear button. Stores config payload in localStorage `warmaps:templates`. Renders dynamically within the '⭐ Saved' and 'All' views in the widget tray catalog with a custom ⭐ badge filter.
