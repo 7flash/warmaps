@@ -88,6 +88,10 @@ function createWarmapsPlugin(): CardPlugin {
             if (target.closest('.maplibregl-map') || target.closest('.maplibregl-canvas-container')) {
                 return true;
             }
+            // Container header drag is handled by our initContainerDrag
+            if (target.closest('.wm-container-header')) {
+                return true;
+            }
             // Interactive elements inside containers
             return !!(
                 target.closest('button') ||
@@ -227,9 +231,9 @@ function initContainerResize() {
 
 export function updateMinimap() {
     if (!_gd) return;
-    const minimap = document.getElementById('minimap');
-    const minimapDots = document.getElementById('minimap-dots');
-    const minimapVp = document.getElementById('minimap-viewport');
+    const minimap = document.getElementById('wm-minimap');
+    const minimapDots = document.getElementById('wm-minimap-content');
+    const minimapVp = document.getElementById('wm-minimap-vp');
     if (!minimap || !minimapDots || !minimapVp) return;
 
     const containers = document.querySelectorAll('.wm-container');
@@ -284,6 +288,53 @@ export function updateMinimap() {
     const vW = (vpW / state.zoom) * scale;
     const vH = (vpH / state.zoom) * scale;
     minimapVp.style.cssText = `position:absolute;left:${vLeft}px;top:${vTop}px;width:${vW}px;height:${vH}px;border:1px solid rgba(124,58,237,0.6);border-radius:2px;background:rgba(124,58,237,0.1);`;
+}
+
+// ─── Minimap click navigation ───────────────────────────
+
+export function initMinimapClick() {
+    const minimap = document.getElementById('wm-minimap');
+    if (!minimap || !_gd) return;
+
+    minimap.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const containers = document.querySelectorAll('.wm-container');
+        if (containers.length === 0) return;
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        containers.forEach((c) => {
+            const el = c as HTMLElement;
+            const x = parseFloat(el.style.left) || 0;
+            const y = parseFloat(el.style.top) || 0;
+            const w = el.offsetWidth || 380;
+            const h = el.offsetHeight || 300;
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x + w);
+            maxY = Math.max(maxY, y + h);
+        });
+
+        const pad = 200;
+        minX -= pad; minY -= pad;
+        maxX += pad; maxY += pad;
+        const worldW = maxX - minX;
+        const worldH = maxY - minY;
+
+        const mmRect = minimap.getBoundingClientRect();
+        const scale = Math.min(mmRect.width / worldW, mmRect.height / worldH);
+
+        const clickX = (e.clientX - mmRect.left) / scale + minX;
+        const clickY = (e.clientY - mmRect.top) / scale + minY;
+
+        const state = getCanvasState();
+        const viewport = _gd!.getViewport();
+        const vpRect = viewport.getBoundingClientRect();
+        const newOffsetX = -(clickX - vpRect.width / (2 * state.zoom)) * state.zoom;
+        const newOffsetY = -(clickY - vpRect.height / (2 * state.zoom)) * state.zoom;
+
+        _gd!.state.set(state.zoom, newOffsetX, newOffsetY);
+        updateMinimap();
+    });
 }
 
 // ─── Fit all containers ─────────────────────────────────
@@ -369,6 +420,111 @@ export function autoArrangeContainers() {
     fitAllContainers();
 }
 
+// ─── Container drag (header-based) ──────────────────────
+// GalaxyDraw engine handles .gd-card drag, but WARMAPS containers are
+// pre-rendered DOM elements (.wm-container). We handle their drag manually.
+
+let _topZIndex = 10;
+
+function initContainerDrag() {
+    if (!_gd) return;
+    const viewport = _gd.getViewport();
+
+    let draggingContainer: HTMLElement | null = null;
+    let containerDragOffsetX = 0;
+    let containerDragOffsetY = 0;
+
+    // ── Mouse drag ──
+    viewport.addEventListener('mousedown', (e) => {
+        const target = e.target as HTMLElement;
+        const dragHandle = target.closest('.wm-container-header');
+        if (!dragHandle || e.button !== 0) return;
+
+        const container = dragHandle.closest('.wm-container') as HTMLElement;
+        if (!container) return;
+
+        // Bring to front
+        _topZIndex++;
+        container.style.zIndex = String(_topZIndex);
+
+        draggingContainer = container;
+        const state = getCanvasState();
+        const rect = viewport.getBoundingClientRect();
+        const cx = parseFloat(container.style.left) || 0;
+        const cy = parseFloat(container.style.top) || 0;
+        containerDragOffsetX = (e.clientX - rect.left - state.offsetX) / state.zoom - cx;
+        containerDragOffsetY = (e.clientY - rect.top - state.offsetY) / state.zoom - cy;
+        container.classList.add('dragging');
+        e.preventDefault();
+        e.stopPropagation(); // Prevent GalaxyDraw from starting a pan
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!draggingContainer) return;
+        const state = getCanvasState();
+        const rect = viewport.getBoundingClientRect();
+        const newX = (e.clientX - rect.left - state.offsetX) / state.zoom - containerDragOffsetX;
+        const newY = (e.clientY - rect.top - state.offsetY) / state.zoom - containerDragOffsetY;
+        draggingContainer.style.left = `${newX}px`;
+        draggingContainer.style.top = `${newY}px`;
+        updateMinimap();
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (!draggingContainer) return;
+        draggingContainer.classList.remove('dragging');
+        saveLayout();
+        draggingContainer = null;
+    });
+
+    // ── Touch drag ──
+    let touchContainer: HTMLElement | null = null;
+    let touchOffX = 0, touchOffY = 0;
+
+    viewport.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        const target = touch.target as HTMLElement;
+        const header = target.closest('.wm-container-header');
+        if (!header) return;
+
+        const container = header.closest('.wm-container') as HTMLElement;
+        if (!container) return;
+
+        _topZIndex++;
+        container.style.zIndex = String(_topZIndex);
+        touchContainer = container;
+
+        const state = getCanvasState();
+        const rect = viewport.getBoundingClientRect();
+        const cx = parseFloat(container.style.left) || 0;
+        const cy = parseFloat(container.style.top) || 0;
+        touchOffX = (touch.clientX - rect.left - state.offsetX) / state.zoom - cx;
+        touchOffY = (touch.clientY - rect.top - state.offsetY) / state.zoom - cy;
+        e.preventDefault();
+    }, { passive: false });
+
+    viewport.addEventListener('touchmove', (e) => {
+        if (!touchContainer || e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        const state = getCanvasState();
+        const rect = viewport.getBoundingClientRect();
+        const worldX = (touch.clientX - rect.left - state.offsetX) / state.zoom;
+        const worldY = (touch.clientY - rect.top - state.offsetY) / state.zoom;
+        touchContainer.style.left = `${worldX - touchOffX}px`;
+        touchContainer.style.top = `${worldY - touchOffY}px`;
+        updateMinimap();
+        e.preventDefault();
+    }, { passive: false });
+
+    viewport.addEventListener('touchend', () => {
+        if (touchContainer) {
+            saveLayout();
+            touchContainer = null;
+        }
+    });
+}
+
 // ─── Init ───────────────────────────────────────────────
 
 export function initCanvas() {
@@ -410,14 +566,20 @@ export function initCanvas() {
     // WARMAPS-specific features not in galaxydraw core
     initContainerCollapse();
     initContainerResize();
+    initContainerDrag();
 
-    // Save layout on container move (via CardManager events)
-    _gd.bus.on('card:move', () => saveLayout());
-    _gd.bus.on('card:resize', () => saveLayout());
-
-    // Subscribe to state changes for minimap
+    // Save layout on any pan/zoom state change (debounced via rAF)
+    let saveRaf = 0;
     _gd.state.subscribe(() => {
         updateMinimap();
+        // Save canvas pan/zoom state (debounced)
+        cancelAnimationFrame(saveRaf);
+        saveRaf = requestAnimationFrame(() => {
+            const s = _gd!.state.getSnapshot();
+            localStorage.setItem(CANVAS_STATE_KEY, JSON.stringify({
+                zoom: s.zoom, offsetX: s.offsetX, offsetY: s.offsetY
+            }));
+        });
     });
 
     // Initial render
