@@ -228,180 +228,40 @@ function initContainerResize() {
     });
 }
 
-// ─── Container bounds helper ────────────────────────────
+// ─── Layout operations (delegated to canvas-layout.ts) ──
 
-interface ContainerBounds {
-    minX: number; minY: number;
-    maxX: number; maxY: number;
-    worldW: number; worldH: number;
+import {
+    getContainerBounds,
+    updateMinimap as _updateMinimap,
+    initMinimapClick as _initMinimapClick,
+    fitAllContainers as _fitAllContainers,
+    autoArrangeContainers as _autoArrangeContainers,
+} from './canvas-layout';
+import type { CanvasAccessor } from './canvas-layout';
+
+function _getCanvasAccessor(): CanvasAccessor | null {
+    if (!_gd) return null;
+    return {
+        getState: () => getCanvasState(),
+        getViewport: () => _gd!.getViewport(),
+        setState: (z, x, y) => _gd!.state.set(z, x, y),
+    };
 }
-
-function getContainerBounds(padding = 0): ContainerBounds | null {
-    const containers = document.querySelectorAll('.wm-container');
-    if (containers.length === 0) return null;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    containers.forEach((el) => {
-        const c = el as HTMLElement;
-        const x = parseFloat(c.style.left) || 0;
-        const y = parseFloat(c.style.top) || 0;
-        const w = c.offsetWidth || 300;
-        const h = c.offsetHeight || 200;
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x + w > maxX) maxX = x + w;
-        if (y + h > maxY) maxY = y + h;
-    });
-    minX -= padding;
-    minY -= padding;
-    maxX += padding;
-    maxY += padding;
-    return { minX, minY, maxX, maxY, worldW: maxX - minX || 1, worldH: maxY - minY || 1 };
-}
-
-// ─── Minimap ────────────────────────────────────────────
 
 export function updateMinimap() {
-    if (!_gd) return;
-    const minimap = document.getElementById('wm-minimap');
-    const minimapDots = document.getElementById('wm-minimap-content');
-    const minimapVp = document.getElementById('wm-minimap-vp');
-    if (!minimap || !minimapDots || !minimapVp) return;
-
-    const bounds = getContainerBounds(100);
-    if (!bounds) return;
-    const { minX, minY, worldW, worldH } = bounds;
-
-    const containers = document.querySelectorAll('.wm-container');
-    const mapW = minimap.clientWidth || 180;
-    const mapH = minimap.clientHeight || 120;
-    const scale = Math.min(mapW / worldW, mapH / worldH);
-
-    // Render dots
-    let dots = '';
-    const pad = 100;
-    containers.forEach((el) => {
-        const c = el as HTMLElement;
-        const x = parseFloat(c.style.left) || 0;
-        const y = parseFloat(c.style.top) || 0;
-        const w = c.offsetWidth || 300;
-        const h = c.offsetHeight || 200;
-        const mx = ((x - minX) * scale);
-        const my = ((y - minY) * scale);
-        const mw = Math.max(3, w * scale);
-        const mh = Math.max(3, h * scale);
-        const color = c.classList.contains('collapsed') ? '#666' : '#7c3aed';
-        dots += `<div style="position:absolute;left:${mx}px;top:${my}px;width:${mw}px;height:${mh}px;background:${color};border-radius:2px;opacity:0.7;"></div>`;
-    });
-    minimapDots.innerHTML = dots;
-
-    // Render viewport indicator
-    const state = getCanvasState();
-    const viewport = _gd!.getViewport();
-    const vpW = viewport.clientWidth || window.innerWidth;
-    const vpH = viewport.clientHeight || window.innerHeight;
-    const vLeft = (-state.offsetX / state.zoom - minX + pad) * scale;
-    const vTop = (-state.offsetY / state.zoom - minY + pad) * scale;
-    const vW = (vpW / state.zoom) * scale;
-    const vH = (vpH / state.zoom) * scale;
-    minimapVp.style.cssText = `position:absolute;left:${vLeft}px;top:${vTop}px;width:${vW}px;height:${vH}px;border:1px solid rgba(124,58,237,0.6);border-radius:2px;background:rgba(124,58,237,0.1);`;
+    _updateMinimap(_getCanvasAccessor());
 }
-
-// ─── Minimap click navigation ───────────────────────────
 
 export function initMinimapClick() {
-    const minimap = document.getElementById('wm-minimap');
-    if (!minimap || !_gd) return;
-
-    minimap.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        const bounds = getContainerBounds(200);
-        if (!bounds) return;
-        const { minX, minY, worldW, worldH } = bounds;
-
-        const mmRect = minimap.getBoundingClientRect();
-        const scale = Math.min(mmRect.width / worldW, mmRect.height / worldH);
-
-        const clickX = (e.clientX - mmRect.left) / scale + minX;
-        const clickY = (e.clientY - mmRect.top) / scale + minY;
-
-        const state = getCanvasState();
-        const viewport = _gd!.getViewport();
-        const vpRect = viewport.getBoundingClientRect();
-        const newOffsetX = -(clickX - vpRect.width / (2 * state.zoom)) * state.zoom;
-        const newOffsetY = -(clickY - vpRect.height / (2 * state.zoom)) * state.zoom;
-
-        _gd!.state.set(state.zoom, newOffsetX, newOffsetY);
-        updateMinimap();
-    });
+    _initMinimapClick(_getCanvasAccessor(), updateMinimap);
 }
-
-// ─── Fit all containers ─────────────────────────────────
 
 export function fitAllContainers() {
-    if (!_gd) return;
-    const bounds = getContainerBounds();
-    if (!bounds) return;
-    const { minX, minY, worldW, worldH } = bounds;
-    const viewport = _gd.getViewport();
-    const vpW = viewport.clientWidth || window.innerWidth;
-    const vpH = viewport.clientHeight || window.innerHeight;
-    const padding = 60;
-
-    const zoom = Math.min(
-        (vpW - padding * 2) / (worldW || 1),
-        (vpH - padding * 2) / (worldH || 1),
-        2 // max zoom
-    );
-
-    const centerX = minX + worldW / 2;
-    const centerY = minY + worldH / 2;
-    const offsetX = vpW / 2 - centerX * zoom;
-    const offsetY = vpH / 2 - centerY * zoom;
-
-    _gd.state.set(zoom, offsetX, offsetY);
-    updateMinimap();
+    _fitAllContainers(_getCanvasAccessor(), updateMinimap);
 }
 
-// ─── Auto-arrange containers ────────────────────────────
-
 export function autoArrangeContainers() {
-    const containers = Array.from(document.querySelectorAll('.wm-container')) as HTMLElement[];
-    if (containers.length === 0) return;
-
-    // Sort by current position (top-left first)
-    containers.sort((a, b) => {
-        const ay = parseFloat(a.style.top) || 0;
-        const by = parseFloat(b.style.top) || 0;
-        if (Math.abs(ay - by) > 50) return ay - by;
-        return (parseFloat(a.style.left) || 0) - (parseFloat(b.style.left) || 0);
-    });
-
-    const gap = 20;
-    const cols = Math.max(1, Math.ceil(Math.sqrt(containers.length)));
-    let x = 50, y = 50;
-    let rowHeight = 0;
-    let col = 0;
-
-    containers.forEach(c => {
-        c.style.left = `${x}px`;
-        c.style.top = `${y}px`;
-        const h = c.offsetHeight || 200;
-        const w = c.offsetWidth || 300;
-        if (h > rowHeight) rowHeight = h;
-        col++;
-        if (col >= cols) {
-            col = 0;
-            x = 50;
-            y += rowHeight + gap;
-            rowHeight = 0;
-        } else {
-            x += w + gap;
-        }
-    });
-
-    saveLayout();
-    updateMinimap();
-    fitAllContainers();
+    _autoArrangeContainers(saveLayout, updateMinimap, fitAllContainers);
 }
 
 // ─── Snap Guidelines (delegated to snap-guidelines.ts) ──
