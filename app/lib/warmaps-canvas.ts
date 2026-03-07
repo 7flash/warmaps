@@ -1,30 +1,19 @@
 /**
  * warmaps-canvas.ts — GalaxyDraw adapter for WARMAPS
  *
- * Replaces the 760-line custom canvas.ts with a thin adapter that
- * delegates pan/zoom/container-drag to the galaxydraw engine.
+ * Thin orchestrator (~340 lines) that wires together:
+ *   - canvas-layout.ts    (minimap, fit, arrange)
+ *   - container-drag.ts   (mouse + touch drag)
+ *   - snap-guidelines.ts  (SVG alignment guides)
+ *   - keyboard-shortcuts.ts (F/A/R/0/?/Esc)
+ *   - command-palette.ts  (Ctrl+K launcher)
  *
- * WARMAPS-specific behaviors preserved:
- * - MapLibre wheel/mouse passthrough
- * - Scrollable feed body passthrough
- * - Container collapse (double-click header)
- * - Layout persistence to localStorage
- * - Minimap with click navigation
- * - Snap guidelines
- * - Container resize handles
- * - Fit-all and auto-arrange
- * - Touch support (single-finger pan, pinch zoom)
- *
- * Architecture:
- *   initCanvas() → new GalaxyDraw(viewport, { mode: 'simple' })
- *   Registers a WarmapsContainerPlugin that handles consume checks.
- *   Existing container DOM (.wm-container) is adopted by CardManager.
+ * This file owns: plugin definition, layout persistence,
+ * container collapse/resize, and init wiring.
  */
 
-// Import galaxydraw engine
 import { GalaxyDraw } from 'galaxydraw';
 import type { CardPlugin, CardData } from 'galaxydraw';
-import type { CanvasStateSnapshot } from 'galaxydraw';
 
 // ─── Module state ───────────────────────────────────────
 
@@ -231,7 +220,6 @@ function initContainerResize() {
 // ─── Layout operations (delegated to canvas-layout.ts) ──
 
 import {
-    getContainerBounds,
     updateMinimap as _updateMinimap,
     initMinimapClick as _initMinimapClick,
     fitAllContainers as _fitAllContainers,
@@ -267,7 +255,6 @@ export function autoArrangeContainers() {
 // ─── Snap Guidelines (delegated to snap-guidelines.ts) ──
 
 import {
-    SNAP_THRESHOLD,
     GRID_SIZE,
     clearSnapGuides,
     snapToGuides as _snapToGuides,
