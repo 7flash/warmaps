@@ -13,6 +13,13 @@ import { createVirtualFeed, type VirtualFeedInstance } from './virtual-feed';
 // Track active virtual feed instances to destroy on re-render
 const _vfInstances = new WeakMap<HTMLElement, VirtualFeedInstance<any>>();
 
+const EQUIP_ICONS: Record<string, string> = {
+    'missile': '🚀', 'air-defense': '🛡️', 'drone': '🤖', 'aircraft': '✈️',
+    'helicopter': '🚁', 'naval': '🚢', 'armor': '🪖', 'artillery': '💣',
+    'infantry-weapon': '🎯',
+};
+function getEquipmentIcon(type: string): string { return EQUIP_ICONS[type] || '⚔️'; }
+
 // ─── News Feed ──────────────────────────────────────────────
 
 const VIRTUAL_THRESHOLD = 20; // Use virtual scroll when items exceed this
@@ -306,6 +313,7 @@ export function renderTelegramFeed(alerts: any[]) {
                         <span className="feed-item-time">{time}</span>
                         {loc && <span>{loc}</span>}
                         {alert.threatLevel && alert.threatLevel !== 'low' && <span className={`tg-threat tg-threat--${alert.threatLevel}`}>{alert.threatLevel.toUpperCase()}</span>}
+                        {alert.equipmentType && <span className="tg-equipment">{getEquipmentIcon(alert.equipmentType)} {alert.equipmentType}</span>}
                     </div>
                 </div>
             ) as unknown as HTMLElement;
