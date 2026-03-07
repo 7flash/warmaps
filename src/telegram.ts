@@ -241,7 +241,7 @@ export async function submitPassword(password: string): Promise<{ ok: boolean; e
     try {
         await state.client.invoke(
             new Api.auth.CheckPassword({
-                password: await state.client.computeSrpParams(
+                password: await (state.client as any).computeSrpParams(
                     await state.client.invoke(new Api.account.GetPassword()),
                     password
                 ) as any,

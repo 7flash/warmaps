@@ -1,6 +1,6 @@
 // Telegram OSINT API — auth + alerts
 import { measure } from 'measure-fn';
-import * as tg from '../../src/telegram';
+import * as tg from '../../../../src/telegram';
 
 export async function POST(req: Request) {
     return measure('api:telegram', async () => {

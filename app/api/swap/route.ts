@@ -21,6 +21,7 @@ import {
     PUMP_AMM_SDK,
     canonicalPumpPoolPda,
 } from '@pump-fun/pump-swap-sdk';
+// @ts-ignore — bn.js lacks declaration file
 import BN from 'bn.js';
 import * as fs from 'fs';
 import path from 'path';
@@ -116,12 +117,12 @@ export async function POST(req: Request) {
         if (side === 'buy') {
             // Buy: user sends SOL, gets tokens
             const quoteLamports = new BN(Math.round(amount * 1e9));
-            instructions = PUMP_AMM_SDK.buyQuoteInput(swapState, quoteLamports, slippage);
+            instructions = await PUMP_AMM_SDK.buyQuoteInput(swapState, quoteLamports, slippage) as any;
             estimatedOutput = price > 0 ? amount / price : 0;
         } else {
             // Sell: user sends tokens, gets SOL
             const tokenRaw = new BN(Math.round(amount * 1e6));
-            instructions = PUMP_AMM_SDK.sellBaseInput(swapState, tokenRaw, slippage);
+            instructions = await PUMP_AMM_SDK.sellBaseInput(swapState, tokenRaw, slippage) as any;
             estimatedOutput = amount * price;
         }
 

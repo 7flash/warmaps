@@ -96,7 +96,7 @@ const server = Bun.serve({
                 }
             }
             const upgraded = server.upgrade(req, {
-                data: { channel: 'chat', username, isAuthenticated },
+                data: { channel: 'chat', username, isAuthenticated } as any,
             });
             if (upgraded) return undefined as any;
             return new Response('WebSocket upgrade failed', { status: 400 });
@@ -117,7 +117,7 @@ const server = Bun.serve({
             syncPeers.set(peerId, { name: peerName, color: peerColor });
 
             const upgraded = server.upgrade(req, {
-                data: { channel: 'sync', room: `sync:${room}`, peerId, peerName, peerColor },
+                data: { channel: 'sync', room: `sync:${room}`, peerId, peerName, peerColor } as any,
             });
             if (upgraded) return undefined as any;
             return new Response('WebSocket upgrade failed', { status: 400 });
