@@ -1299,4 +1299,34 @@ export default function mount() {
 
         return 'ready';
     });
+
+    // ─── Global Error Boundary ──────────────────────────────────
+    window.addEventListener('error', (e) => {
+        console.error('[WARMAPS] Uncaught error:', e.error);
+        showCrashOverlay(e.message);
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+        console.error('[WARMAPS] Unhandled rejection:', e.reason);
+        showCrashOverlay(String(e.reason));
+    });
+}
+
+function showCrashOverlay(msg: string) {
+    if (document.getElementById('wm-crash')) return; // only show once
+    const overlay = document.createElement('div');
+    overlay.id = 'wm-crash';
+    overlay.style.cssText = `
+        position:fixed;bottom:16px;right:16px;z-index:999999;
+        background:rgba(15,23,42,0.95);border:1px solid rgba(239,68,68,0.4);
+        border-radius:12px;padding:16px 20px;max-width:400px;
+        font-family:var(--font-mono,monospace);font-size:12px;color:#e2e8f0;
+        box-shadow:0 8px 32px rgba(0,0,0,0.6);backdrop-filter:blur(8px);
+    `;
+    overlay.innerHTML = `
+        <div style="color:#ef4444;font-weight:700;margin-bottom:8px">⚠ Runtime Error</div>
+        <div style="color:#94a3b8;margin-bottom:12px;word-break:break-word">${msg.slice(0, 200)}</div>
+        <button onclick="location.reload()" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#ef4444;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px">Reload</button>
+        <button onclick="this.closest('#wm-crash').remove()" style="background:none;border:1px solid rgba(100,116,139,0.3);color:#64748b;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;margin-left:8px">Dismiss</button>
+    `;
+    document.body.appendChild(overlay);
 }
