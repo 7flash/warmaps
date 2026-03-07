@@ -74,6 +74,14 @@ const server = Bun.serve({
     async fetch(req, server) {
         const url = new URL(req.url);
 
+        // SEO: serve robots.txt and sitemap.xml at root
+        if (url.pathname === '/robots.txt') {
+            return Response.redirect(new URL('/api/robots.txt', req.url), 301);
+        }
+        if (url.pathname === '/sitemap.xml') {
+            return Response.redirect(new URL('/api/sitemap.xml', req.url), 301);
+        }
+
         // WebSocket upgrade for chat
         if (url.pathname === '/ws/chat') {
             const cookie = req.headers.get('cookie') || '';
