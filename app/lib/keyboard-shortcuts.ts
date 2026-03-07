@@ -54,7 +54,7 @@ function toggleShortcutHelp() {
         ['R', 'Reset zoom to 1:1'],
         ['0', 'Reset pan + zoom to origin'],
         ['?', 'Toggle this help'],
-        ['⌘K', 'Command palette'],
+        ['⌘K or /', 'Command palette'],
         ['Esc', 'Close overlays / menus'],
     ];
 
@@ -145,10 +145,17 @@ export function initKeyboardShortcuts(actions: ShortcutActions) {
                 break;
 
             case '?':
-            case '/':
-                if (e.key === '/' && !e.shiftKey) break; // Only ? (Shift+/)
                 e.preventDefault();
                 toggleShortcutHelp();
+                break;
+
+            case '/':
+                e.preventDefault();
+                if (e.shiftKey) { // Key layouts where Shift+/ produces ?
+                    toggleShortcutHelp();
+                } else {
+                    toggleCommandPalette();
+                }
                 break;
 
             case 'escape':

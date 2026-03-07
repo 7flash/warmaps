@@ -33,9 +33,12 @@ Every deployment automatically:
 - 📺 **Live TV** — Al Jazeera, France24, DW News embeds
 - 🤖 **AI Analyst** — Gemini-powered chat with OSINT context (Telegram alerts, GDELT events, threat data)
 - 🎰 **SOL Betting** — native Phantom wallet wagers on geopolitical outcomes
-- ⌨️ **Keyboard Shortcuts** — `F` fit, `A` arrange, `R` reset, `?` help, `Ctrl+K` command palette
+- 💹 **Token Trading** — pump.fun token swaps via Phantom wallet + DexScreener chart embeds
+- ⌨️ **Keyboard Shortcuts** — `F` fit, `A` arrange, `R` reset, `/` or `Ctrl+K` command palette with 19 conflict zones
 - 📱 **PWA** — installable as standalone app on mobile and desktop
 - 🔍 **SEO** — OG social cards, JSON-LD, robots.txt, sitemap.xml
+- 🛡️ **Error boundary** — styled crash overlay with Reload/Dismiss, prevents blank screens
+- 💚 **Health endpoint** — `/api/health` with uptime, memory, Telegram status, version
 
 ## 🖥️ Infinite Canvas Architecture
 
@@ -52,9 +55,12 @@ WARMAPS is not a fixed dashboard — it's an **infinite 2D canvas** powered by t
 | **Detachable windows** | Pop any widget out for multi-monitor setups |
 | **Widget sync** | Lock map widgets to synchronized pan/zoom/pitch |
 | **Auto-arrange** | One-click masonry tiling of all widgets |
-| **Collaborative** | WebSocket-based layout sync with peer cursors |
-| **Command palette** | `Ctrl+K` to fly to 10 conflict zones, run canvas commands |
+| **Collaborative** | WebSocket-based layout sync with peer cursors (colored) |
+| **Command palette** | `Ctrl+K` / `/` to fly to 19 conflict zones, run canvas commands |
 | **Auto-camera** | Spotlight cycles through OSINT alerts with cinematic flyTo |
+| **Widget templates** | Save configs as reusable ⭐ templates, shown in tray |
+| **Data export** | 📥 per-widget JSON export of resolved data arrays |
+| **3D terrain** | 🏔️ toggle for MapLibre DEM terrain with hillshade + sky |
 
 ## 🚀 Setup
 
@@ -91,19 +97,28 @@ starwar/
 │   ├── page.tsx           # Server-rendered HTML shell
 │   ├── page.client.tsx    # Thin orchestrator (~150 lines)
 │   ├── globals.css        # Design system
-│   └── lib/
-│       ├── warmaps-canvas.ts  # GalaxyDraw adapter + keyboard shortcuts + command palette
-│       ├── widgets.ts         # 13 widget types, instance management
-│       ├── data.tsx           # WebWorker-powered data layer
-│       ├── feeds.tsx          # Virtual-scrolled news/telegram feeds + OSINT ticker
-│       ├── map.tsx            # MapLibre GL with 3D terrain
-│       ├── spotlight.tsx      # Auto-camera spotlight (OSINT + GDELT rotation)
-│       ├── ai.tsx             # AI analyst with Telegram OSINT context
-│       ├── cache.ts           # IndexedDB cache-first layer
-│       ├── sync.ts            # WebSocket collaborative editing
-│       └── virtual-feed.tsx   # Sentinel spacer virtual scroll
+│   └── lib/               # 32 modules
+│       ├── warmaps-canvas.ts    # GalaxyDraw adapter (328 lines)
+│       ├── container-drag.ts    # Mouse + touch drag
+│       ├── canvas-layout.ts     # Minimap, fit-all, auto-arrange
+│       ├── snap-guidelines.ts   # SVG alignment guides
+│       ├── command-palette.ts   # Ctrl+K launcher (19 zones)
+│       ├── keyboard-shortcuts.ts# F/A/R/?/Esc handlers
+│       ├── widgets.ts           # 13 widget types, instances
+│       ├── data.tsx             # WebWorker data layer
+│       ├── feeds.tsx            # Virtual-scrolled feeds + ticker
+│       ├── map.tsx              # MapLibre GL + 3D terrain
+│       ├── spotlight.tsx        # Auto-camera OSINT rotation
+│       ├── ai.tsx               # Gemini AI with OSINT context
+│       ├── cache.ts             # IndexedDB cache-first
+│       ├── sync.ts              # WebSocket collaborative editing
+│       ├── virtual-feed.tsx     # Sentinel spacer virtual scroll
+│       ├── alerts.ts            # Threat classification engine
+│       ├── tokens.tsx           # Crypto token trading UI
+│       ├── betting.tsx          # SOL wager system
+│       └── ...                  # 14 more (auth, chat, tv, etc.)
 ├── src/
-│   └── telegram.ts        # gramJS Telegram OSINT poller
+│   └── telegram.ts        # gramJS OSINT poller (22 channels)
 └── .config.toml           # Secrets (gitignored)
 ```
 
@@ -124,10 +139,13 @@ All data sources use a **cache-first** strategy via IndexedDB (~5ms boot from ca
 
 ### Performance
 
-- **Page orchestrator**: 150 lines — imports 16 modules
+- **Page orchestrator**: 150 lines — imports 17 modules from `app/lib/`
+- **32 modules**: Total codebase ~60K lines, fully modular
 - **Virtual feeds**: Only ~15 DOM nodes rendered at a time (capacity 200+ items)
 - **Data workers**: WebWorkers for GDELT/Flights/Fires GeoJSON processing
 - **Viewport culling**: Off-screen widgets deferred via GalaxyDraw CardManager
+- **Cache-first**: IndexedDB cache gives ~5ms boot, background refresh
+- **Tests**: 59 passing (DB integration + canvas modules + API endpoints)
 
 ## 🌐 Production Deployment
 
