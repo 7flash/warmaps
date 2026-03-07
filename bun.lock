@@ -11,10 +11,10 @@
         "bs58": "^6.0.0",
         "fflate": "^0.8.2",
         "galaxydraw": "^0.1.0",
-        "jsx-ai": "0.1.1",
+        "jsx-ai": "^0.1.1",
         "maplibre-gl": "^5.19.0",
         "maplibre-gl-temporal-control": "^1.2.0",
-        "measure-fn": "^3.10.0",
+        "measure-fn": "^3.10.2",
         "melina": "2.3.2",
         "sqlite-zod-orm": "3.26.1",
         "telegram": "^2.26.22",
@@ -319,7 +319,7 @@
 
     "maplibre-gl-temporal-control": ["maplibre-gl-temporal-control@1.2.0", "", {}, "sha512-tBkiQhikUEOAxhQvNSgeEc4ZkAvkX1pE6XiGZDmWwlRt0LyhK6zdSYM7g8QvQB/5fjtZkzhTOzv1AcCXUspFnQ=="],
 
-    "measure-fn": ["measure-fn@3.10.0", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-ZMWsl2IUetEUKpy+WPpdfnGkgSvMB6tm5FmjesuWm9Hd69TiW+8wc5ieul22pP+Hu4JeWJ55xoVhHbhRHq5Qxg=="],
+    "measure-fn": ["measure-fn@3.10.2", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-wNDbSwDn3gDMI1sizFyr/31rt546cGcM4utSQt8ruiUKNJ/134bSN0okOqjzZw/AE5AYGB6QJTShlYXAzddmiQ=="],
 
     "melina": ["melina@2.3.2", "", { "dependencies": { "@tailwindcss/postcss": "^4.1.10", "autoprefixer": "^10.4.21", "measure-fn": "3.10.0", "postcss": "^8.5.6", "ts-dedent": "^2.2.0" }, "bin": { "melina": "bin/melina.ts" } }, "sha512-RNNi5o9mCA5XMDwu83iNBsrmnfJEzO63hKjYzVL7zjMxL4bld0au4rol5Qe/Os+fFLW8HV6gnELx07fDBi7U0g=="],
 
@@ -485,6 +485,10 @@
 
     "jayson/@types/node": ["@types/node@12.20.55", "", {}, "sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ=="],
 
+    "jsx-ai/measure-fn": ["measure-fn@3.10.0", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-ZMWsl2IUetEUKpy+WPpdfnGkgSvMB6tm5FmjesuWm9Hd69TiW+8wc5ieul22pP+Hu4JeWJ55xoVhHbhRHq5Qxg=="],
+
+    "melina/measure-fn": ["measure-fn@3.10.0", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-ZMWsl2IUetEUKpy+WPpdfnGkgSvMB6tm5FmjesuWm9Hd69TiW+8wc5ieul22pP+Hu4JeWJ55xoVhHbhRHq5Qxg=="],
+
     "rpc-websockets/@types/ws": ["@types/ws@8.18.1", "", { "dependencies": { "@types/node": "*" } }, "sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg=="],
 
     "rpc-websockets/eventemitter3": ["eventemitter3@5.0.4", "", {}, "sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw=="],
@@ -494,6 +498,8 @@
     "rpc-websockets/uuid": ["uuid@11.1.0", "", { "bin": { "uuid": "dist/esm/bin/uuid" } }, "sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A=="],
 
     "rpc-websockets/ws": ["ws@8.19.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-blAT2mjOEIi0ZzruJfIhb3nps74PRWTCz1IjglWEEpQl5XS/UNama6u2/rjFkDDouqr4L67ry+1aGIALViWjDg=="],
+
+    "sqlite-zod-orm/measure-fn": ["measure-fn@3.10.0", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-ZMWsl2IUetEUKpy+WPpdfnGkgSvMB6tm5FmjesuWm9Hd69TiW+8wc5ieul22pP+Hu4JeWJ55xoVhHbhRHq5Qxg=="],
 
     "@coral-xyz/anchor/bs58/base-x": ["base-x@3.0.11", "", { "dependencies": { "safe-buffer": "^5.0.1" } }, "sha512-xz7wQ8xDhdyP7tQxwdteLYeFfS68tSMNCZ/Y37WJ4bhGfKPpqEIlmIyueQHqOyoPhE6xNUqjzRr8ra0eF9VRvA=="],
 
