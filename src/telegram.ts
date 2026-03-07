@@ -548,3 +548,37 @@ export function stopPolling() {
         state.pollTimer = null
     }
 }
+
+// ── Auto-Reconnect on Startup ──
+
+/**
+ * Try to restore a Telegram session from saved credentials on server boot.
+ * Requires TG_APP_ID, TG_APP_HASH, TG_PHONE env vars.
+ * If a saved session file exists, connects silently and starts polling.
+ */
+export async function autoConnect() {
+    const appId = process.env.TG_APP_ID
+    const appHash = process.env.TG_APP_HASH
+    const phone = process.env.TG_PHONE
+    if (!appId || !appHash || !phone) return
+
+    // Check for existing session file
+    const sessionStr = loadSession(phone)
+    if (!sessionStr) {
+        console.log('[telegram] No saved session for auto-connect')
+        return
+    }
+
+    console.log('[telegram] Attempting auto-reconnect...')
+    const result = await sendCode(Number(appId), appHash, phone)
+    if (result.ok && result.restored) {
+        startPolling()
+        console.log(`[telegram] ✅ Auto-connected as @${state.me?.username || phone}`)
+    } else {
+        console.log('[telegram] Auto-connect failed — session expired, need manual auth')
+    }
+}
+
+// Auto-connect on module load (non-blocking)
+autoConnect().catch(() => { })
+
