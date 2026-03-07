@@ -1,4 +1,4 @@
-# dependencies (bun install)
+# dependencies
 node_modules
 
 # output
@@ -12,8 +12,8 @@ coverage
 
 # logs
 logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+*.log
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # dotenv environment variable files
 .env
@@ -27,23 +27,20 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .cache
 *.tsbuildinfo
 
-# IntelliJ based IDEs
+# IDE
 .idea
-
-# Finder (MacOS) folder config
 .DS_Store
 
+# databases
 *.db
 *.db-shm
 *.db-wal
 
+# session data & secrets
 .data/
-
-docs/
-.docs/
-
-# Temp/debug files
-*.txt
-!README.txt
-test.ts
 server_config.toml
+.config.toml
+mm_state*.json
+
+# temp/debug
+test.ts
