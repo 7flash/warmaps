@@ -27,7 +27,7 @@
 - [x] ~~**Geo-Pin SQLite Persistence**~~ — ✅ DONE. Added `geo_pins` table to `starwar_users.db` via sqlite-zod-orm. Pins now persist across server restarts. Indexed by `sender` and `signature` for fast lookups.
 - [ ] **Geo-Pin Heatmap Layer** — Aggregate geo-pins into a MapLibre heatmap layer showing areas with high message density as glowing clusters.
 - [ ] **Real-time Pin WebSocket** — Broadcast new geo-pins to all connected clients via WebSocket so pins appear live without polling.
-- [ ] **Coordinate Ruler Tool** — Measure distance between two points on the map with a line tool that shows km/miles.
+- [x] ~~**Coordinate Ruler Tool**~~ — ✅ DONE. Right-click → "Measure Distance 📏" sets point A (purple dot), second right-click→Measure sets point B, draws a dashed SVG line between them with a midpoint label showing distance in km/mi (Haversine formula). Dots and line track map pan/zoom. Click label to dismiss.
 
 ## 📝 Architecture Notes
 - **Production**: `root@202.155.132.139:/opt/starwar/`
