@@ -24,7 +24,7 @@
 - [x] ~~**Data Export**~~ — ✅ DONE. Added "Export Layout JSON" (📥) and "Import Layout JSON" (📤) buttons to the top right toolbar. This allows users to save and load their exact multi-widget canvas setup locally as a `.json` file.
 
 ## 🔮 Ideas / Backlog
-- [ ] **Geo-Pin SQLite Persistence** — Currently geo-pins are stored in memory (cache). Add SQLite table to persist them across server restarts. Index by lat/lng tile for spatial queries.
+- [x] ~~**Geo-Pin SQLite Persistence**~~ — ✅ DONE. Added `geo_pins` table to `starwar_users.db` via sqlite-zod-orm. Pins now persist across server restarts. Indexed by `sender` and `signature` for fast lookups.
 - [ ] **Geo-Pin Heatmap Layer** — Aggregate geo-pins into a MapLibre heatmap layer showing areas with high message density as glowing clusters.
 - [ ] **Real-time Pin WebSocket** — Broadcast new geo-pins to all connected clients via WebSocket so pins appear live without polling.
 - [ ] **Coordinate Ruler Tool** — Measure distance between two points on the map with a line tool that shows km/miles.
