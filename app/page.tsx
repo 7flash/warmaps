@@ -72,6 +72,9 @@ export default function Page() {
                     </select>
 
                     <button id="wm-share" class="top-btn" title="Share this layout">🔗</button>
+                    <button id="wm-export-json" class="top-btn" title="Export Layout JSON">📥</button>
+                    <button id="wm-import-json" class="top-btn" title="Import Layout JSON">📤</button>
+                    <input type="file" id="wm-import-json-input" style={{ display: 'none' }} accept=".json" />
                     <button id="wm-reset-layout" class="top-btn" title="Reset to default layout">↺</button>
                     <button id="wm-sync-maps" class="top-btn" title="Sync Map Pan/Zoom (Off)">🔓</button>
                     <button id="wm-terrain-toggle" class="top-btn" title="Toggle 3D Terrain">🏔️</button>

@@ -206,6 +206,9 @@ function initWidgetCatalog() {
     const tray = document.getElementById('widget-tray');
     const grid = document.getElementById('widget-tray-grid');
     const shareBtn = document.getElementById('wm-share');
+    const exportBtn = document.getElementById('wm-export-json');
+    const importBtn = document.getElementById('wm-import-json');
+    const importInput = document.getElementById('wm-import-json-input') as HTMLInputElement | null;
     const resetBtn = document.getElementById('wm-reset-layout');
     const syncMapsBtn = document.getElementById('wm-sync-maps');
     const fitAllBtn = document.getElementById('wm-fit-all');
@@ -354,6 +357,42 @@ function initWidgetCatalog() {
         localStorage.removeItem('warmaps:instances');
         localStorage.removeItem('warmaps:layout');
         window.location.reload();
+    });
+
+    // Export Layout
+    exportBtn?.addEventListener('click', () => {
+        const instances = getCurrentInstances();
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(instances, null, 2));
+        const a = document.createElement('a');
+        a.href = dataStr;
+        a.download = `warmaps-layout-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+    });
+
+    // Import Layout
+    importBtn?.addEventListener('click', () => {
+        importInput?.click();
+    });
+
+    importInput?.addEventListener('change', (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const text = ev.target?.result as string;
+                const parsed = JSON.parse(text);
+                if (Array.isArray(parsed)) {
+                    saveInstances(parsed);
+                    window.location.reload();
+                } else {
+                    alert("Invalid layout JSON format.");
+                }
+            } catch (err) {
+                alert("Failed to parse JSON file.");
+            }
+        };
+        reader.readAsText(file);
     });
 
     // Sync maps
