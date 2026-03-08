@@ -404,6 +404,7 @@ export function initWallet() {
             setConnectedWallet(addr);
             label.textContent = `👛 ${addr.slice(0, 4)}...${addr.slice(-4)}`;
             btn.classList.add('wallet-btn--connected');
+            if (document.getElementById('rewards-banner')) document.getElementById('rewards-banner')!.style.display = 'flex';
             console.log('[wallet] Connected:', addr);
         } catch (err) {
             console.error('[wallet] Connection failed:', err);
@@ -418,6 +419,7 @@ export function initWallet() {
             setConnectedWallet(addr);
             label.textContent = `👛 ${addr.slice(0, 4)}...${addr.slice(-4)}`;
             btn.classList.add('wallet-btn--connected');
+            if (document.getElementById('rewards-banner')) document.getElementById('rewards-banner')!.style.display = 'flex';
         }).catch(() => { });
     }
 }

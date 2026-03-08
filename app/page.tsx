@@ -109,6 +109,19 @@ export default function Page() {
                 </div>
             </div>
 
+            {/* ─── Rewards Banner ──────────────────────── */}
+            <div id="rewards-banner" class="rewards-banner" style={{ display: 'none' }}>
+                <div class="rewards-banner-content">
+                    <span class="rewards-banner-icon">🎁</span>
+                    <div class="rewards-banner-text-block">
+                        <div class="rewards-banner-title">Lottery Rewards Active</div>
+                        <div class="rewards-banner-subtitle">Your Luck is increasing. Claim your reward when ready!</div>
+                    </div>
+                    <a href="/rewards" class="rewards-banner-btn" target="_blank">Check Luck ↗</a>
+                    <button class="rewards-banner-close" title="Dismiss" onClick={() => { document.getElementById('rewards-banner')!.style.display = 'none'; }}>×</button>
+                </div>
+            </div>
+
             {/* ─── Canvas Viewport ─────────────────────── */}
             <div id="wm-viewport" class="wm-viewport">
                 <div id="wm-content" class="wm-content">
