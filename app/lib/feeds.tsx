@@ -176,8 +176,64 @@ export function reRenderWidget(typeId: string) {
     if (typeId === 'intel' || typeId === 'markets') renderRadarFeed();
     if (typeId === 'fires') renderFiresFeed();
     if (typeId === 'seismic') renderSeismicFeed();
+    if (typeId === 'layer-control') renderLayerControl();
     // For telegram, we need alerts fetch. We can re-fetch or skip if cached alerts aren't available globally
     if (typeId === 'telegram') window.dispatchEvent(new Event('refresh-telegram'));
+}
+
+export function renderLayerControl() {
+    const containers = document.querySelectorAll('.wm-container[data-widget-type="layer-control"]');
+    if (containers.length === 0) return;
+
+    // To prevent rapid repaints blocking the UI, bounce slider input
+    const LAYERS = [
+        { id: 'events-heat', label: '🔥 Conflict Heatmap', prop: 'heatmap-opacity' },
+        { id: 'events-point', label: '📍 Conflict Events', prop: 'circle-opacity' },
+        { id: 'fires-heat', label: '🌋 Thermal Anomalies', prop: 'heatmap-opacity' },
+        { id: 'flights-point', label: '✈️ Aircraft Activity', prop: 'icon-opacity' },
+        { id: 'acled-kinetic', label: '💥 ACLED Kinetics', prop: 'circle-opacity' },
+        { id: 'seismic-kinetic', label: '🌍 USGS Seismic', prop: 'circle-opacity' },
+        { id: 'assets-base', label: '🚢 Military Bases', prop: 'circle-opacity' },
+        { id: 'assets-nuclear', label: '☢️ Nuclear Assets', prop: 'circle-opacity' },
+        { id: 'country-flag-labels', label: '🏳️ Country Flags', prop: 'text-opacity' },
+    ];
+
+    containers.forEach((container: Element) => {
+        const body = (container.querySelector('.wm-container-body') || container) as HTMLElement;
+        if (body.dataset.initialized) return;
+        body.dataset.initialized = 'true';
+        body.style.padding = '12px 16px';
+
+        render(
+            <div className="layer-control">
+                {LAYERS.map(layer => (
+                    <div style={{ marginBottom: '14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
+                            <span style={{ color: 'var(--text-primary)' }}>{layer.label}</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            defaultValue="100"
+                            style={{ width: '100%', cursor: 'ew-resize' }}
+                            onInput={(e: any) => {
+                                const opacity = parseInt(e.target.value) / 100;
+                                import('./map').then(({ mapInstances }) => {
+                                    for (const m of mapInstances) {
+                                        if (m.getLayer(layer.id)) {
+                                            m.setPaintProperty(layer.id, layer.prop, opacity);
+                                        }
+                                    }
+                                });
+                            }}
+                        />
+                    </div>
+                ))}
+            </div>,
+            body
+        );
+    });
 }
 
 export function renderGdeltFeed() { renderNewsFeed(); }

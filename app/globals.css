@@ -1160,28 +1160,29 @@ body {
     position: absolute;
     right: 0;
     bottom: 0;
-    width: 16px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
     cursor: nwse-resize;
     z-index: 10;
-    opacity: 0;
-    transition: opacity 0.2s ease;
+    opacity: 0.5;
+    transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .wm-resize-handle::before {
     content: '';
     position: absolute;
-    right: 3px;
-    bottom: 3px;
-    width: 8px;
-    height: 8px;
-    border-right: 2px solid rgba(34, 197, 94, 0.3);
-    border-bottom: 2px solid rgba(34, 197, 94, 0.3);
+    right: 4px;
+    bottom: 4px;
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid rgba(34, 197, 94, 0.8);
+    border-bottom: 2px solid rgba(34, 197, 94, 0.8);
     border-radius: 0 0 3px 0;
 }
 
 .wm-container:hover .wm-resize-handle {
     opacity: 1;
+    transform: scale(1.1);
 }
 
 /* ─── Minimap ─────────────────────────────────────────────── */

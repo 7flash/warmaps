@@ -55,21 +55,19 @@ export const WIDGET_TYPES: WidgetType[] = [
         description: 'Interactive map with configurable data layers.',
         defaultWidth: 700,
         defaultHeight: 500,
-        defaultConfig: { layers: 'events' },
+        defaultConfig: {},
         multi: true,
-        configFields: [
-            {
-                key: 'layers', label: 'Data Layer', type: 'select', options: [
-                    { value: 'events', label: '⚡ Conflict Events' },
-                    { value: 'fires', label: '🔥 NASA Fires' },
-                    { value: 'flights', label: '✈ ADSB Flights' },
-                    { value: 'seismic', label: '🌍 USGS Seismic' },
-                    { value: 'acled', label: '📊 ACLED Data' },
-                    { value: 'assets', label: '🚢 Strategic Assets' },
-                    { value: 'all', label: '🌐 All (Cluttered)' },
-                ]
-            },
-        ],
+    },
+    {
+        id: 'layer-control',
+        name: 'Layer Control',
+        icon: '🎛️',
+        category: 'map',
+        description: 'Global map layer opacity control (Fires, Flights, Events).',
+        defaultWidth: 260,
+        defaultHeight: 340,
+        defaultConfig: {},
+        multi: false,
     },
     {
         id: 'heatmap',
@@ -459,7 +457,17 @@ export function getDefaultInstances(): WidgetInstance[] {
             width: 720,
             height: 520,
             collapsed: false,
-            config: { layers: 'events' },
+            config: {},
+        },
+        {
+            id: 'wm-default-layers',
+            typeId: 'layer-control',
+            x: 500,
+            y: 200,
+            width: 260,
+            height: 340,
+            collapsed: true, // Start collapsed since it's an overlay control
+            config: {},
         },
         {
             id: 'wm-default-news',

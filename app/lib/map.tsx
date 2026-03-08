@@ -556,22 +556,20 @@ export function initMap() {
 }
 
 function applyMapLayers(m: any, container: HTMLElement) {
-    const cfgLayers = (container.dataset.cfglayers || 'events').split(',');
-
     const setVisibility = (layerId: string, isVisible: boolean) => {
         if (m.getLayer(layerId)) m.setLayoutProperty(layerId, 'visibility', isVisible ? 'visible' : 'none');
     };
 
-    const isAll = cfgLayers.includes('all');
-
-    setVisibility('fires-heat', isAll || cfgLayers.includes('fires'));
-    setVisibility('flights-point', isAll || cfgLayers.includes('flights'));
-    setVisibility('events-heat', isAll || cfgLayers.includes('events'));
-    setVisibility('events-point', isAll || cfgLayers.includes('events'));
-    setVisibility('assets-nuclear', isAll || cfgLayers.includes('assets'));
-    setVisibility('assets-base', isAll || cfgLayers.includes('assets'));
-    setVisibility('acled-kinetic', isAll || cfgLayers.includes('acled'));
-    setVisibility('seismic-kinetic', isAll || cfgLayers.includes('seismic'));
+    // Layer opacities are now handled by the Layer Control widget.
+    // Ensure all data layers are inherently visible so the widget can control them.
+    setVisibility('fires-heat', true);
+    setVisibility('flights-point', true);
+    setVisibility('events-heat', true);
+    setVisibility('events-point', true);
+    setVisibility('assets-nuclear', true);
+    setVisibility('assets-base', true);
+    setVisibility('acled-kinetic', true);
+    setVisibility('seismic-kinetic', true);
 }
 
 // ─── Country Profile Modal ──────────────────────────────────

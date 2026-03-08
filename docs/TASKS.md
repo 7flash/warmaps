@@ -7,14 +7,16 @@
 - [x] ~~**Telegram verification code**~~ — ✅ DONE. AUTH_KEY_DUPLICATED resolved. Reconnect API added at `POST /api/telegram/connect` with `{retry:true}`. Added click handlers on the Telegram status bar to open prompts for verification code and 2FA password, posting to `/api/telegram/verify` and `/api/telegram/password`.
 
 ## 🟡 Priority: Improve
-- [ ] **Widget Resize Polish** — Currently, resizing a widget requires hovering its invisible bounding box corner. Add visible `resize-handle` Chevrons on the bottom-right for stronger UX affordance.
-- [ ] **MapLibre Layers Control** — Extract layer opacities (Fires, Flights, Events) into a dedicated floating "Layer Control" widget, removing them from the global map view to increase map read accuracy.
+- [x] ~~**Widget Resize Polish**~~ — ✅ DONE. Resizing a widget previously required hovering an invisible bounding box. Increased hit area and set `.wm-resize-handle` to uniformly render at 0.5 opacity with a bright 0.8 green chevron that scales up identically alongside full opacity on hover.
+- [x] ~~**MapLibre Layers Control**~~ — ✅ DONE. Extracted the dropdown layer config from the global map widget into its own dedicated `layer-control` widget block. Added a new rendering loop in `feeds.tsx` that spawns dual-bound HTML5 range sliders, allowing discrete 0-100 opacity control directly against the underlying `mapInstances` paint properties (heatmap, symbol, and circle opacities) while maintaining live updates without blocking the UI.
 - [x] ~~**Consolidate domain choice**~~ — ✅ DONE. `warmaps.xyz` is the established canonical domain. Confirmed no remaining references to `.org` or `.live` in the codebase.
 - [x] ~~**Heap exceeding allocation**~~ — ✅ DONE. Added `--smol` flag to `package.json` scripts (`npm start` and `npm run dev`) to enforce a lower memory heap limit.
 - [x] ~~**TASKS.md was 140 lines**~~ — ✅ DONE. Legacy tasks archived.
 
 ## 🟢 Priority: Features
 - [ ] **On-chain Geo-Pin Chat** — Allow users with Phantom connected to leave short string-embedded spatial chat messages anchored to specific coordinates, persisting on-chain using a simple lightweight Solana program.
+- [ ] **Map Context Menu Shortcuts** — Implement a custom right-click context menu over the global map to instantly drop a measurement pin or invoke an AI geospatial query for the clicked coordinates.
+- [ ] **Widget Z-Index Stacking Logic** — Develop an intelligent Z-index manager that automatically elevates the currently active or clicked widget over others, preventing overlap issues on dense dashboards.
 - [x] ~~**Lottery Rewards System**~~ — ✅ DONE. Created `app/rewards/page.tsx` as a standalone Melina route for users to claim SOL rewards based on accumulated Luck. Added a promotional banner to the main WARMAPS canvas that appears upon Phantom wallet connection.
 - [x] ~~**Offline-first resilience**~~ — ✅ DONE. `sw.js` endpoint was added, and the service worker is now properly registered in the client (`app/page.client.tsx`). This allows the app to load from the cache when offline.
 - [x] ~~**Dashboard screenshots for README**~~ — ✅ DONE. Captured an actual live screenshot of `https://warmaps.xyz` using a headless Puppeteer script running within the `bun` runtime. The screenshot is now saved as `banner.png` in the repository root for the README.
