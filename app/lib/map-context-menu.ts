@@ -21,6 +21,7 @@ const MENU_ITEMS = [
     { icon: '🔍', label: 'Zoom Here', action: 'zoom' },
     { icon: '🤖', label: "What's Here?", action: 'ai' },
     { icon: '⛓️', label: 'Post Geo-Pin', action: 'geopin' },
+    { icon: '📏', label: 'Measure Distance', action: 'ruler' },
 ] as const;
 
 interface ClickContext {
@@ -147,6 +148,11 @@ function handleAction(action: string) {
             postGeoPin(lat, lng, map);
             break;
         }
+
+        case 'ruler': {
+            startRuler(lat, lng, map);
+            break;
+        }
     }
 
     hideMenu();
@@ -193,6 +199,126 @@ function dropPin(lat: number, lng: number, map: any) {
     });
 
     showToast(`📍 Pin at ${lat.toFixed(4)}, ${lng.toFixed(4)} (click pin to remove)`);
+}
+
+// ─── Ruler (Measure Distance) ───────────────────────────
+
+let rulerState: { lat: number; lng: number; map: any; dotEl: HTMLElement; cleanup: () => void } | null = null;
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const toRad = (d: number) => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function startRuler(lat: number, lng: number, map: any) {
+    // If first point — set it and wait for second
+    if (!rulerState) {
+        const dot = document.createElement('div');
+        dot.style.cssText = `
+            position: absolute; width: 10px; height: 10px; border-radius: 50%;
+            background: #a78bfa; border: 2px solid #fff; z-index: 12;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 8px rgba(167,139,250,0.7);
+        `;
+        const p = map.project([lng, lat]);
+        dot.style.left = `${p.x}px`;
+        dot.style.top = `${p.y}px`;
+        map.getContainer().appendChild(dot);
+
+        const updateDot = () => {
+            const pp = map.project([lng, lat]);
+            dot.style.left = `${pp.x}px`;
+            dot.style.top = `${pp.y}px`;
+        };
+        map.on('move', updateDot);
+
+        rulerState = {
+            lat, lng, map, dotEl: dot,
+            cleanup: () => { map.off('move', updateDot); dot.remove(); }
+        };
+
+        showToast('📏 Point A set — right-click another location to measure');
+        return;
+    }
+
+    // Second point — draw line and show distance
+    const A = { lat: rulerState.lat, lng: rulerState.lng };
+    const B = { lat, lng };
+    const km = haversineKm(A.lat, A.lng, B.lat, B.lng);
+    const mi = km * 0.621371;
+
+    // SVG line overlay
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.style.cssText = `position: absolute; inset: 0; width: 100%; height: 100%; z-index: 11; pointer-events: none;`;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('stroke', '#a78bfa');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '6 4');
+    line.setAttribute('stroke-opacity', '0.8');
+    svg.appendChild(line);
+    map.getContainer().appendChild(svg);
+
+    // Second dot
+    const dot2 = document.createElement('div');
+    dot2.style.cssText = `
+        position: absolute; width: 10px; height: 10px; border-radius: 50%;
+        background: #a78bfa; border: 2px solid #fff; z-index: 12;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 8px rgba(167,139,250,0.7);
+    `;
+    map.getContainer().appendChild(dot2);
+
+    // Distance label at midpoint
+    const label = document.createElement('div');
+    label.style.cssText = `
+        position: absolute; z-index: 13; cursor: pointer;
+        background: rgba(16,16,24,0.96); border: 1px solid rgba(167,139,250,0.4);
+        border-radius: 8px; padding: 6px 12px; font-size: 12px; color: #e8e8f0;
+        font-family: 'JetBrains Mono', monospace; backdrop-filter: blur(8px);
+        transform: translate(-50%, -50%); box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        pointer-events: auto;
+    `;
+    label.innerHTML = `${km < 1 ? (km * 1000).toFixed(0) + ' m' : km.toFixed(2) + ' km'} <span style="color:#888">·</span> ${mi < 1 ? (mi * 5280).toFixed(0) + ' ft' : mi.toFixed(2) + ' mi'}`;
+    label.title = 'Click to dismiss';
+    map.getContainer().appendChild(label);
+
+    const oldState = rulerState;
+
+    const updateLine = () => {
+        const pA = map.project([A.lng, A.lat]);
+        const pB = map.project([B.lng, B.lat]);
+        line.setAttribute('x1', String(pA.x));
+        line.setAttribute('y1', String(pA.y));
+        line.setAttribute('x2', String(pB.x));
+        line.setAttribute('y2', String(pB.y));
+        dot2.style.left = `${pB.x}px`;
+        dot2.style.top = `${pB.y}px`;
+        label.style.left = `${(pA.x + pB.x) / 2}px`;
+        label.style.top = `${(pA.y + pB.y) / 2}px`;
+        // Also update dot A
+        const ppA = map.project([A.lng, A.lat]);
+        oldState.dotEl.style.left = `${ppA.x}px`;
+        oldState.dotEl.style.top = `${ppA.y}px`;
+    };
+
+    updateLine();
+    map.on('move', updateLine);
+
+    // Click label to dismiss everything
+    label.addEventListener('click', () => {
+        map.off('move', updateLine);
+        oldState.cleanup();
+        svg.remove();
+        dot2.remove();
+        label.remove();
+    });
+
+    rulerState = null;
+    showToast(`📏 ${km.toFixed(2)} km (${mi.toFixed(2)} mi) — click label to dismiss`, 4000);
 }
 
 function showToast(message: string, duration = 3000) {
