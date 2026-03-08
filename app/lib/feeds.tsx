@@ -190,6 +190,7 @@ export function renderLayerControl() {
         { id: 'events-heat', label: '🔥 Conflict Heatmap', prop: 'heatmap-opacity' },
         { id: 'events-point', label: '📍 Conflict Events', prop: 'circle-opacity' },
         { id: 'fires-heat', label: '🌋 Thermal Anomalies', prop: 'heatmap-opacity' },
+        { id: 'geo-pins-heatmap', label: '💬 Geo-Pin Density', prop: 'heatmap-opacity' },
         { id: 'flights-point', label: '✈️ Aircraft Activity', prop: 'icon-opacity' },
         { id: 'acled-kinetic', label: '💥 ACLED Kinetics', prop: 'circle-opacity' },
         { id: 'seismic-kinetic', label: '🌍 USGS Seismic', prop: 'circle-opacity' },

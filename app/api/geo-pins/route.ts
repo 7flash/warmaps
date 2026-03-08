@@ -1,13 +1,28 @@
 // app/api/geo-pins/route.ts — Geo-Pin Chat API
 // GET: list recent pins from SQLite | POST: record + broadcast via WebSocket
-import { saveGeoPin, getRecentGeoPins } from '../../lib/geo-pins'
+import { saveGeoPin, getRecentGeoPins, getGeoPinsBySender, getGeoPinSenderStats } from '../../lib/geo-pins'
 import type { GeoPin } from '../../lib/geo-pins'
 
-/** GET /api/geo-pins — list recent geo-pins */
+/** GET /api/geo-pins — list recent geo-pins. ?since=1h|24h|7d|{timestamp}, ?sender={pubkey} */
 export async function GET(req: Request) {
     const url = new URL(req.url)
     const limit = parseInt(url.searchParams.get('limit') || '100')
-    const pins = getRecentGeoPins(limit)
+    const sender = url.searchParams.get('sender')
+
+    // If sender is specified, return that wallet's pins + stats
+    if (sender) {
+        const pins = getGeoPinsBySender(sender, limit)
+        const stats = getGeoPinSenderStats(sender)
+        return Response.json({ pins, count: pins.length, stats })
+    }
+
+    const sinceParam = url.searchParams.get('since')
+    let since: number | undefined
+    if (sinceParam) {
+        const presets: Record<string, number> = { '1h': 3600_000, '24h': 86400_000, '7d': 604800_000 }
+        since = presets[sinceParam] ? Date.now() - presets[sinceParam] : parseInt(sinceParam) || undefined
+    }
+    const pins = getRecentGeoPins(limit, since)
     return Response.json({ pins, count: pins.length })
 }
 

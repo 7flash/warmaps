@@ -120,6 +120,13 @@ function handleSyncMessage(msg: any) {
             if (msg.peerId === myPeerId) return;
             // Optional: could sync canvas pan/zoom
             break;
+
+        case 'sync:annotation':
+            if (msg.peerId === myPeerId) return;
+            for (const cb of annotationListeners) {
+                cb(msg.annotation, msg.peerName || 'peer', msg.peerColor || '#a78bfa');
+            }
+            break;
     }
 }
 
@@ -273,4 +280,23 @@ function showSyncToast(text: string, color: string) {
 
 export function isSyncEnabled() {
     return syncEnabled;
+}
+
+/**
+ * Broadcast a drawn annotation to all sync peers
+ */
+export function broadcastAnnotation(annotation: { coordinates: [number, number][]; color: string; width: number }) {
+    if (!syncEnabled || !ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({
+        type: 'sync:annotation',
+        annotation,
+        timestamp: Date.now(),
+    }));
+}
+
+// Annotation listeners — maps register themselves to receive remote annotations
+const annotationListeners: Array<(annotation: { coordinates: [number, number][]; color: string; width: number }, peerName: string, peerColor: string) => void> = [];
+
+export function onRemoteAnnotation(cb: typeof annotationListeners[0]) {
+    annotationListeners.push(cb);
 }

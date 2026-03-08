@@ -11,6 +11,7 @@
 
 import { mapInstances } from './map';
 import type { GeoPin } from './geo-pins';
+import { showPinStatsDashboard } from './pin-stats';
 
 let menuEl: HTMLElement | null = null;
 let activeMarkerEl: HTMLElement | null = null;
@@ -22,6 +23,7 @@ const MENU_ITEMS = [
     { icon: '🤖', label: "What's Here?", action: 'ai' },
     { icon: '⛓️', label: 'Post Geo-Pin', action: 'geopin' },
     { icon: '📏', label: 'Measure Distance', action: 'ruler' },
+    { icon: '📊', label: 'Pin Statistics', action: 'stats' },
 ] as const;
 
 interface ClickContext {
@@ -151,6 +153,11 @@ function handleAction(action: string) {
 
         case 'ruler': {
             startRuler(lat, lng, map);
+            break;
+        }
+
+        case 'stats': {
+            showPinStatsDashboard(map);
             break;
         }
     }
