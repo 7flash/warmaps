@@ -6,9 +6,11 @@
  *   - "What's Here?" — AI geospatial query for clicked location
  *   - "Drop Pin" — adds a temporary marker at coordinates
  *   - "Zoom Here" — flies to clicked location
+ *   - "Post Geo-Pin" — on-chain spatial chat message via Solana memo
  */
 
 import { mapInstances } from './map';
+import type { GeoPin } from './geo-pins';
 
 let menuEl: HTMLElement | null = null;
 let activeMarkerEl: HTMLElement | null = null;
@@ -18,6 +20,7 @@ const MENU_ITEMS = [
     { icon: '📍', label: 'Drop Pin', action: 'pin' },
     { icon: '🔍', label: 'Zoom Here', action: 'zoom' },
     { icon: '🤖', label: "What's Here?", action: 'ai' },
+    { icon: '⛓️', label: 'Post Geo-Pin', action: 'geopin' },
 ] as const;
 
 interface ClickContext {
@@ -130,7 +133,6 @@ function handleAction(action: string) {
 
         case 'ai': {
             showToast(`🤖 Querying location ${lat.toFixed(4)}, ${lng.toFixed(4)}...`);
-            // Could integrate with AI endpoint in the future
             fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
                 .then(r => r.json())
                 .then(data => {
@@ -138,6 +140,11 @@ function handleAction(action: string) {
                     showToast(`📍 ${name}`, 5000);
                 })
                 .catch(() => showToast('❌ Could not identify location'));
+            break;
+        }
+
+        case 'geopin': {
+            postGeoPin(lat, lng, map);
             break;
         }
     }
@@ -207,6 +214,114 @@ function showToast(message: string, duration = 3000) {
     }, duration);
 }
 
+// ─── Geo-Pin (on-chain) ──────────────────────────────────
+
+async function postGeoPin(lat: number, lng: number, map: any) {
+    const phantom = (window as any).solana;
+    if (!phantom?.isPhantom) {
+        showToast('❌ Phantom wallet not found — install at phantom.app');
+        return;
+    }
+
+    const message = prompt('💬 Write a message for this location (280 chars max):');
+    if (!message?.trim()) return;
+
+    showToast('⛓️ Signing transaction via Phantom...');
+
+    try {
+        const { createGeoPin } = await import('./geo-pins');
+        const result = await createGeoPin(lat, lng, message.trim());
+
+        if ('error' in result) {
+            showToast(`❌ ${result.error}`);
+            return;
+        }
+
+        // Record on server
+        await fetch('/api/geo-pins', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                signature: result.signature,
+                sender: phantom.publicKey.toString(),
+                lat, lng,
+                message: message.trim(),
+            }),
+        });
+
+        // Render the pin on the map
+        renderGeoPin({
+            signature: result.signature,
+            sender: phantom.publicKey.toString(),
+            lat, lng,
+            message: message.trim(),
+            timestamp: Date.now(),
+        }, map);
+
+        showToast(`✅ Geo-Pin posted on-chain! tx: ${result.signature.substring(0, 8)}...`, 5000);
+    } catch (err: any) {
+        showToast(`❌ ${err.message || 'Transaction failed'}`);
+    }
+}
+
+function renderGeoPin(pin: GeoPin, map: any) {
+    const el = document.createElement('div');
+    el.className = 'wm-geo-pin';
+    el.innerHTML = '💬';
+    el.style.cssText = `
+        position: absolute; font-size: 22px; cursor: pointer;
+        transform: translate(-50%, -100%); z-index: 11;
+        filter: drop-shadow(0 2px 6px rgba(128,90,255,0.6));
+        animation: wm-pin-drop 0.3s ease;
+    `;
+
+    const point = map.project([pin.lng, pin.lat]);
+    el.style.left = `${point.x}px`;
+    el.style.top = `${point.y}px`;
+
+    // Tooltip on hover
+    const tooltip = document.createElement('div');
+    tooltip.style.cssText = `
+        position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
+        background: rgba(16,16,24,0.96); border: 1px solid rgba(128,90,255,0.3);
+        border-radius: 8px; padding: 8px 12px; min-width: 160px; max-width: 260px;
+        font-size: 12px; color: #ccc; font-family: 'Inter', sans-serif;
+        pointer-events: none; opacity: 0; transition: opacity 0.15s;
+        backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    `;
+    const sender = pin.sender.substring(0, 4) + '...' + pin.sender.substring(pin.sender.length - 4);
+    const time = new Date(pin.timestamp).toLocaleTimeString();
+    tooltip.innerHTML = `<div style="color:#a78bfa;font-weight:600;margin-bottom:2px">${sender}</div>${pin.message}<div style="color:#666;font-size:10px;margin-top:4px">${time} · <a href="https://solscan.io/tx/${pin.signature}" target="_blank" style="color:#7c3aed">view tx</a></div>`;
+    el.appendChild(tooltip);
+
+    el.addEventListener('mouseenter', () => { tooltip.style.opacity = '1'; });
+    el.addEventListener('mouseleave', () => { tooltip.style.opacity = '0'; });
+
+    map.getContainer().appendChild(el);
+
+    // Track position
+    const updatePos = () => {
+        const p = map.project([pin.lng, pin.lat]);
+        el.style.left = `${p.x}px`;
+        el.style.top = `${p.y}px`;
+    };
+    map.on('move', updatePos);
+}
+
+// ─── Load existing geo-pins from server ──────────────────
+
+async function loadGeoPins(map: any) {
+    try {
+        const res = await fetch('/api/geo-pins');
+        const data = await res.json();
+        if (data.pins?.length) {
+            for (const pin of data.pins) {
+                renderGeoPin(pin, map);
+            }
+        }
+    } catch { }
+}
+
 // ─── CSS Animations (injected once) ──────────────────────
 
 let cssInjected = false;
@@ -247,6 +362,9 @@ export function initMapContextMenu() {
         for (const map of mapInstances) {
             if (attached.has(map)) continue;
             attached.add(map);
+
+            // Load existing geo-pins onto this map
+            loadGeoPins(map);
 
             map.on('contextmenu', (e: any) => {
                 e.preventDefault();
