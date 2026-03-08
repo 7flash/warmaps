@@ -26,12 +26,12 @@
 ## 🔮 Ideas / Backlog
 - [x] ~~**Geo-Pin SQLite Persistence**~~ — ✅ DONE. Added `geo_pins` table to `starwar_users.db` via sqlite-zod-orm. Pins now persist across server restarts. Indexed by `sender` and `signature` for fast lookups.
 - [ ] **Geo-Pin Heatmap Layer** — Aggregate geo-pins into a MapLibre heatmap layer showing areas with high message density as glowing clusters.
-- [ ] **Real-time Pin WebSocket** — Broadcast new geo-pins to all connected clients via WebSocket so pins appear live without polling.
+- [x] ~~**Real-time Pin WebSocket**~~ — ✅ DONE. `/ws/geo-pins` channel broadcasts new pins to all connected clients via Bun's pub/sub. Client auto-connects with 5s reconnect. New pins from any user appear instantly on all attached maps without polling.
 - [x] ~~**Coordinate Ruler Tool**~~ — ✅ DONE. Right-click → "Measure Distance 📏" sets point A (purple dot), second right-click→Measure sets point B, draws a dashed SVG line between them with a midpoint label showing distance in km/mi (Haversine formula). Dots and line track map pan/zoom. Click label to dismiss.
 
 ## 📝 Architecture Notes
 - **Production**: `root@202.155.132.139:/opt/starwar/`
-- **Deploy**: `git push && ssh pull + npm start` — **IMPORTANT**: always `pkill -9 -f 'bun run'` before restart to avoid zombie processes. PID file alone is not reliable.
+- **Deploy**: `git push && ssh pull + bun run start` — **IMPORTANT**: always kill existing process before restart. PID file alone is not reliable.
 - **HTTPS**: Caddy reverse proxy on port 443 → localhost:4444
 - **TypeScript**: Zero errors (`npx tsc --noEmit` = clean)
 - **Tests**: 59 passing (db integration + canvas modules + API endpoints). CI via GitHub Actions.
@@ -42,10 +42,14 @@
 - **Keyboard shortcuts**: `app/lib/keyboard-shortcuts.ts` (~136 lines) — Extracted with dependency injection
 - **Snap guidelines**: `app/lib/snap-guidelines.ts` (~120 lines) — SVG alignment guides for container dragging
 - **Command palette**: `app/lib/command-palette.ts` (~165 lines) — Ctrl+K launcher with 19 conflict zones
+- **Map context menu**: `app/lib/map-context-menu.ts` (~550 lines) — Right-click: Copy, Pin, Zoom, AI, Geo-Pin, Ruler
+- **Geo-pins**: `app/lib/geo-pins.ts` — On-chain Solana memo + SQLite persistence + WS broadcast
 - **Telegram OSINT**: `src/telegram.ts` — 22 channels, 95 location patterns, 8 equipment categories, auto-reconnect
 - **Widget system**: `app/lib/widgets.ts` — 13 widget types, instance management, share link encoding
 - **Client**: `app/page.client.tsx` → thin orchestrator importing 17 modules from `app/lib/`
-- **API routes**: `/api/gdelt`, `/api/acled`, `/api/fires`, `/api/flights`, `/api/telegram/*`, `/api/mm`, `/api/bet`, `/api/image-proxy`, `/api/swap`, `/api/health`, `/api/manifest.json`, `/api/robots.txt`, `/api/sitemap.xml`, `/api/og-image`, `/api/ping`
+- **API routes**: `/api/gdelt`, `/api/acled`, `/api/fires`, `/api/flights`, `/api/telegram/*`, `/api/mm`, `/api/bet`, `/api/image-proxy`, `/api/swap`, `/api/health`, `/api/manifest.json`, `/api/robots.txt`, `/api/sitemap.xml`, `/api/og-image`, `/api/ping`, `/api/geo-pins`, `/api/geocode`
+- **WebSocket channels**: `/ws/chat` (live chat), `/ws/sync` (collaborative cursors), `/ws/geo-pins` (real-time pins)
+- **Database**: `starwar_users.db` — users, sessions, user_preferences, geo_pins (sqlite-zod-orm)
 
 ## ⚠️ Security Reminders
 - **NO wallet data on public site** — MM panel removed, `/api/mm` returns `running: false`
