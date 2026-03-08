@@ -106,6 +106,7 @@ interface ContainerLayout {
     w?: number;
     h?: number;
     collapsed?: boolean;
+    z?: number;
 }
 
 function saveLayout() {
@@ -115,6 +116,7 @@ function saveLayout() {
 
     containers.forEach((el) => {
         const c = el as HTMLElement;
+        const zStr = c.style.zIndex;
         layouts.push({
             id: c.id,
             x: parseFloat(c.style.left) || 0,
@@ -122,6 +124,7 @@ function saveLayout() {
             w: c.offsetWidth,
             h: c.offsetHeight,
             collapsed: c.classList.contains('collapsed'),
+            z: zStr ? parseInt(zStr, 10) : undefined
         });
     });
 
@@ -140,6 +143,7 @@ function restoreLayout() {
 
     try {
         const layouts: ContainerLayout[] = JSON.parse(data);
+        let maxZ = 10;
         layouts.forEach(layout => {
             const el = document.getElementById(layout.id) as HTMLElement;
             if (!el) return;
@@ -148,7 +152,12 @@ function restoreLayout() {
             if (layout.w) el.style.width = `${layout.w}px`;
             if (layout.h) el.style.height = `${layout.h}px`;
             if (layout.collapsed) el.classList.add('collapsed');
+            if (layout.z !== undefined) {
+                el.style.zIndex = String(layout.z);
+                if (layout.z > maxZ) maxZ = layout.z;
+            }
         });
+        setTopZIndex(maxZ);
     } catch { }
 }
 
@@ -233,6 +242,7 @@ function snapToGuides(dragged: HTMLElement, x: number, y: number): { x: number; 
 import {
     initContainerDrag as _initContainerDrag,
     bringToFront,
+    setTopZIndex
 } from './container-drag';
 
 function initContainerDrag() {

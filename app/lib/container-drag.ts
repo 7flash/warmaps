@@ -23,6 +23,10 @@ export interface DragContext {
 
 let _topZIndex = 10;
 
+export function setTopZIndex(z: number) {
+    if (z > _topZIndex) _topZIndex = z;
+}
+
 export function bringToFront(container: HTMLElement) {
     _topZIndex++;
     container.style.zIndex = String(_topZIndex);
@@ -37,16 +41,19 @@ export function initContainerDrag(ctx: DragContext) {
     let containerDragOffsetX = 0;
     let containerDragOffsetY = 0;
 
-    // ── Mouse drag ──
+    // ── Mouse drag + Z-Index ──
     viewport.addEventListener('mousedown', (e) => {
         const target = e.target as HTMLElement;
+
+        // Z-Index Elevation: any click inside a container brings it to the front
+        const container = target.closest('.wm-container') as HTMLElement;
+        if (container) {
+            bringToFront(container);
+        }
+
+        // Only start drag if clicking the header
         const dragHandle = target.closest('.wm-container-header');
-        if (!dragHandle || e.button !== 0) return;
-
-        const container = dragHandle.closest('.wm-container') as HTMLElement;
-        if (!container) return;
-
-        bringToFront(container);
+        if (!dragHandle || e.button !== 0 || !container) return;
 
         draggingContainer = container;
         const state = ctx.getState();
@@ -94,7 +101,7 @@ export function initContainerDrag(ctx: DragContext) {
         draggingContainer = null;
     });
 
-    // ── Touch drag ──
+    // ── Touch drag + Z-Index ──
     let touchContainer: HTMLElement | null = null;
     let touchOffX = 0, touchOffY = 0;
 
@@ -102,13 +109,17 @@ export function initContainerDrag(ctx: DragContext) {
         if (e.touches.length !== 1) return;
         const touch = e.touches[0];
         const target = touch.target as HTMLElement;
+
+        // Z-Index Elevation: any touch inside a container brings it to the front
+        const container = target.closest('.wm-container') as HTMLElement;
+        if (container) {
+            bringToFront(container);
+        }
+
+        // Only start drag if touching the header
         const header = target.closest('.wm-container-header');
-        if (!header) return;
+        if (!header || !container) return;
 
-        const container = header.closest('.wm-container') as HTMLElement;
-        if (!container) return;
-
-        bringToFront(container);
         touchContainer = container;
 
         const state = ctx.getState();

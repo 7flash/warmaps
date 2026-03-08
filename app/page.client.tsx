@@ -39,7 +39,7 @@ import { setDataPaused, setTimelineHours } from './lib/state';
 import { initAlerts } from './lib/alerts';
 import { initAuth } from './lib/user-auth';
 import { initLinks } from './lib/links';
-import { initCanvas, fitAllContainers, initMinimapClick, updateMinimap, autoArrangeContainers } from './lib/warmaps-canvas';
+import { initCanvas, fitAllContainers, initMinimapClick, updateMinimap, autoArrangeContainers, bringToFront } from './lib/warmaps-canvas';
 import { WIDGET_TYPES, encodeShareLink, loadInstances, saveInstances, createInstance, getDefaultInstances, LAYOUT_PRESETS, loadUserPresets, saveUserPresets } from './lib/widgets';
 import type { WidgetInstance, ConfigField } from './lib/widgets';
 
@@ -659,6 +659,7 @@ function addWidgetToCanvas(typeId: string, dropX?: number, dropY?: number, tplCo
     });
 
     content.appendChild(container);
+    bringToFront(container);
     addConfigGearToContainer(container);
     updateMinimap();
 
