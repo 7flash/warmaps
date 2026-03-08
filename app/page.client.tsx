@@ -1403,6 +1403,17 @@ export default function mount() {
         // Check legend filters to update map layers
         measureSync('Legend filters', () => setupLegendFilters());
 
+        // ─── Service Worker Registration ─────────────────────────
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(reg => {
+                    console.log('[WARMAPS] Service Worker registered with scope:', reg.scope);
+                }).catch(err => {
+                    console.error('[WARMAPS] Service Worker registration failed:', err);
+                });
+            });
+        }
+
         // ─── First-run Onboarding ────────────────────────────────
         if (!localStorage.getItem('warmaps:onboarded')) {
             setTimeout(() => showOnboarding(), 3000);
