@@ -51,15 +51,56 @@ export function startContinuousRepaint() {
 }
 
 export function startPingMonitor() {
+    let consecutiveFails = 0;
+
     const measure = async () => {
         try {
             const t0 = performance.now();
-            await fetch('/api/ping', { cache: 'no-store' });
+            const res = await fetch('/api/ping', { cache: 'no-store' });
+            if (!res.ok) throw new Error('Bad status');
+
             _pingMs = Math.round(performance.now() - t0);
-        } catch { _pingMs = -1; }
+            consecutiveFails = 0;
+            hideDisconnectOverlay();
+        } catch {
+            _pingMs = -1;
+            consecutiveFails++;
+            if (consecutiveFails >= 2) {
+                showDisconnectOverlay();
+            }
+        }
     };
     measure();
-    setInterval(measure, 30_000);
+    setInterval(measure, 5_000);
+}
+
+function showDisconnectOverlay() {
+    if (document.getElementById('wm-disconnect-overlay')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'wm-disconnect-overlay';
+    overlay.style.cssText = `
+        position:fixed;inset:0;z-index:9999999;
+        background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        font-family:var(--font-mono,monospace);color:#e2e8f0;
+    `;
+    overlay.innerHTML = `
+        <div style="font-size:48px;margin-bottom:16px">📡</div>
+        <div style="font-size:24px;color:#ef4444;font-weight:700;margin-bottom:12px;letter-spacing:2px">CONNECTION LOST</div>
+        <div style="color:#94a3b8;font-size:14px;max-width:400px;text-align:center;margin-bottom:24px;line-height:1.5">
+            Unable to reach the WARMAPS data server. The dashboard will automatically reconnect when the connection is restored.
+        </div>
+        <div class="loading-state" style="display:flex;align-items:center;gap:12px">
+            <span class="spinner" style="border-top-color:#38bdf8"></span>
+            <span style="color:#38bdf8;font-size:12px">Reconnecting...</span>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function hideDisconnectOverlay() {
+    const overlay = document.getElementById('wm-disconnect-overlay');
+    if (overlay) overlay.remove();
 }
 
 export function updatePerfDisplay() {
@@ -69,10 +110,10 @@ export function updatePerfDisplay() {
     const pingColor = _pingMs < 100 ? 'var(--accent)' : _pingMs < 300 ? 'var(--amber)' : '#ef4444';
     render(
         <>
-        <span style={{ color: fpsColor }}> { _fps } FPS </span>
-{ ' · ' }
-<span style={ { color: pingColor } }> { _pingMs >= 0 ? _pingMs + 'ms' : '—'}</span>
-    </>,
-el
+            <span style={{ color: fpsColor }}> {_fps} FPS </span>
+            {' · '}
+            <span style={{ color: pingColor }}> {_pingMs >= 0 ? _pingMs + 'ms' : '—'}</span>
+        </>,
+        el
     );
 }

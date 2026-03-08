@@ -3,6 +3,10 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "start": "bun run --smol server.ts",
+    "dev": "bun --watch run --smol server.ts"
+  },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
     "@types/bn.js": "^5.2.0",
@@ -18,6 +22,7 @@
     "bs58": "^6.0.0",
     "fflate": "^0.8.2",
     "galaxydraw": "^0.1.0",
+    "gx402": "^1.5.1",
     "jsx-ai": "0.1.1",
     "maplibre-gl": "^5.19.0",
     "maplibre-gl-temporal-control": "^1.2.0",

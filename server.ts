@@ -109,6 +109,59 @@ const server = Bun.serve({
                 return Response.redirect(new URL('/api/sitemap.xml', req.url), 301);
             }
 
+            if (url.pathname === '/sw.js') {
+                const swCode = `
+const CACHE_NAME = 'warmaps-shell-v1';
+
+self.addEventListener('install', (e) => {
+    e.waitUntil(
+        caches.open(CACHE_NAME).then((cache) => cache.addAll([
+            '/',
+            '/api/manifest.json'
+        ]))
+    );
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (e) => {
+    e.waitUntil(
+        caches.keys().then((keys) => Promise.all(
+            keys.map((key) => {
+                if (key !== CACHE_NAME) return caches.delete(key);
+            })
+        ))
+    );
+    self.clients.claim();
+});
+
+self.addEventListener('fetch', (e) => {
+    if (e.request.method !== 'GET') return;
+    
+    // Skip APIs where IndexedDB is handling it, except for manifest
+    if (e.request.url.includes('/api/') && !e.request.url.includes('manifest.json') && !e.request.url.includes('og-image')) return;
+    // Skip WebSockets
+    if (e.request.url.includes('/ws/')) return;
+    
+    // Stale-while-revalidate for everything else (app shell, CSS, JS, mapbox gl js)
+    e.respondWith(
+        caches.match(e.request).then((cachedResp) => {
+            const fetchPromise = fetch(e.request).then((networkResp) => {
+                if (networkResp && networkResp.status === 200 && networkResp.type === 'basic') {
+                    const clone = networkResp.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+                }
+                return networkResp;
+            }).catch((err) => {
+                // Ignore fetch errors to allow offline fallback
+                if (!cachedResp) throw err;
+            });
+            return cachedResp || fetchPromise;
+        })
+    );
+});`;
+                return new Response(swCode, { headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-cache' } });
+            }
+
             // WebSocket upgrade for chat
             if (url.pathname === '/ws/chat') {
                 const cookie = req.headers.get('cookie') || '';

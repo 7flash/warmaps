@@ -1,16 +1,20 @@
 # WARMAPS Tasks & Ideas
 
 ## 🔴 Priority: Fix
+- [x] ~~**Empty State Handling**~~ — ✅ DONE. `perf.tsx` now tracks consecutive failed pings to the `/api/ping` endpoint every 5 seconds. If the backend drops (2 fails), it gracefully captures the screen with a frosted glass full-screen `CONNECTION LOST` boundary overlay, which dissipates once the connection restores.
 - [x] ~~**Canvas event passthrough broken**~~ — ✅ DONE. Map zoom triggered canvas zoom, feed scroll didn't work. Root cause: GalaxyDraw engine's `consumesWheel`/`consumesMouse` only looked for `.gd-card` elements, but WARMAPS containers are `.wm-container`. Fix: (1) engine now also checks `[data-card-type]` attribute, (2) warmaps-canvas.ts stamps `data-card-type` on containers. Published `galaxydraw@0.2.0` and deployed.
 - [x] ~~**SEO references wrong domain**~~ — ✅ DONE. All OG/Twitter/canonical/sitemap/robots.txt references changed from `warmaps.live` → `warmaps.xyz`.
 - [x] ~~**Telegram verification code**~~ — ✅ DONE. AUTH_KEY_DUPLICATED resolved. Reconnect API added at `POST /api/telegram/connect` with `{retry:true}`. Added click handlers on the Telegram status bar to open prompts for verification code and 2FA password, posting to `/api/telegram/verify` and `/api/telegram/password`.
 
 ## 🟡 Priority: Improve
+- [ ] **Widget Resize Polish** — Currently, resizing a widget requires hovering its invisible bounding box corner. Add visible `resize-handle` Chevrons on the bottom-right for stronger UX affordance.
+- [ ] **MapLibre Layers Control** — Extract layer opacities (Fires, Flights, Events) into a dedicated floating "Layer Control" widget, removing them from the global map view to increase map read accuracy.
 - [x] ~~**Consolidate domain choice**~~ — ✅ DONE. `warmaps.xyz` is the established canonical domain. Confirmed no remaining references to `.org` or `.live` in the codebase.
 - [x] ~~**Heap exceeding allocation**~~ — ✅ DONE. Added `--smol` flag to `package.json` scripts (`npm start` and `npm run dev`) to enforce a lower memory heap limit.
 - [x] ~~**TASKS.md was 140 lines**~~ — ✅ DONE. Legacy tasks archived.
 
 ## 🟢 Priority: Features
+- [ ] **On-chain Geo-Pin Chat** — Allow users with Phantom connected to leave short string-embedded spatial chat messages anchored to specific coordinates, persisting on-chain using a simple lightweight Solana program.
 - [x] ~~**Lottery Rewards System**~~ — ✅ DONE. Created `app/rewards/page.tsx` as a standalone Melina route for users to claim SOL rewards based on accumulated Luck. Added a promotional banner to the main WARMAPS canvas that appears upon Phantom wallet connection.
 - [x] ~~**Offline-first resilience**~~ — ✅ DONE. `sw.js` endpoint was added, and the service worker is now properly registered in the client (`app/page.client.tsx`). This allows the app to load from the cache when offline.
 - [x] ~~**Dashboard screenshots for README**~~ — ✅ DONE. Captured an actual live screenshot of `https://warmaps.xyz` using a headless Puppeteer script running within the `bun` runtime. The screenshot is now saved as `banner.png` in the repository root for the README.
