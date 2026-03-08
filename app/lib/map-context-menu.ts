@@ -13,6 +13,7 @@ import { mapInstances } from './map';
 import type { GeoPin } from './geo-pins';
 import { showPinStatsDashboard } from './pin-stats';
 import { startRadarSweep } from './radar';
+import { toggleTerminator } from './terminator';
 
 let menuEl: HTMLElement | null = null;
 let activeMarkerEl: HTMLElement | null = null;
@@ -23,6 +24,7 @@ const MENU_ITEMS = [
     { icon: '🔍', label: 'Zoom Here', action: 'zoom' },
     { icon: '🤖', label: "What's Here?", action: 'ai' },
     { icon: '📡', label: 'Live Radar Sweep', action: 'radar' },
+    { icon: '🌗', label: 'Toggle Day/Night', action: 'terminator' },
     { icon: '⛓️', label: 'Post Geo-Pin', action: 'geopin' },
     { icon: '📏', label: 'Measure Distance', action: 'ruler' },
     { icon: '📊', label: 'Pin Statistics', action: 'stats' },
@@ -150,6 +152,11 @@ function handleAction(action: string) {
 
         case 'radar': {
             startRadarSweep(lat, lng, map);
+            break;
+        }
+
+        case 'terminator': {
+            toggleTerminator(map);
             break;
         }
 
