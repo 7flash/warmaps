@@ -13,7 +13,7 @@
 ## 🟢 Priority: Features
 - [x] ~~**Lottery Rewards System**~~ — ✅ DONE. Created `app/rewards/page.tsx` as a standalone Melina route for users to claim SOL rewards based on accumulated Luck. Added a promotional banner to the main WARMAPS canvas that appears upon Phantom wallet connection.
 - [x] ~~**Offline-first resilience**~~ — ✅ DONE. `sw.js` endpoint was added, and the service worker is now properly registered in the client (`app/page.client.tsx`). This allows the app to load from the cache when offline.
-- [ ] **Dashboard screenshots for README** — Capture live WARMAPS screenshots for the GitHub repo README. Current repo has no visuals showing the actual product.
+- [x] ~~**Dashboard screenshots for README**~~ — ✅ DONE. Captured an actual live screenshot of `https://warmaps.xyz` using a headless Puppeteer script running within the `bun` runtime. The screenshot is now saved as `banner.png` in the repository root for the README.
 - [x] ~~**Mobile Touch Optimization**~~ — ✅ DONE. Added `viewport-fit=cover` and `user-scalable=no` to the viewport meta tag, along with `touch-action: none` and `overscroll-behavior: none` to the CSS body. This prevents native double-tap zoom and elastic scroll-bouncing, allowing the canvas engine to perfectly capture native pinches and pans.
 - [x] ~~**Data Export**~~ — ✅ DONE. Added "Export Layout JSON" (📥) and "Import Layout JSON" (📤) buttons to the top right toolbar. This allows users to save and load their exact multi-widget canvas setup locally as a `.json` file.
 
