@@ -1211,6 +1211,7 @@ export default function mount() {
         measureSync('Minimap', () => initMinimapClick());
         measureSync('Clock', () => startClock());
         measureSync('Init map', () => initMap());
+        import('./lib/map-context-menu').then(({ initMapContextMenu }) => initMapContextMenu());
         measureSync('TV channels', () => initTVChannels());
         measureSync('Filters', () => initFilters());
         measureSync('Chat', () => initChat());
