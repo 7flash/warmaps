@@ -101,18 +101,63 @@ export function initTelegram() {
                 if (data.status === 'connected') {
                     statusBar.textContent = `● Connected as ${data.me?.firstName || data.me?.username || 'OSINT'} — ${data.channelCount} channels`;
                     statusBar.className = 'tg-status tg-connected';
-                } else if (data.status === 'awaiting_code' || data.status === 'awaiting_password') {
-                    statusBar.textContent = `⚠ Auth required — check server logs`;
+                    statusBar.onclick = null;
+                    statusBar.style.cursor = 'default';
+                } else if (data.status === 'awaiting_code') {
+                    statusBar.innerHTML = `⚠ Auth required — <b>Click to enter code</b>`;
                     statusBar.className = 'tg-status';
+                    statusBar.style.cursor = 'pointer';
+                    statusBar.onclick = () => {
+                        const code = prompt("Enter Telegram Verification Code:");
+                        if (code) {
+                            fetch('/api/telegram/verify', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ code })
+                            })
+                                .then(r => r.json())
+                                .then(res => {
+                                    if (!res.ok) alert("Error: " + res.error);
+                                    checkStatus();
+                                });
+                        }
+                    };
+                } else if (data.status === 'awaiting_password') {
+                    statusBar.innerHTML = `⚠ 2FA required — <b>Click to enter password</b>`;
+                    statusBar.className = 'tg-status';
+                    statusBar.style.cursor = 'pointer';
+                    statusBar.onclick = () => {
+                        const password = prompt("Enter Telegram 2FA Password:");
+                        if (password) {
+                            fetch('/api/telegram/password', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ password })
+                            })
+                                .then(r => r.json())
+                                .then(res => {
+                                    if (!res.ok) alert("Error: " + res.error);
+                                    checkStatus();
+                                });
+                        }
+                    };
                 } else if (data.status === 'error') {
                     statusBar.textContent = `✗ ${data.error || 'Connection failed'}`;
                     statusBar.className = 'tg-status';
+                    statusBar.onclick = null;
+                    statusBar.style.cursor = 'default';
                 } else {
                     statusBar.textContent = 'Connecting...';
+                    statusBar.onclick = null;
+                    statusBar.style.cursor = 'default';
                 }
             }
         }).catch(() => {
-            if (statusBar) statusBar.textContent = 'Offline';
+            if (statusBar) {
+                statusBar.textContent = 'Offline';
+                statusBar.onclick = null;
+                statusBar.style.cursor = 'default';
+            }
         });
     };
 
