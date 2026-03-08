@@ -1,13 +1,13 @@
 // app/api/geo-pins/route.ts — Geo-Pin Chat API
-// GET: list recent pins | POST: record a new verified pin
-import { parseMemoToGeoPin, addPinToCache, fetchRecentGeoPins } from '../../lib/geo-pins'
+// GET: list recent pins from SQLite | POST: record a new verified pin
+import { saveGeoPin, getRecentGeoPins } from '../../lib/geo-pins'
 import type { GeoPin } from '../../lib/geo-pins'
 
 /** GET /api/geo-pins — list recent geo-pins */
 export async function GET(req: Request) {
     const url = new URL(req.url)
-    const limit = parseInt(url.searchParams.get('limit') || '50')
-    const pins = await fetchRecentGeoPins(limit)
+    const limit = parseInt(url.searchParams.get('limit') || '100')
+    const pins = getRecentGeoPins(limit)
     return Response.json({ pins, count: pins.length })
 }
 
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         timestamp: body.timestamp || Date.now(),
     }
 
-    addPinToCache(pin)
+    saveGeoPin(pin)
 
     return Response.json({ ok: true, pin })
 }

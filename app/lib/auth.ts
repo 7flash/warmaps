@@ -36,6 +36,14 @@ export const userDb = new Database(DB_PATH, {
         value: z.string(),                  // JSON value
         updatedAt: z.string().default(() => new Date().toISOString()),
     }),
+    geo_pins: z.object({
+        signature: z.string(),              // Solana tx signature
+        sender: z.string(),                 // Wallet public key
+        lat: z.number(),                    // Latitude
+        lng: z.number(),                    // Longitude
+        message: z.string(),                // User message (max 280 chars)
+        timestamp: z.number(),              // Unix ms
+    }),
 }, {
     relations: {
         sessions: { user_id: 'users' },
@@ -45,6 +53,7 @@ export const userDb = new Database(DB_PATH, {
         users: ['githubId', 'username'],
         sessions: ['token', 'user_id'],
         user_preferences: ['user_id', 'key'],
+        geo_pins: ['sender', 'signature'],
     },
     reactive: false,
 });

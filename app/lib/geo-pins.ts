@@ -8,7 +8,7 @@
  * Compact, human-readable, and fully on-chain.
  *
  * Client-side: connects to Phantom, signs memo txs
- * Server-side: indexes recent pins from RPC
+ * Server-side: persisted in SQLite via sqlite-zod-orm
  */
 
 // ─── Types ──────────────────────────────────────────────
@@ -48,7 +48,6 @@ export async function createGeoPin(
         // Encode geo-pin data as memo
         const payload = `${GEOPIN_PREFIX}|${lat.toFixed(6)}|${lng.toFixed(6)}|${message.substring(0, 280)}|${Date.now()}`
 
-        // Import Solana web3 dynamically (loaded from CDN or bundled)
         const { Connection, Transaction, TransactionInstruction, PublicKey } =
             await import('@solana/web3.js')
 
@@ -75,50 +74,37 @@ export async function createGeoPin(
     }
 }
 
-// ─── Server-side: Parse memo into GeoPin ────────────────
+// ─── Server-side: SQLite persistence ────────────────────
 
-export function parseMemoToGeoPin(memo: string, signature: string, sender: string, slot?: number): GeoPin | null {
-    if (!memo.startsWith(GEOPIN_PREFIX + '|')) return null
-
-    const parts = memo.split('|')
-    if (parts.length < 5) return null
-
-    const lat = parseFloat(parts[1])
-    const lng = parseFloat(parts[2])
-    const message = parts[3]
-    const timestamp = parseInt(parts[4]) || Date.now()
-
-    if (isNaN(lat) || isNaN(lng)) return null
-
-    return { signature, sender, lat, lng, message, timestamp, slot }
+export function saveGeoPin(pin: GeoPin) {
+    const { userDb } = require('./auth')
+    userDb.geo_pins.insert({
+        signature: pin.signature,
+        sender: pin.sender,
+        lat: pin.lat,
+        lng: pin.lng,
+        message: pin.message.substring(0, 280),
+        timestamp: pin.timestamp,
+    })
 }
 
-// ─── Server-side: Fetch recent geo-pins from RPC ────────
-
-const _pinCache: { pins: GeoPin[]; fetchedAt: number } = { pins: [], fetchedAt: 0 }
-const PIN_CACHE_TTL = 30_000 // 30s
-
-export async function fetchRecentGeoPins(limit = 50): Promise<GeoPin[]> {
-    if (Date.now() - _pinCache.fetchedAt < PIN_CACHE_TTL) {
-        return _pinCache.pins
-    }
-
-    try {
-        // Search for recent memo transactions with GEOPIN prefix
-        // Using getSignaturesForAddress on the Memo program is too broad
-        // Instead, we maintain a local index of known geo-pin senders
-        // and scan their recent transactions
-
-        // For MVP: return cached pins from the local store
-        // Full indexing would use a dedicated RPC method or webhook
-        _pinCache.fetchedAt = Date.now()
-        return _pinCache.pins
-    } catch {
-        return _pinCache.pins
-    }
+export function getRecentGeoPins(limit = 100): GeoPin[] {
+    const { userDb } = require('./auth')
+    return userDb.geo_pins.select()
+        .orderBy('timestamp', 'desc')
+        .limit(limit)
+        .all()
+        .map((r: any) => ({
+            signature: r.signature,
+            sender: r.sender,
+            lat: r.lat,
+            lng: r.lng,
+            message: r.message,
+            timestamp: r.timestamp,
+        }))
 }
 
-export function addPinToCache(pin: GeoPin) {
-    _pinCache.pins.unshift(pin)
-    if (_pinCache.pins.length > 200) _pinCache.pins.pop()
+export function getGeoPinCount(): number {
+    const { userDb } = require('./auth')
+    return userDb.geo_pins.select().all().length
 }
