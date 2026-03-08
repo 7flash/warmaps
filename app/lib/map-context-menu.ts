@@ -12,6 +12,7 @@
 import { mapInstances } from './map';
 import type { GeoPin } from './geo-pins';
 import { showPinStatsDashboard } from './pin-stats';
+import { startRadarSweep } from './radar';
 
 let menuEl: HTMLElement | null = null;
 let activeMarkerEl: HTMLElement | null = null;
@@ -21,6 +22,7 @@ const MENU_ITEMS = [
     { icon: '📍', label: 'Drop Pin', action: 'pin' },
     { icon: '🔍', label: 'Zoom Here', action: 'zoom' },
     { icon: '🤖', label: "What's Here?", action: 'ai' },
+    { icon: '📡', label: 'Live Radar Sweep', action: 'radar' },
     { icon: '⛓️', label: 'Post Geo-Pin', action: 'geopin' },
     { icon: '📏', label: 'Measure Distance', action: 'ruler' },
     { icon: '📊', label: 'Pin Statistics', action: 'stats' },
@@ -143,6 +145,11 @@ function handleAction(action: string) {
                     showToast(`📍 ${name}`, 5000);
                 })
                 .catch(() => showToast('❌ Could not identify location'));
+            break;
+        }
+
+        case 'radar': {
+            startRadarSweep(lat, lng, map);
             break;
         }
 
@@ -328,7 +335,7 @@ function startRuler(lat: number, lng: number, map: any) {
     showToast(`📏 ${km.toFixed(2)} km (${mi.toFixed(2)} mi) — click label to dismiss`, 4000);
 }
 
-function showToast(message: string, duration = 3000) {
+export function showToast(message: string, duration = 3000) {
     const toast = document.createElement('div');
     toast.style.cssText = `
         position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
