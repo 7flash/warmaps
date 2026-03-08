@@ -203,6 +203,15 @@ self.addEventListener('fetch', (e) => {
                 return new Response('WebSocket upgrade failed', { status: 400 });
             }
 
+            // WebSocket upgrade for geo-pins live feed
+            if (url.pathname === '/ws/geo-pins') {
+                const upgraded = server.upgrade(req, {
+                    data: { channel: 'geo-pins' } as any,
+                });
+                if (upgraded) return undefined as any;
+                return new Response('WebSocket upgrade failed', { status: 400 });
+            }
+
             // Serve built assets (CSS/JS) from melina's build cache
             const asset = (builtAssets as any)[url.pathname];
             if (asset) {
@@ -263,6 +272,11 @@ self.addEventListener('fetch', (e) => {
     },
     websocket: {
         open(ws: any) {
+            if (ws.data.channel === 'geo-pins') {
+                ws.subscribe('geo-pins');
+                return;
+            }
+
             if (ws.data.channel === 'sync') {
                 // ── Sync room join ──
                 ws.subscribe(ws.data.room);
@@ -348,6 +362,11 @@ self.addEventListener('fetch', (e) => {
             } catch { /* ignore malformed */ }
         },
         close(ws: any) {
+            if (ws.data.channel === 'geo-pins') {
+                ws.unsubscribe('geo-pins');
+                return;
+            }
+
             if (ws.data.channel === 'sync') {
                 ws.unsubscribe(ws.data.room);
                 syncPeers.delete(ws.data.peerId);
@@ -373,6 +392,9 @@ self.addEventListener('fetch', (e) => {
         },
     },
 });
+
+// Export server for broadcasting from API routes
+export { server as warmapsServer };
 
 console.log(`⚔ WARMAPS running at http://localhost:${port}`);
 

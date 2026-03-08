@@ -510,4 +510,42 @@ export function initMapContextMenu() {
     // Attach immediately and re-check periodically (maps are lazy-loaded)
     attachToMaps();
     setInterval(attachToMaps, 3000);
+
+    // Real-time geo-pins via WebSocket
+    connectGeoPinWS(attached);
+}
+
+// ─── Real-time Geo-Pin WebSocket ────────────────────────
+
+function connectGeoPinWS(attachedMaps: WeakSet<any>) {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function connect() {
+        ws = new WebSocket(`${protocol}//${location.host}/ws/geo-pins`);
+
+        ws.onmessage = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                if (data.type === 'new-pin' && data.pin) {
+                    // Render on all attached maps
+                    for (const map of mapInstances) {
+                        if (attachedMaps.has(map)) {
+                            renderGeoPin(data.pin, map);
+                        }
+                    }
+                }
+            } catch { }
+        };
+
+        ws.onclose = () => {
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(connect, 5000);
+        };
+
+        ws.onerror = () => ws?.close();
+    }
+
+    connect();
 }
