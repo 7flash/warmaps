@@ -95,6 +95,12 @@
 - [x] ~~**Pin Statistics Export**~~ — ✅ DONE. Added a `📄 Export Report` button tightly integrated into the top bar of the Pin Statistics Dashboard that downloads a clean, properly escaped CSV output using Blob storage.
 - [x] ~~**Pin Density Heatmap in Stats**~~ — ✅ DONE. Integrated a nested mini MapLibre geographic heatmap into the statistics dashboard (`div id="stats-mini-map"`). Fully initialized dynamically, taking all fetched pins from the API as a GeoJSON source. Uses native zoom autofit with padded bounds when pins change.
 
+## 🔴 Priority: Fix
+- [x] ~~**geeksy.xyz DNS not resolving**~~ — ✅ DONE. DNS A record (202.155.132.139) confirmed resolving via Google DNS. Caddy reverse proxy serving HTTPS correctly. Also migrated geeksy from systemd to bgrun for dashboard-based deploy/restart.
+
+## 🟡 Priority: Improve
+- [x] ~~**No systemd services for production processes**~~ — ✅ DONE. Created `warmaps.service`, `geeksy.service`, and `bgrun.service` in `/etc/systemd/system/` with `Restart=always` and `enabled` on boot. Previously all bun processes ran as bare nohup jobs with no watchdog — when they crashed after 102 days uptime, nothing restarted them.
+
 ## 📝 Architecture Notes
 - **Production**: `root@202.155.132.139:/opt/starwar/`
 - **Deploy**: `git push && ssh pull + bun run start` — **IMPORTANT**: always kill existing process before restart. PID file alone is not reliable.
