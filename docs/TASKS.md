@@ -12,6 +12,14 @@
 - [x] ~~**Consolidate domain choice**~~ — ✅ DONE. `warmaps.xyz` is the established canonical domain. Confirmed no remaining references to `.org` or `.live` in the codebase.
 - [x] ~~**Heap exceeding allocation**~~ — ✅ DONE. Added `--smol` flag to `package.json` scripts (`npm start` and `npm run dev`) to enforce a lower memory heap limit.
 - [x] ~~**TASKS.md was 140 lines**~~ — ✅ DONE. Legacy tasks archived.
+- [x] ~~**Character Counter for Geo-Pins**~~ — ✅ DONE. Replaced native `prompt()` with a 500-char limited glassmorphism modal with live counting and validation.
+
+## 🟡 Priority: Improve
+- [ ] **Geo-Pin Thread Replies Optimization** — Investigate moving thread replies from localStorage to a more robust indexed storage or lazy-loading them on demand.
+- [ ] **Mobile Pinch-to-Zoom Sensitivity** — Fine-tune pinch zooming within the Canvas container for smoother map interactions on touch devices.
+
+## 🟢 Priority: Features
+- [ ] **MapLibre Engine Upgrade** — Evaluate and upgrade to the latest MapLibre GL version to leverage any new rendering performance optimizations.
 
 ## 🟢 Priority: Features
 - [x] ~~**On-chain Geo-Pin Chat**~~ — ✅ DONE. Right-click map → "Post Geo-Pin ⛓️" prompts for a message, signs a Solana Memo transaction via Phantom, records the pin on the server, and renders it as a 💬 marker with hover tooltip showing sender (truncated pubkey), message, timestamp, and solscan tx link. Server API at `/api/geo-pins` provides GET (list) and POST (record). Uses compact `GEOPIN|lat|lng|msg|ts` memo format. Cached with 30s TTL.

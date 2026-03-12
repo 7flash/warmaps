@@ -363,6 +363,123 @@ export function showToast(message: string, duration = 3000) {
 
 // ─── Geo-Pin (on-chain) ──────────────────────────────────
 
+function promptGeoPinMessage(maxLength: number = 500): Promise<string | null> {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed; inset: 0; z-index: 999999;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Inter', sans-serif;
+            animation: wm-ctx-in 0.15s ease;
+        `;
+
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            width: 400px; max-width: 90vw;
+            background: rgba(16,16,24,0.96); border: 1px solid rgba(128,90,255,0.4);
+            border-radius: 12px; padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+        `;
+
+        const title = document.createElement('h3');
+        title.style.cssText = 'margin: 0 0 16px; color: #fff; font-size: 16px; font-weight: 600;';
+        title.innerHTML = '💬 Post Geo-Pin';
+
+        const textarea = document.createElement('textarea');
+        textarea.style.cssText = `
+            width: 100%; height: 100px; padding: 12px;
+            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px; color: #fff; font-size: 14px;
+            resize: none; outline: none; box-sizing: border-box;
+            transition: border-color 0.2s;
+        `;
+        textarea.placeholder = 'Write a message for this location...';
+        textarea.maxLength = maxLength;
+
+        const footer = document.createElement('div');
+        footer.style.cssText = 'display: flex; align-items: center; justify-content: space-between; margin-top: 12px;';
+
+        const counter = document.createElement('span');
+        counter.style.cssText = 'font-size: 12px; color: #888; transition: color 0.2s;';
+        counter.textContent = `0 / ${maxLength}`;
+
+        const btnGroup = document.createElement('div');
+        btnGroup.style.display = 'flex';
+        btnGroup.style.gap = '8px';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = `
+            padding: 8px 16px; border-radius: 6px; border: none;
+            background: rgba(255,255,255,0.1); color: #fff;
+            font-size: 13px; cursor: pointer; transition: background 0.2s;
+        `;
+        cancelBtn.addEventListener('mouseenter', () => cancelBtn.style.background = 'rgba(255,255,255,0.15)');
+        cancelBtn.addEventListener('mouseleave', () => cancelBtn.style.background = 'rgba(255,255,255,0.1)');
+
+        const postBtn = document.createElement('button');
+        postBtn.textContent = 'Post';
+        postBtn.style.cssText = `
+            padding: 8px 16px; border-radius: 6px; border: none;
+            background: #7c3aed; color: #fff; font-weight: 500;
+            font-size: 13px; cursor: pointer; transition: background 0.2s;
+        `;
+        postBtn.addEventListener('mouseenter', () => postBtn.style.background = '#8b5cf6');
+        postBtn.addEventListener('mouseleave', () => postBtn.style.background = '#7c3aed');
+
+        textarea.addEventListener('input', () => {
+            const len = textarea.value.length;
+            counter.textContent = `${len} / ${maxLength}`;
+            if (len >= maxLength) {
+                counter.style.color = '#ef4444';
+                textarea.style.borderColor = 'rgba(239,68,68,0.5)';
+            } else {
+                counter.style.color = '#888';
+                textarea.style.borderColor = 'rgba(255,255,255,0.1)';
+            }
+        });
+
+        textarea.addEventListener('focus', () => {
+            if (textarea.value.length < maxLength) textarea.style.borderColor = 'rgba(128,90,255,0.5)';
+        });
+        textarea.addEventListener('blur', () => {
+            if (textarea.value.length < maxLength) textarea.style.borderColor = 'rgba(255,255,255,0.1)';
+        });
+
+        const close = (result: string | null) => {
+            overlay.remove();
+            resolve(result);
+        };
+
+        cancelBtn.addEventListener('click', () => close(null));
+        postBtn.addEventListener('click', () => close(textarea.value));
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close(null);
+        });
+
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                close(null);
+            } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                close(textarea.value);
+            }
+        });
+
+        btnGroup.appendChild(cancelBtn);
+        btnGroup.appendChild(postBtn);
+        footer.appendChild(counter);
+        footer.appendChild(btnGroup);
+
+        modal.appendChild(title);
+        modal.appendChild(textarea);
+        modal.appendChild(footer);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        textarea.focus();
+    });
+}
+
 async function postGeoPin(lat: number, lng: number, map: any) {
     const phantom = (window as any).solana;
     if (!phantom?.isPhantom) {
@@ -370,7 +487,7 @@ async function postGeoPin(lat: number, lng: number, map: any) {
         return;
     }
 
-    const message = prompt('💬 Write a message for this location (280 chars max):');
+    const message = await promptGeoPinMessage(500);
     if (!message?.trim()) return;
 
     showToast('⛓️ Signing transaction via Phantom...');
@@ -380,7 +497,7 @@ async function postGeoPin(lat: number, lng: number, map: any) {
         const result = await createGeoPin(lat, lng, message.trim());
 
         if ('error' in result) {
-            showToast(`❌ ${result.error}`);
+            showToast(`❌ ${result.error} `);
             return;
         }
 
@@ -405,7 +522,7 @@ async function postGeoPin(lat: number, lng: number, map: any) {
             timestamp: Date.now(),
         }, map);
 
-        showToast(`✅ Geo-Pin posted on-chain! tx: ${result.signature.substring(0, 8)}...`, 5000);
+        showToast(`✅ Geo - Pin posted on - chain! tx: ${result.signature.substring(0, 8)}...`, 5000);
     } catch (err: any) {
         showToast(`❌ ${err.message || 'Transaction failed'}`);
     }
@@ -416,29 +533,29 @@ function renderGeoPin(pin: GeoPin, map: any) {
     el.className = 'wm-geo-pin';
     el.innerHTML = '💬';
     el.style.cssText = `
-        position: absolute; font-size: 22px; cursor: pointer;
-        transform: translate(-50%, -100%); z-index: 11;
-        filter: drop-shadow(0 2px 6px rgba(128,90,255,0.6));
-        animation: wm-pin-drop 0.3s ease;
+        position: absolute; font - size: 22px; cursor: pointer;
+    transform: translate(-50 %, -100 %); z - index: 11;
+    filter: drop - shadow(0 2px 6px rgba(128, 90, 255, 0.6));
+    animation: wm - pin - drop 0.3s ease;
     `;
 
     const point = map.project([pin.lng, pin.lat]);
-    el.style.left = `${point.x}px`;
-    el.style.top = `${point.y}px`;
+    el.style.left = `${point.x} px`;
+    el.style.top = `${point.y} px`;
 
     // Tooltip on hover
     const tooltip = document.createElement('div');
     tooltip.style.cssText = `
-        position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
-        background: rgba(16,16,24,0.96); border: 1px solid rgba(128,90,255,0.3);
-        border-radius: 8px; padding: 8px 12px; min-width: 160px; max-width: 260px;
-        font-size: 12px; color: #ccc; font-family: 'Inter', sans-serif;
-        pointer-events: none; opacity: 0; transition: opacity 0.15s;
-        backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    position: absolute; bottom: 32px; left: 50 %; transform: translateX(-50 %);
+    background: rgba(16, 16, 24, 0.96); border: 1px solid rgba(128, 90, 255, 0.3);
+    border - radius: 8px; padding: 8px 12px; min - width: 160px; max - width: 260px;
+    font - size: 12px; color: #ccc; font - family: 'Inter', sans - serif;
+    pointer - events: none; opacity: 0; transition: opacity 0.15s;
+    backdrop - filter: blur(8px); box - shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
     `;
     const sender = pin.sender.substring(0, 4) + '...' + pin.sender.substring(pin.sender.length - 4);
     const time = new Date(pin.timestamp).toLocaleTimeString();
-    tooltip.innerHTML = `<div style="color:#a78bfa;font-weight:600;margin-bottom:2px">${sender}</div>${pin.message}<div style="color:#666;font-size:10px;margin-top:4px">${time} · <a href="https://solscan.io/tx/${pin.signature}" target="_blank" style="color:#7c3aed">view tx</a></div>`;
+    tooltip.innerHTML = `< div style = "color:#a78bfa;font-weight:600;margin-bottom:2px" > ${sender} </div>${pin.message}<div style="color:#666;font-size:10px;margin-top:4px">${time} · <a href="https:/ / solscan.io / tx / ${pin.signature} " target="_blank" style="color:#7c3aed">view tx</a></div>`;
     el.appendChild(tooltip);
 
     el.addEventListener('mouseenter', () => { tooltip.style.opacity = '1'; });
